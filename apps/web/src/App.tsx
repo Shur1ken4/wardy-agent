@@ -4,6 +4,7 @@ import { ErrorNote, Page } from "./components/parts";
 import { VerdictPanel } from "./components/VerdictPanel";
 import { DashboardProvider, useDashboard } from "./lib/dashboard";
 import { useLocation, withVerdict, navigate } from "./lib/router";
+import { Agents } from "./screens/Agents";
 import { Approve } from "./screens/Approve";
 import { AttackLab } from "./screens/AttackLab";
 import { Earnings } from "./screens/Earnings";
@@ -26,8 +27,8 @@ function Console() {
   const { path, search } = useLocation();
   const { apiError, needsCredential } = useDashboard();
   const openVerdict = search.get("verdict");
-  // The Wardy Network is public. Everything else is the owner's.
-  const locked = needsCredential && path !== "/network";
+  // The Wardy Network and the guide for agents are public. Everything else is the owner's.
+  const locked = needsCredential && path !== "/network" && path !== "/agents";
 
   const screen = (() => {
     if (locked) return <SignIn />;
@@ -42,6 +43,8 @@ function Console() {
         return <Network />;
       case "/earnings":
         return <Earnings />;
+      case "/agents":
+        return <Agents />;
       default:
         return <NotFound />;
     }

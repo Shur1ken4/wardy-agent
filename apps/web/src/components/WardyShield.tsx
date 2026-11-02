@@ -1,7 +1,7 @@
 // The mascot: a shield with two eyes. Its motion explains something: it glances toward a new verdict, braces on a BLOCK,
 // and gives a small nod on an ALLOW. Otherwise it just blinks now and then.
 import { motion, useAnimationControls, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Reaction = { kind: "BLOCK" | "HOLD" | "ALLOW"; at: number } | null;
 
@@ -12,11 +12,37 @@ const LEFT_EYE = 17;
 const RIGHT_EYE = 31;
 const EYE_Y = 23;
 
-export function WardyShield({ size = 32, tone = "dark", reaction = null, title }: { size?: number; tone?: "dark" | "light"; reaction?: Reaction; title?: string }) {
+export function WardyShield({ size = 32, tone = "dark", reaction = null, title, followPointer = false }: { size?: number; tone?: "dark" | "light"; reaction?: Reaction; title?: string; followPointer?: boolean }) {
   const reduceMotion = useReducedMotion();
   const body = useAnimationControls();
   const [blinking, setBlinking] = useState(false);
   const [mood, setMood] = useState<"idle" | "braced" | "looking">("idle");
+  const [gaze, setGaze] = useState({ x: 0, y: 0 });
+  const self = useRef<SVGSVGElement>(null);
+
+  // Its eyes follow the pointer, a little. A phone has no pointer, so there it just looks ahead.
+  useEffect(() => {
+    if (reduceMotion || !followPointer) return;
+    let frame = 0;
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const box = self.current?.getBoundingClientRect();
+        if (!box) return;
+        const dx = event.clientX - (box.left + box.width / 2);
+        const dy = event.clientY - (box.top + box.height / 2);
+        const distance = Math.hypot(dx, dy) || 1;
+        const reach = Math.min(1.5, distance / 90);
+        setGaze({ x: (dx / distance) * reach, y: (dy / distance) * reach });
+      });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(frame);
+    };
+  }, [reduceMotion, followPointer]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -46,11 +72,11 @@ export function WardyShield({ size = 32, tone = "dark", reaction = null, title }
   const pupil = tone === "dark" ? "#16181D" : "#F4F3EF";
   const lid = blinking ? 0.08 : mood === "braced" ? 0.42 : 1;
   // The newest verdict is below and to the left of the header.
-  const glance = mood === "idle" ? { x: 0, y: 0 } : { x: -1.3, y: 1.6 };
+  const glance = mood === "idle" ? gaze : { x: -1.3, y: 1.6 };
   const eyeMotion = { type: "tween", duration: blinking ? 0.07 : 0.16, ease: "easeOut" } as const;
 
   return (
-    <motion.svg animate={body} className="shield" width={size} height={(size * 52) / 48} viewBox="0 0 48 52" role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+    <motion.svg ref={self} animate={body} className="shield" width={size} height={(size * 52) / 48} viewBox="0 0 48 52" role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
       <path d={SHIELD_PATH} fill={shield} stroke={shield} strokeWidth="2" strokeLinejoin="round" />
       {[LEFT_EYE, RIGHT_EYE].map((cx) => (
         <motion.g key={cx} animate={{ scaleY: lid }} transition={eyeMotion} style={{ transformBox: "fill-box", transformOrigin: "center" }}>

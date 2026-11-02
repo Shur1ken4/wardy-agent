@@ -1,5 +1,5 @@
 // What every screen shares: who's signed in, the mode, the live feed, and the mascot's reaction to it.
-import type { VerdictView } from "@wardy-agent/core";
+import type { AnchorSummary, VerdictView } from "@wardy-agent/core";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, type Health, liveFeed, type PolicyView, OFFLINE_OWNER_CREDENTIAL, savedCredential, saveCredential, setApiCredential, type Stats } from "./api";
 
@@ -23,6 +23,7 @@ export interface Dashboard {
   signInError: string | null;
   stats: Stats | null;
   policy: PolicyView | null;
+  network: { anchor: AnchorSummary | null } | null;
   verdicts: VerdictView[];
   holds: Hold[];
   live: boolean;
@@ -41,6 +42,7 @@ export function useDashboard(): Dashboard {
 }
 
 const FEED_SIZE = 100;
+const HIDDEN_REFRESH_MS = 30_000;
 
 export function upsertVerdict(list: readonly VerdictView[], verdict: VerdictView): VerdictView[] {
   const index = list.findIndex((candidate) => candidate.verdictId === verdict.verdictId);
@@ -55,12 +57,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [signInError, setSignInError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [policy, setPolicy] = useState<PolicyView | null>(null);
+  const [network, setNetwork] = useState<{ anchor: AnchorSummary | null } | null>(null);
   const [verdicts, setVerdicts] = useState<VerdictView[]>([]);
   const [holds, setHolds] = useState<Hold[]>([]);
   const [live, setLive] = useState(false);
   const [reaction, setReaction] = useState<MascotReaction | null>(null);
   const [frozen, setFrozenState] = useState(false);
   const seen = useRef(new Set<string>());
+
+  // It's public, so a visitor sees it before signing in.
+  useEffect(() => {
+    api.networkFeed(1).then(
+      ({ anchor }) => setNetwork({ anchor }),
+      () => undefined,
+    );
+  }, []);
+
+  // So a payment waiting for you shows in the tab's title, even when you're in another tab.
+  useEffect(() => {
+    document.title = holds.length > 0 ? `(${holds.length}) Waiting for you · Wardy Agent` : "Wardy Agent";
+  }, [holds.length]);
 
   const refresh = useCallback(async () => {
     const [nextStats, nextHolds, nextHealth, nextPolicy] = await Promise.all([api.stats(), api.approvals(), api.health(), api.policy()]);
@@ -166,6 +182,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       startFollowing();
     };
 
+    // A hidden tab has no feed, so it looks now and then, to keep the title honest about what's waiting.
+    const hiddenCheck = setInterval(() => {
+      if (document.visibilityState !== "visible") void refresh().catch(() => undefined);
+    }, HIDDEN_REFRESH_MS);
+
     // A page restored from the browser's back/forward cache has lost its feed, and its numbers are old.
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) onVisibility();
@@ -198,6 +219,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       stopped = true;
       stopFollowing();
       clearTimeout(refreshTimer);
+      clearInterval(hiddenCheck);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", stopFollowing);
       window.removeEventListener("pageshow", onPageShow);
@@ -218,6 +240,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       signInError,
       stats,
       policy,
+      network,
       verdicts,
       holds,
       live,
@@ -226,7 +249,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setFrozen,
       refresh,
     }),
-    [health, apiError, credential, signInError, stats, policy, verdicts, holds, live, reaction, frozen, setFrozen, refresh],
+    [health, apiError, credential, signInError, stats, policy, network, verdicts, holds, live, reaction, frozen, setFrozen, refresh],
   );
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }

@@ -123,6 +123,7 @@ export const api = {
   previewHold: (id: string, ownerToken: string) => postJson<HoldPreview>(`/v1/approve/${encodeURIComponent(id)}/preview`, { ownerToken }),
   decideHold: (id: string, action: "approve" | "reject", ownerToken: string) => postJson<VerdictView>(`/v1/approve/${encodeURIComponent(id)}`, { action, ownerToken }),
   playTraffic: () => call<{ started: boolean }>("/v1/demo/traffic", { method: "POST" }),
+  check: (request: Record<string, unknown>) => postJson<VerdictView>("/v1/check", request),
 };
 
 async function openStream(path: string, init: RequestInit, onEvent: (event: ServerEvent) => void, onOpen?: () => void): Promise<void> {

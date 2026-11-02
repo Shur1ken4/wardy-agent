@@ -104,6 +104,7 @@ export function Outcome({ verdict }: { verdict: VerdictView }) {
         {formatAmount(verdict.amount, verdict.asset)} to <span className="mono">{verdict.payee}</span>. {paid ? "" : executionWords(verdict.execution)}
       </p>
       {verdict.execution?.txHash ? <p className="note mono" style={{ marginTop: 10 }}>Transaction {shortHash(verdict.execution.txHash)}</p> : null}
+      <p style={{ marginTop: 16 }}><a className="link" href="/">Open the dashboard</a></p>
     </section>
   );
 }

@@ -17,6 +17,7 @@ export function Policy() {
   return (
     <Page>
       <header className="page-head">
+        <p className="eyebrow">Policy</p>
         <h1 className="page-title">The rules your agents can't change.</h1>
         <p className="page-lead">These limits apply to every payment. This page only shows them: worker agents can't reach them, and no invoice can talk its way past them.</p>
       </header>
@@ -35,6 +36,7 @@ export function Policy() {
           ) : (
             <p className="card-pad muted">Loading the rules.</p>
           )}
+          {rules ? <p className="note rules-note">Amounts are in the payment's own asset: NEAR or USDC.</p> : null}
         </section>
         <div style={{ display: "grid", gap: 14 }}>
           <section className="card card-pad">
@@ -52,7 +54,7 @@ export function Policy() {
               <dt>Owner</dt>
               <dd className="mono">{policy?.ownerId ?? ""}</dd>
             </dl>
-            <p className="note" style={{ marginTop: 12 }}>Amounts are in the payment's own asset. The provider enforces limits, assets and budget. Wardy Agent alone checks who is being paid.</p>
+            <p className="note" style={{ marginTop: 12 }}>The provider enforces limits, assets and budget. Wardy Agent alone checks who is being paid.</p>
           </section>
         </div>
       </div>

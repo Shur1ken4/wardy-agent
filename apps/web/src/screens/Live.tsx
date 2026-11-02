@@ -1,13 +1,49 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { LetterSphere } from "../components/LetterSphere";
 import { Chip, CountUp, DemoBadge, Empty, ErrorNote, Page, Payee, StatTile } from "../components/parts";
+import { Spelled } from "../components/Spelled";
 import { api } from "../lib/api";
 import { type Hold, useDashboard } from "../lib/dashboard";
-import { assetLabel, formatAmount, lookalikeSignal, timeOf } from "../lib/format";
+import { assetLabel, formatAmount, lookalikeSignal, payeeParts, shortHash, timeOf } from "../lib/format";
 import { Link, navigate, withVerdict } from "../lib/router";
 import type { VerdictView } from "@wardy-agent/core";
 
-const TRAFFIC_SECONDS = 16;
+const TRAFFIC_SECONDS = 15;
+
+/** The sphere, with what it's pointing at. Each new payment sends a wave across it, and the name spells out below. */
+function SphereWithData() {
+  const { verdicts, reaction, network } = useDashboard();
+  const latest = verdicts[0];
+  const lookalike = latest ? lookalikeSignal(latest.signals) : undefined;
+  const parts = latest
+    ? payeeParts(latest.payee, lookalike?.evidence.lookalikeOf as string | undefined, lookalike?.evidence.differingPositions)
+    : payeeParts("wardy-agent");
+  return (
+    <div className="sphere-panel">
+      <LetterSphere
+        signal={reaction ? { decision: reaction.kind, at: reaction.at } : null}
+        leftLabel={
+          <>
+            <span className="eyebrow">Last check</span>
+            {latest ? <span className="sphere-value">{latest.decision} · {timeOf(latest.createdAt)}</span> : <span className="sphere-value">Waiting for a payment</span>}
+          </>
+        }
+        rightLabel={
+          <>
+            <span className="eyebrow">On NEAR testnet</span>
+            {network?.anchor ? <a className="sphere-value link" href={network.anchor.txUrl} target="_blank" rel="noreferrer">root {shortHash(network.anchor.root, 6)}</a> : <span className="sphere-value">Nothing anchored yet</span>}
+          </>
+        }
+      />
+      <div className="sphere-reading">
+        <span className="eyebrow">{latest ? "Read just now" : "Reading every payee"}</span>
+        <Spelled parts={parts} spellKey={latest?.verdictId ?? "idle"} />
+        {latest ? <Chip decision={latest.decision} /> : null}
+      </div>
+    </div>
+  );
+}
 
 /** Shows a dash until the numbers have really arrived, so nothing ever claims a zero it doesn't know. */
 export function Tiles() {
@@ -119,21 +155,25 @@ export function Live() {
   return (
     <Page>
       <section className="hero">
-        <div className="hero-top">
-          {health?.mode === "offline" ? <DemoBadge /> : null}
-          {health?.mode === "testnet" ? <span className="badge badge-plain">NEAR testnet</span> : null}
-        </div>
-        <h1 className="hero-title">Every payment your agents make is checked first.</h1>
-        <p className="hero-lead">Your worker agents hold no keys and no spend grant. Only Wardy Agent can pay, after it checks who is being paid and why.</p>
-        {demo ? (
-          <div className="hero-actions">
-            <button type="button" className="btn btn-primary" disabled={playing} onClick={() => void play()}>
-              {playing ? "Playing demo traffic" : "Play demo traffic"}
-            </button>
-            <span className="note">Real checks on made-up payments. Nothing leaves this machine.</span>
+        <div className="hero-text">
+          <div className="hero-top">
+            {health?.mode === "offline" ? <DemoBadge /> : null}
+            {health?.mode === "testnet" ? <span className="badge badge-plain">NEAR testnet</span> : null}
           </div>
-        ) : null}
-        {error ? <ErrorNote>{error}</ErrorNote> : null}
+          <h1 className="hero-title">Every payment your agents make is checked first.</h1>
+          <p className="hero-lead">Your worker agents hold no keys and no spend grant. Only Wardy Agent can pay, after it checks who is being paid and why.</p>
+          <div className="hero-actions">
+            {demo ? (
+              <button type="button" className="btn btn-primary" disabled={playing} onClick={() => void play()}>
+                {playing ? "Playing demo traffic" : "Play demo traffic"}
+              </button>
+            ) : null}
+            <Link className="btn btn-secondary" to="/agents">Connect an agent</Link>
+          </div>
+          {demo ? <p className="note hero-note">Real checks on made-up payments. Nothing leaves this machine.</p> : null}
+          {error ? <ErrorNote>{error}</ErrorNote> : null}
+        </div>
+        <SphereWithData />
       </section>
 
       <Tiles />
@@ -150,7 +190,10 @@ export function Live() {
       <section className="section">
         <div className="section-head">
           <h2 className="section-title">Live checks</h2>
-          <span className={live ? "live-dot" : "live-dot off"}>{live ? "Live" : "Connecting"}</span>
+          <span className="section-side">
+            {verdicts.length > 0 ? <span className="small muted">Click a row for the details</span> : null}
+            <span className={live ? "live-dot" : "live-dot off"}>{live ? "Live" : "Connecting"}</span>
+          </span>
         </div>
         <div className="card">
           {verdicts.length === 0 ? (

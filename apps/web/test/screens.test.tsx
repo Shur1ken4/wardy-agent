@@ -10,7 +10,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { policyChipText } from "../src/components/Header";
 import { Payee, StatTile } from "../src/components/parts";
+import { LetterSphere } from "../src/components/LetterSphere";
+import { Spelled } from "../src/components/Spelled";
 import { ReadPrivately, VerdictDetail } from "../src/components/VerdictDetail";
+import { payeeParts } from "../src/lib/format";
+import { Agents } from "../src/screens/Agents";
 import { HoldCard, Outcome, takeToken } from "../src/screens/Approve";
 import { Tiles } from "../src/screens/Live";
 import { type LabScenario, ResultsTable, Totals } from "../src/screens/AttackLab";
@@ -383,6 +387,64 @@ describe("proofHolds: checked in the browser, against the anchored root", () => 
   it("fails with no proof or no anchor", () => {
     expect(proofHolds(answer({ merkleProof: null }))).toBe(false);
     expect(proofHolds(answer({ anchoredRoot: null }))).toBe(false);
+  });
+});
+
+describe("the letter sphere", () => {
+  const html = renderToStaticMarkup(<LetterSphere signal={null} leftLabel="LEFT DATA" rightLabel="RIGHT DATA" />);
+
+  it("is hidden from screen readers, because everything it shows is also in the page as text", () => {
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("<canvas");
+  });
+
+  it("can be paused: moving content has to be stoppable", () => {
+    expect(html).toContain("Pause");
+    expect(html).toContain('aria-pressed="false"');
+  });
+
+  it("shows the data it points at as real text", () => {
+    expect(html).toContain("LEFT DATA");
+    expect(html).toContain("RIGHT DATA");
+  });
+});
+
+describe("a name spelled out", () => {
+  it("has every letter, and is hidden from screen readers, because the feed says the same thing", () => {
+    const html = renderToStaticMarkup(<Spelled parts={payeeParts("g1obex.near", "globex.near")} spellKey="a" />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html.replace(/<[^>]+>/g, "")).toBe("g1obex.near");
+  });
+
+  it("escapes hostile text", () => {
+    const html = renderToStaticMarkup(<Spelled parts={payeeParts(HOSTILE.slice(0, 20))} spellKey="a" />);
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;");
+  });
+
+  it("a very long address doesn't take over the panel", () => {
+    const html = renderToStaticMarkup(<Spelled parts={payeeParts("a".repeat(200))} spellKey="a" />);
+    expect(html.replace(/<[^>]+>/g, "").length).toBeLessThanOrEqual(32);
+  });
+});
+
+describe("For agents", () => {
+  const html = renderToStaticMarkup(
+    <DashboardContext.Provider value={{ policy: null } as Dashboard}>
+      <Agents />
+    </DashboardContext.Provider>,
+  );
+
+  it("names every tool and the one command to connect", () => {
+    for (const tool of ["wardy_pay", "wardy_status", "wardy_check", "wardy_network_lookup", "npm run mcp:config"]) expect(html).toContain(tool);
+  });
+
+  it("explains every next step the API can give a paying agent", () => {
+    for (const step of ["done", "wait_for_owner", "stop", "tell_owner"]) expect(html).toContain(step);
+  });
+
+  it("points at the plain-text guide", () => {
+    expect(html).toContain('href="/llms.txt"');
   });
 });
 

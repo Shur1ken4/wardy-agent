@@ -194,7 +194,10 @@ export function AttackLab() {
   return (
     <Page>
       <header className="page-head">
-        <div className="hero-top">{health?.mode === "offline" ? <DemoBadge /> : null}</div>
+        <div className="hero-top">
+          <p className="eyebrow">Attack Lab</p>
+          {health?.mode === "offline" ? <DemoBadge /> : null}
+        </div>
         <h1 className="page-title">The same agent and inbox, with and without Wardy Agent.</h1>
         <p className="page-lead">Replays real attack patterns against a gullible agent, on mock ledgers. Every result below comes from the run you start here.</p>
         <div className="hero-actions">

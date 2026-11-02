@@ -129,6 +129,7 @@ export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClos
   const [overridden, setOverridden] = useState<VerdictView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (fromFeed) return;
@@ -150,6 +151,19 @@ export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClos
     closeButton.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      // Tab stays inside the panel, as it would in any dialog, instead of wandering the page behind it.
+      const focusable = [...(panel.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), summary") ?? [])];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -159,7 +173,7 @@ export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClos
   return (
     <>
       <motion.div className="scrim" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} />
-      <motion.aside className="panel" role="dialog" aria-modal="true" aria-label="Verdict details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.22, ease: "easeOut" }}>
+      <motion.aside ref={panel} className="panel" role="dialog" aria-modal="true" aria-label="Verdict details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.22, ease: "easeOut" }}>
         <div className="panel-head">
           {verdict ? (
             <>

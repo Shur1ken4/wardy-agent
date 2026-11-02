@@ -13,7 +13,7 @@ A worker agent has no keys and no spend grant. To pay anyone, it asks Wardy Agen
 | Core | [`packages/core`](../packages/core/src) | Detectors, decision rules, signing, audit log, ledger, the payment service, and the Wardy Network. Reads no network and holds no provider code |
 | Providers | [`packages/providers`](../packages/providers/src) | Everything that talks to the outside: custody, chain data, private AI. Each has a real and a mock version |
 | API | [`apps/api`](../apps/api/src) | The HTTP API, and `wiring.ts`, which picks real or mock from `WARDY_MODE` |
-| MCP server | [`apps/mcp`](../apps/mcp/src) | `wardy_pay`, `wardy_check` and `wardy_network_lookup` for AI agents. It's a thin client of the API, and holds only the agent's credential |
+| MCP server | [`apps/mcp`](../apps/mcp/src) | `wardy_pay`, `wardy_status`, `wardy_check` and `wardy_network_lookup` for AI agents. It's a thin client of the API, and holds only the agent's credential |
 | Dashboard | [`apps/web`](../apps/web/src) | The owner's console and the phone approval page |
 | Demo agent | [`apps/demo-agent`](../apps/demo-agent/src) | A gullible worker agent and its scenarios |
 | Attack Lab | [`apps/attack-lab`](../apps/attack-lab/src) | Runs scenarios with and without Wardy Agent, and writes the results |
@@ -50,6 +50,10 @@ sign the verdict, append it to the audit chain
 Each owner's payments run strictly one at a time. The duplicate check reads what has already settled, so two identical requests in parallel would otherwise both pass and both pay. A test sends them together, and exactly one is paid.
 
 If custody can't confirm a payment, its status becomes `uncertain`. It counts as paid, and it's never retried automatically, because paying twice is the failure this project exists to stop.
+
+## What an agent can rely on
+
+Every answer has a `nextStep`, so an agent acts on a value instead of parsing English: `done`, `wait_for_owner`, `stop` or `tell_owner` for a payment, and `ok_to_pay`, `ask_owner_first` or `do_not_pay` for a check. After a HOLD, `wardy_status` (`GET /v1/pay/:id/status`) says what the owner decided, and nothing else about them. A bad request says what to fix. An agent given only the address can read `/llms.txt`, and one given only the repo can read [`AGENTS.md`](../AGENTS.md).
 
 ## Three modes
 
@@ -90,12 +94,14 @@ A signature covers two layers, so that a public report can show one and hide the
 | `/health`: mode, provider, frozen | Anyone |
 | Verdicts, stats, limits, live feed, audit log | The owner's credential |
 | One held payment | Whoever holds its one-time link |
-| Asking to pay | The agent's credential |
+| Asking to pay, and the outcome of a payment | The agent's credential |
 | Approving a payment, freezing, unfreezing | The owner only. The agent's credential can't do any of them |
 
 ## The dashboard
 
 Vite and React, with no UI kit. Fonts ship with it, so it works with no internet. It talks only to its own origin, except when someone presses **Check the contract**, which reads a public RPC. The live feed uses `fetch` rather than `EventSource`, so the credential never goes in a URL. It closes when a tab is hidden or a page is left, because a browser allows six connections per site.
+
+The hero's letter sphere is a 2D canvas: the geometry is in [`lib/sphere.ts`](../apps/web/src/lib/sphere.ts), and the drawing in [`LetterSphere.tsx`](../apps/web/src/components/LetterSphere.tsx). Each character is drawn once ahead of time, so over a thousand letters stay smooth. It stops when it's off screen or the tab is hidden, can be paused, and doesn't turn for anyone who asks for reduced motion.
 
 `npm run dev` starts the API and dashboard together. The MCP server isn't started, because an AI client launches it for itself.
 

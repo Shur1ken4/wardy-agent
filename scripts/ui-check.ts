@@ -56,7 +56,8 @@ async function newPage(browser: Browser, width: number, height: number, scale: n
   const page = await browser.newPage();
   await page.setViewport({ width, height, deviceScaleFactor: scale, isMobile: width < 500, hasTouch: width < 500 });
   page.on("console", (message) => {
-    if (message.type() === "error" && !message.text().includes("401")) consoleProblems.push(`${label}: ${message.text()}`);
+    // A browser logs every refused request as an error, and this check sends a few on purpose: a wrong credential and a bad amount.
+    if (message.type() === "error" && !/status of 40[01]/.test(message.text())) consoleProblems.push(`${label}: ${message.text()}`);
   });
   page.on("pageerror", (error) => consoleProblems.push(`${label}: ${(error as Error).message}`));
   return page;
@@ -103,6 +104,30 @@ async function inspect(page: Page, name: string, options: { fullPage?: boolean }
   if (shotsDir) await page.screenshot({ path: join(shotsDir, `${name}.png`) as `${string}.png`, fullPage: options.fullPage ?? true });
 }
 
+/** A short summary of what's on the sphere's canvas, read from its real pixels. */
+const sphereInk = (page: Page) =>
+  page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="letter-sphere"]');
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return { inked: 0, orange: 0, blue: 0, fingerprint: 0 };
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let inked = 0;
+    let orange = 0;
+    let blue = 0;
+    let fingerprint = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const alpha = data[index + 3] as number;
+      if (alpha < 40) continue;
+      inked += 1;
+      const red = data[index] as number;
+      const bluePart = data[index + 2] as number;
+      if (red > bluePart + 70) orange += 1;
+      if (bluePart > red + 70) blue += 1;
+      fingerprint = (fingerprint + index * alpha) % 2147483647;
+    }
+    return { inked, orange, blue, fingerprint };
+  });
+
 async function main() {
   if (shotsDir) mkdirSync(shotsDir, { recursive: true });
   const dataDir = mkdtempSync(join(tmpdir(), "wardy-agent-ui-"));
@@ -134,7 +159,52 @@ async function main() {
     check("it's labelled as demo data", /Demo data/.test(await textOf(desktop)));
     await inspect(desktop, "desktop-01-live-empty", { fullPage: false });
 
+    const sphereAt = await desktop.$eval('[data-testid="letter-sphere"]', (canvas) => {
+      const box = canvas.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    });
+    await desktop.mouse.move(5, 5);
+    await wait(300);
+    const firstLook = await sphereInk(desktop);
+    check("the letter sphere is really drawn", firstLook.inked > 2000, `${firstLook.inked} inked pixels`);
+    check("it's in the plain ink colour while nothing is happening", firstLook.orange === 0 && firstLook.blue < firstLook.inked * 0.02);
+    await wait(500);
+    check("it turns by itself", (await sphereInk(desktop)).fingerprint !== firstLook.fingerprint);
+    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2, sphereAt.y + sphereAt.height / 2);
+    await wait(200);
+    const hovered = await sphereInk(desktop);
+    check("letters under the pointer light up", hovered.blue > firstLook.blue + 100, `${firstLook.blue} to ${hovered.blue} blue pixels`);
+    await desktop.mouse.move(5, 5);
+    await wait(100);
+    await clickText(desktop, ".sphere-pause", "Pause");
+    await wait(120);
+    const pausedOnce = await sphereInk(desktop);
+    await wait(500);
+    check("Pause really stops it", (await sphereInk(desktop)).fingerprint === pausedOnce.fingerprint);
+    check("the button says how to start it again", /resume turning/i.test(await textOf(desktop)));
+    await clickText(desktop, ".sphere-pause", "Resume");
+    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2, sphereAt.y + sphereAt.height / 2);
+    await desktop.mouse.down();
+    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2 + 60, sphereAt.y + sphereAt.height / 2, { steps: 4 });
+    await desktop.mouse.up();
+    await desktop.mouse.move(5, 5);
+    check("it follows a drag", (await sphereInk(desktop)).fingerprint !== pausedOnce.fingerprint);
+    // A string, because the tool that runs this script would otherwise add a helper the page doesn't have.
+    const framesPerSecond = (await desktop.evaluate(`new Promise((resolve) => {
+      let frames = 0;
+      const started = performance.now();
+      requestAnimationFrame(function count() {
+        frames += 1;
+        if (performance.now() - started >= 1000) resolve(frames);
+        else requestAnimationFrame(count);
+      });
+    })`)) as number;
+    check("it stays smooth", framesPerSecond >= 20, `${framesPerSecond} frames a second`);
+
     await clickText(desktop, "button", "Play demo traffic");
+    await desktop.waitForFunction(() => document.querySelector(".spelled-odd")?.textContent === "1", { timeout: 20_000 });
+    check("a lookalike's name spells out, with its fake character marked", true);
+    check("a block sends an orange wave across the sphere", (await sphereInk(desktop)).orange > 300);
     await desktop.waitForFunction(() => document.querySelectorAll(".feed-row").length >= 9, { timeout: 40_000 });
     await wait(900);
     await desktop.evaluate(() => window.scrollTo(0, 0));
@@ -159,6 +229,15 @@ async function main() {
     await desktop.keyboard.press("Escape");
     await wait(350);
     check("Escape closes the panel", !(await desktop.$(".panel")) && !desktop.url().includes("verdict="));
+    check("a payment waiting for you shows in the tab's title", /^\(1\) Waiting for you/.test(await desktop.title()));
+
+    await clickText(desktop, ".feed-row", "made to look like");
+    await desktop.waitForSelector(".panel");
+    await wait(300);
+    for (let press = 0; press < 40; press += 1) await desktop.keyboard.press("Tab");
+    check("the keyboard stays inside the panel", await desktop.evaluate(() => Boolean(document.activeElement?.closest(".panel"))));
+    await desktop.keyboard.press("Escape");
+    await wait(300);
 
     await goto(desktop, "/policy");
     check("the policy says who can spend", /Wardy Agent only/.test(await textOf(desktop)));
@@ -189,16 +268,41 @@ async function main() {
     check("the story is there: one attack protects another owner's agent", /Protected by the network/.test(await textOf(desktop)));
     await inspect(desktop, "desktop-08-network");
 
+    await clickText(desktop, ".example", "acme-shop.near");
+    await wait(400);
+    check("a clean payee says that isn't proof it's safe", /isn't proof it's safe/.test(await textOf(desktop)));
+
     await goto(desktop, "/earnings");
     check("earnings say zero, not a made-up number", /Nothing has been sold yet/.test(await textOf(desktop)));
     await inspect(desktop, "desktop-09-earnings");
+
+    await goto(desktop, "/agents");
+    check("the agents' page has the one command", /npm run mcp:config/.test(await textOf(desktop)));
+    await clickText(desktop, ".try-form button", "Check it");
+    await desktop.waitForSelector(".try-answer", { timeout: 10_000 });
+    await wait(300);
+    const tried = await textOf(desktop);
+    check("trying a lookalike shows what an agent really gets back", /BLOCK/.test(tried) && /"nextStep": "do_not_pay"/.test(tried));
+    await clickText(desktop, ".example", "no-such-account-here.near");
+    await desktop.evaluate(() => {
+      const amount = document.querySelector<HTMLInputElement>(".field-small input") as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(amount, "lots");
+      amount.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await clickText(desktop, ".try-form button", "Check it");
+    await wait(600);
+    check("a mistake in the form says what to fix", /amount: must be a decimal/.test(await textOf(desktop)));
+    await inspect(desktop, "desktop-10-for-agents");
+    const guide = await desktop.evaluate(async () => (await fetch("/llms.txt")).text());
+    check("the plain-text guide for agents is reachable", guide.includes("nextStep") && guide.includes("wardy_pay"));
     await desktop.close();
 
     console.log("Phone");
     const phone = await newPage(browser, 390, 844, 2, "phone");
     await goto(phone, "/");
     const afterReload = await phone.evaluate(() => [...document.querySelectorAll<HTMLElement>(".tile-value")].map((tile) => tile.innerText));
-    check("freshly opened, the tiles show the real numbers, never a false zero", afterReload[0] === "9" && afterReload[1] === "4", afterReload.slice(0, 2).join(", "));
+    const real = (await phone.evaluate(async () => (await fetch("/v1/stats", { headers: { authorization: "Bearer offline-owner-token" } })).json())) as { checkedToday: number; blockedToday: number };
+    check("freshly opened, the tiles show the real numbers, never a false zero", real.checkedToday > 0 && afterReload[0] === String(real.checkedToday) && afterReload[1] === String(real.blockedToday), afterReload.slice(0, 2).join(", "));
     await inspect(phone, "phone-01-live", { fullPage: false });
     await phone.evaluate(() => document.querySelector(".feed-list")?.scrollIntoView());
     await wait(200);
@@ -219,6 +323,8 @@ async function main() {
     await inspect(phone, "phone-06-network");
     await goto(phone, "/earnings");
     await inspect(phone, "phone-07-earnings");
+    await goto(phone, "/agents");
+    await inspect(phone, "phone-10-for-agents");
 
     await goto(phone, "/");
     await clickText(phone, "button", "Review");
@@ -231,6 +337,7 @@ async function main() {
     await phone.waitForSelector(".approve-result", { timeout: 10_000 });
     await wait(500);
     check("rejecting says nothing was paid", /Nothing was paid/.test(await textOf(phone)));
+    check("there's a way back to the dashboard", /Open the dashboard/.test(await textOf(phone)));
     await inspect(phone, "phone-09-approve-result", { fullPage: false });
     await phone.reload({ waitUntil: "domcontentloaded" });
     await phone.waitForSelector(".approve-result", { timeout: 10_000 });
@@ -241,7 +348,11 @@ async function main() {
     const calm = await newPage(browser, 1280, 900, 1, "reduced-motion");
     await calm.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
     await goto(calm, "/");
-    check("the background doesn't drift", (await calm.evaluate(() => getComputedStyle(document.querySelector(".hero") as Element, "::before").animationName)) === "none");
+    await wait(500);
+    const still = await sphereInk(calm);
+    check("with reduced motion, the sphere is still drawn", still.inked > 2000);
+    await wait(600);
+    check("with reduced motion, it doesn't turn by itself", (await sphereInk(calm)).fingerprint === still.fingerprint);
     await goto(calm, "/attack-lab");
     const started = Date.now();
     await clickText(calm, "button", "Run Attack Lab");

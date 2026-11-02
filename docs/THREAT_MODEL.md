@@ -41,7 +41,8 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 | Approval link stolen from a log | The token sits after the `#`, which browsers never send, and it's removed from the address bar. It's stored hashed, is single use, and expires in 30 minutes | `wiring.ts`, `Approve.tsx` |
 | Approval page wrapped in another page to trick a tap | It refuses to show inside a frame | `Approve.tsx` |
 | Hostile text shown on the dashboard | React escapes it, and a test scans the source for raw HTML | `apps/web/test` |
-| Payment history read from the API | The owner's credential is required | `app.ts` |
+| Payment history read from the API | The owner's credential is required. A worker agent can read a payment's outcome, and nothing else about the owner | `app.ts`, `service.ts` |
+| An agent retries because it doesn't know what happened | `wardy_status` tells it, and every answer carries a `nextStep` | `nextStep.ts`, `apps/mcp/src/tools.ts` |
 | Fake reports flood the network | Only trusted keys count, and nothing is counted | `network/lookup.ts` |
 | Real evidence attached to someone else's name | The report must match its signed verdict, and anyone can check | `network/report.ts` |
 | Relay edits a report | The reporter signs the leaf, so any change fails | `network/report.ts` |

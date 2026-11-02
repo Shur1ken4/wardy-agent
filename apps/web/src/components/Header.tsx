@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDashboard } from "../lib/dashboard";
 import { Link } from "../lib/router";
 import { WardyShield } from "./WardyShield";
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/attack-lab", label: "Attack Lab" },
   { to: "/network", label: "Network" },
   { to: "/earnings", label: "Earnings" },
+  { to: "/agents", label: "For agents" },
 ];
 
 /** Says what's true for this mode. Only live mode has a policy the owner really signed. */
@@ -41,17 +42,22 @@ function FreezeButton() {
 
 export function Header({ path }: { path: string }) {
   const { health, reaction, policy } = useDashboard();
+  const nav = useRef<HTMLElement>(null);
+  // On a phone the tabs scroll sideways, so the current one is brought into view.
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [path]);
   return (
     <header className="header">
       <div className="header-inner">
         <Link className="brand" to="/" aria-label="Wardy Agent, home">
-          <WardyShield size={30} tone="light" reaction={reaction} />
+          <WardyShield size={30} tone="light" reaction={reaction} followPointer />
           <span>
             <span className="brand-name">Wardy Agent</span>
             <span className="brand-tag">know-your-payee for AI agents</span>
           </span>
         </Link>
-        <nav className="nav" aria-label="Main">
+        <nav ref={nav} className="nav" aria-label="Main">
           {NAV.map(({ to, label }) => (
             <Link key={to} to={to} aria-current={path === to ? "page" : undefined}>
               {label}

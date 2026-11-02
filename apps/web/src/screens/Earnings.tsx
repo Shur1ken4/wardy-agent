@@ -8,6 +8,7 @@ export function Earnings() {
   return (
     <Page>
       <header className="page-head">
+        <p className="eyebrow">Earnings</p>
         <h1 className="page-title">An agent that earns by protecting agents.</h1>
         <p className="page-lead">Other agents can pay Wardy Agent to check a payee before they pay. A check can never move money.</p>
       </header>

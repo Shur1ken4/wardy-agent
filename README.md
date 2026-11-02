@@ -64,7 +64,8 @@ Everything here is offline, with no keys, unless it says otherwise.
 | `npm run demo -- --offline` | Every attack and honest payment with and without Wardy Agent, then the totals and the holdout's misses |
 | `npm test` | Every unit test pass |
 | `npm run dev`, then open <http://localhost:5173> | The dashboard, labelled **Demo data** |
-| On the dashboard, press **Play demo traffic** | Payments arrive live. A lookalike is blocked with its odd character marked, and that creates a report. Then another owner's agent asks about the same name, and the report stops it |
+| On the dashboard, move your mouse over the sphere, and drag it | It's made of the characters account names use. Letters under the pointer light up, and it turns with you |
+| On the dashboard, press **Play demo traffic** | Payments arrive live. Each sends a wave across the sphere in its verdict's colour, and the payee's name spells out below it. A lookalike is blocked with its odd character marked, and that creates a report. Then another owner's agent asks about the same name, and the report stops it |
 | Click a row in the feed | Why it was decided, the two names side by side, and a **Verify** button that checks the signature in your browser |
 | Under **Waiting for you**, press **Review**, then **Reject** | The phone approval page, then "Nothing was paid" |
 | Open **Attack Lab**, press **Run Attack Lab** | Each attack plays out, then the totals, then the holdout's misses in red |
@@ -76,7 +77,9 @@ Everything here is offline, with no keys, unless it says otherwise.
 | `npm run walkthrough` | One payment of every kind through the real API, ending in `Everything was as expected.` |
 | `npm run attack-lab -- --offline` | It rewrites [the results](apps/attack-lab/results/latest.md), byte for byte the same as the committed file |
 | `npm run test:ui` (needs Chrome) | The real dashboard, used in a real browser at desktop and phone width, ending in `Everything checked passed.` |
-| Connect an AI agent: follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Your agent gets `wardy_pay`, `wardy_check` and `wardy_network_lookup` |
+| Open **For agents**, and press **Check it** | What an agent sends, and what it really gets back, from the real API |
+| Connect an AI agent: follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Your agent gets `wardy_pay`, `wardy_status`, `wardy_check` and `wardy_network_lookup`. If it hits a HOLD, it can find out what you decided |
+| Open <http://127.0.0.1:8787/llms.txt> while `npm run dev` runs | A plain-text guide for an agent that has only been given the address |
 
 ## Live mode setup
 
@@ -247,6 +250,7 @@ Attackers we plan for: a poisoned invoice or email, a lookalike payee, a fake "p
 - [AgentSentinel](https://github.com/Daveboycyber/agent-sentinel): a guardian contract and watcher.
 - Nava and t54 Labs: funded teams working on agent trust, off NEAR.
 - scamgate and Allowance: open-source payee checks.
+- The letter sphere on the dashboard is our own code, and the idea comes from [nearhackathon.com](https://nearhackathon.com). The "for agents" path was inspired by [market.near.ai](https://market.near.ai) and [Browserbase](https://www.browserbase.com).
 
 Scanned on 2026-11-02, and partial. There are surely more.
 

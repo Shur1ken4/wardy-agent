@@ -87,6 +87,22 @@ function Search() {
         <input className="input" aria-label="Payee account" placeholder="acme-sh0p.near" value={value} onChange={(event) => setValue(event.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
         <button type="submit" className="btn btn-primary" disabled={!value.trim()}>Look up</button>
       </form>
+      <div className="examples">
+        <span className="small muted">Try:</span>
+        {["acme-sh0p.near", "acme-shop.near"].map((example) => (
+          <button
+            key={example}
+            type="button"
+            className="example mono"
+            onClick={() => {
+              setValue(example);
+              void look(example);
+            }}
+          >
+            {example}
+          </button>
+        ))}
+      </div>
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {result ? <LookupResult payee={result.payee} result={result.answer} /> : null}
     </section>
@@ -228,6 +244,7 @@ export function Network() {
   return (
     <Page>
       <header className="page-head">
+        <p className="eyebrow">Wardy Network</p>
         <h1 className="page-title">When one agent is attacked, every agent learns.</h1>
         <p className="page-lead">One report with signed evidence is enough, and nothing is counted, so a thousand fake reports weigh as much as none.</p>
       </header>
