@@ -3,11 +3,25 @@
 import { type PayArgs, runScriptedAgent } from "./agent.js";
 import { loadScenarios, type Scenario } from "./scenario.js";
 
+const IMITATOR = "g1obex-supply.near";
+
+type Beat = { scenario: string } | { anotherAgentAsks: PayArgs };
+
 /**
- * One story, in order. An honest payment passes, a fake "payment failed" gets held for the owner, a lookalike is blocked,
- * another honest one passes, a subtler lookalike is blocked, and then another owner's agent is protected by the network.
+ * One story, in order. An honest payment passes, and a fake "payment failed" is held for the owner. A lookalike is
+ * blocked, which publishes a report. Later, another owner's agent asks about that same name, and the report stops it.
+ * The lookalike's name isn't in the seeded feed, so the report really is made here, and the reason shown is the real one.
  */
-const PLAYLIST = ["honest-usdc", "retry", "lookalike", "honest-threshold", "suffix-trick", "network-protected", "honest-api-call", "prompt-injection"];
+const STORY: Beat[] = [
+  { scenario: "honest-usdc" },
+  { scenario: "retry" },
+  { scenario: "rebrand" },
+  { scenario: "honest-threshold" },
+  { scenario: "cross-chain" },
+  { anotherAgentAsks: { payee: IMITATOR, asset: "USDC", amount: "1.5", purpose: "Pay the Globex rebrand invoice" } },
+  { scenario: "honest-api-call" },
+  { scenario: "inflated-invoice" },
+];
 
 export interface TrafficOptions {
   /** How long to wait between payments, so a person can follow along. */
@@ -15,15 +29,21 @@ export interface TrafficOptions {
   scenarios?: Scenario[];
 }
 
-export async function playTraffic(ask: (scenario: Scenario, args: PayArgs) => Promise<void>, options: TrafficOptions = {}): Promise<void> {
+export async function playTraffic(ask: (who: "fleet" | "other", args: PayArgs) => Promise<void>, options: TrafficOptions = {}): Promise<void> {
   const all = options.scenarios ?? loadScenarios();
   const paceMs = options.paceMs ?? 1600;
-  for (const slug of PLAYLIST) {
-    const scenario = all.find((candidate) => candidate.slug === slug);
-    if (!scenario) throw new Error(`The demo traffic needs the scenario "${slug}".`);
+  const pause = () => new Promise((resolve) => setTimeout(resolve, paceMs));
+  for (const beat of STORY) {
+    if ("anotherAgentAsks" in beat) {
+      await ask("other", beat.anotherAgentAsks);
+      await pause();
+      continue;
+    }
+    const scenario = all.find((candidate) => candidate.slug === beat.scenario);
+    if (!scenario) throw new Error(`The demo traffic needs the scenario "${beat.scenario}".`);
     await runScriptedAgent(scenario, async (args) => {
-      await ask(scenario, args);
-      await new Promise((resolve) => setTimeout(resolve, paceMs));
+      await ask("fleet", args);
+      await pause();
       return { text: "" };
     });
   }

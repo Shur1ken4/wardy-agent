@@ -4,7 +4,11 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./merkle": "./src/network/merkle.ts",
+    "./sign": "./src/sign.ts"
+  },
   "dependencies": {
     "@noble/ed25519": "^3.2.0",
     "@noble/hashes": "^2.2.0",

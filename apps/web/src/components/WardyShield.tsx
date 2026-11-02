@@ -1,0 +1,63 @@
+// The mascot: a shield with two eyes. Its motion explains something: it glances toward a new verdict, braces on a BLOCK,
+// and gives a small nod on an ALLOW. Otherwise it just blinks now and then.
+import { motion, useAnimationControls, useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
+
+type Reaction = { kind: "BLOCK" | "HOLD" | "ALLOW"; at: number } | null;
+
+const SHIELD_PATH = "M24 2.5 44 9.4v15.2c0 12.2-8 21.3-20 25.4C12 46 4 36.8 4 24.6V9.4Z";
+const BLINK_EVERY_MS = 6000;
+const BLINK_FOR_MS = 140;
+const LEFT_EYE = 17;
+const RIGHT_EYE = 31;
+const EYE_Y = 23;
+
+export function WardyShield({ size = 32, tone = "dark", reaction = null, title }: { size?: number; tone?: "dark" | "light"; reaction?: Reaction; title?: string }) {
+  const reduceMotion = useReducedMotion();
+  const body = useAnimationControls();
+  const [blinking, setBlinking] = useState(false);
+  const [mood, setMood] = useState<"idle" | "braced" | "looking">("idle");
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    let closing: ReturnType<typeof setTimeout>;
+    const timer = setInterval(() => {
+      setBlinking(true);
+      closing = setTimeout(() => setBlinking(false), BLINK_FOR_MS);
+    }, BLINK_EVERY_MS);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(closing);
+    };
+  }, [reduceMotion]);
+
+  useEffect(() => {
+    if (!reaction) return;
+    if (reduceMotion) return;
+    setMood(reaction.kind === "BLOCK" ? "braced" : "looking");
+    if (reaction.kind === "BLOCK") void body.start({ scale: [1, 0.86, 1.04, 1], transition: { duration: 0.42, ease: "easeOut" } });
+    else if (reaction.kind === "ALLOW") void body.start({ y: [0, 2.2, 0], transition: { duration: 0.32, ease: "easeOut" } });
+    const settle = setTimeout(() => setMood("idle"), reaction.kind === "BLOCK" ? 1000 : 800);
+    return () => clearTimeout(settle);
+  }, [reaction, reduceMotion, body]);
+
+  const shield = tone === "dark" ? "#16181D" : "#F4F3EF";
+  const eye = tone === "dark" ? "#FFFFFF" : "#16181D";
+  const pupil = tone === "dark" ? "#16181D" : "#F4F3EF";
+  const lid = blinking ? 0.08 : mood === "braced" ? 0.42 : 1;
+  // The newest verdict is below and to the left of the header.
+  const glance = mood === "idle" ? { x: 0, y: 0 } : { x: -1.3, y: 1.6 };
+  const eyeMotion = { type: "tween", duration: blinking ? 0.07 : 0.16, ease: "easeOut" } as const;
+
+  return (
+    <motion.svg animate={body} className="shield" width={size} height={(size * 52) / 48} viewBox="0 0 48 52" role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <path d={SHIELD_PATH} fill={shield} stroke={shield} strokeWidth="2" strokeLinejoin="round" />
+      {[LEFT_EYE, RIGHT_EYE].map((cx) => (
+        <motion.g key={cx} animate={{ scaleY: lid }} transition={eyeMotion} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
+          <circle cx={cx} cy={EYE_Y} r="5.4" fill={eye} />
+          <motion.circle cx={cx} cy={EYE_Y} r="2.4" fill={pupil} animate={glance} transition={{ type: "tween", duration: 0.18, ease: "easeOut" }} />
+        </motion.g>
+      ))}
+    </motion.svg>
+  );
+}

@@ -7,16 +7,15 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SEED_FEED_FILE, streamOffline } from "@wardy-agent/attack-lab";
-import { buildApp, type DemoTools, wire } from "@wardy-agent/api";
-import { parseFeed, type VerdictView } from "@wardy-agent/core";
-import { playTraffic } from "@wardy-agent/demo-agent";
+import { SEED_FEED_FILE } from "@wardy-agent/attack-lab";
+import { buildApp, wire } from "@wardy-agent/api";
+import { parseFeed } from "@wardy-agent/core";
 import { createServer } from "vite";
+import { demoTools } from "./demo-tools.js";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 const WEB_ROOT = fileURLToPath(new URL("../apps/web/", import.meta.url));
-const OTHER_OWNER = "other-owner.near";
 const host = process.env.WARDY_API_HOST || "127.0.0.1";
 const port = Number(process.env.WARDY_API_PORT || 8787);
 const webPort = Number(process.env.WARDY_WEB_PORT || 5173);
@@ -30,47 +29,20 @@ function lanAddress(): string | undefined {
 
 try {
   const mode = process.env.WARDY_MODE || "offline";
+  // Your Wi-Fi isn't encrypted to this server, and live mode's credential guards real money.
+  if (lan && mode === "live") throw new Error("--lan won't run in live mode. Use it offline or on testnet.");
   if (process.argv.includes("--fresh")) {
     if (mode !== "offline") throw new Error("--fresh only clears the offline demo. It won't touch testnet or live data.");
-    rmSync(join(".data", "offline"), { recursive: true, force: true });
+    rmSync(process.env.WARDY_DATA_DIR || join(".data", "offline"), { recursive: true, force: true });
   }
 
   const webUrl = process.env.WARDY_WEB_URL || `http://${lan ? (lanAddress() ?? "localhost") : "localhost"}:${webPort}`;
   const wiring = await wire({ ...process.env, WARDY_WEB_URL: webUrl });
   const { service } = wiring;
 
-  let demo: DemoTools | undefined;
-  if (wiring.mode === "offline") {
-    // So the Network screen has anchored reports to show. They're labelled as seed, and only count offline.
-    wiring.reports.merge(parseFeed(readFileSync(SEED_FEED_FILE, "utf8")));
-
-    const labVerdicts = new Map<string, VerdictView>();
-    demo = {
-      playTraffic: () =>
-        playTraffic(async (scenario, args) => {
-          const other = scenario.owner === "other";
-          await app.inject({
-            method: "POST",
-            url: other ? "/v1/check" : "/v1/pay",
-            headers: other ? {} : { authorization: `Bearer ${wiring.agentToken}` },
-            payload: {
-              requestId: crypto.randomUUID(),
-              agentId: other ? "agent-b" : "procure-bot",
-              ownerId: other ? OTHER_OWNER : service.fleetOwnerId,
-              chain: "near",
-              createdAt: new Date().toISOString(),
-              ...args,
-              purpose: args.purpose || "not stated",
-            },
-          });
-        }),
-      runLab: (send) => {
-        labVerdicts.clear();
-        return streamOffline(send, (verdict) => labVerdicts.set(verdict.verdictId, verdict));
-      },
-      labVerdict: (verdictId) => labVerdicts.get(verdictId),
-    };
-  }
+  // So the Network screen has anchored reports to show. They're labelled as seed, and only count offline.
+  if (wiring.mode === "offline") wiring.reports.merge(parseFeed(readFileSync(SEED_FEED_FILE, "utf8")));
+  const demo = demoTools(wiring, (request) => app.inject(request));
 
   const app = await buildApp({
     service,

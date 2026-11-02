@@ -35,6 +35,9 @@ jobs:
           npm run demo -- --offline | tee demo-output.txt
           grep -F "Lost with Wardy Agent: 0 · Honest payments passed: 4/4 · False blocks: 0" demo-output.txt
       - run: npm run walkthrough
+      - run: npm run build:web
+      # A real browser, using the real dashboard. Unit tests can't see a hang or a page wider than a phone.
+      - run: npm run test:ui
 
   contract:
     runs-on: ubuntu-latest

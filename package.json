@@ -15,7 +15,7 @@
   "scripts": {
     "prepare": "node scripts/install-hooks.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/web",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:fixtures": "tsx scripts/check-fixture-names.ts",
     "setup:keys": "tsx scripts/setup-keys.ts",
@@ -31,6 +31,8 @@
     "attack-lab": "tsx apps/attack-lab/src/cli.ts",
     "agent": "tsx apps/demo-agent/src/cli.ts",
     "dev": "tsx scripts/dev.ts",
+    "build:web": "npm run build -w @wardy-agent/web",
+    "test:ui": "tsx scripts/ui-check.ts",
     "verify-audit": "tsx scripts/verify-audit.ts",
     "network:seed": "tsx scripts/seed-network.ts",
     "network:anchor": "tsx scripts/network-anchor.ts",
@@ -41,7 +43,9 @@
   "devDependencies": {
     "@scure/base": "^2.4.0",
     "@types/node": "^24.19.2",
+    "axe-core": "^4.14.0",
     "near-api-js": "^7.4.0",
+    "puppeteer-core": "^25.16.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
