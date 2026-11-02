@@ -111,18 +111,18 @@ async function main() {
   try {
     console.log("Reloading again and again");
     {
+      // Each time, it waits for the live feed to connect, because an open feed is what a reload could leave behind.
       const page = await newPage(browser, 1280, 800, 1, "reloads");
-      let hung = false;
-      for (let attempt = 1; attempt <= 14 && !hung; attempt += 1) {
+      let hungAt = 0;
+      for (let attempt = 1; attempt <= 14 && !hungAt; attempt += 1) {
         try {
-          await page.goto(`${BASE}/policy`, { waitUntil: "domcontentloaded", timeout: 8000 });
-          await wait(400);
+          await page.goto(BASE, { waitUntil: "domcontentloaded", timeout: 8000 });
+          await page.waitForSelector(".live-dot:not(.off)", { timeout: 8000 });
         } catch {
-          hung = true;
-          check("14 reloads in a row don't hang the dashboard", false, `it hung on reload ${attempt}`);
+          hungAt = attempt;
         }
       }
-      if (!hung) check("14 reloads in a row don't hang the dashboard", /Who can spend/.test(await textOf(page)));
+      check("14 reloads in a row don't hang the dashboard", hungAt === 0, hungAt ? `it hung on reload ${hungAt}` : "");
       await page.close();
     }
 
