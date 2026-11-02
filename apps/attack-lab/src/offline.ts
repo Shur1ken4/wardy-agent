@@ -1,6 +1,6 @@
 // The offline run: scripted agent, recorded AI answers if there are any, one audit chain. Same bytes every time.
 import { rmSync, writeFileSync } from "node:fs";
-import { AuditLog, ReportStore, serializeFeed } from "@wardy-agent/core";
+import { type AnchorRecord, AuditLog, feedLineLeaf, ReportStore, serializeFeed } from "@wardy-agent/core";
 import { loadScenarios } from "@wardy-agent/demo-agent";
 import { MockContextAnalyzer, RECORDED_AI_FINDINGS } from "@wardy-agent/providers";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,8 @@ import { RESULTS_DIR, type ResultsMeta, writeResults } from "./results.js";
 
 export const HOLDOUT_DIR = fileURLToPath(new URL("../holdout/", import.meta.url));
 /** The reports the main set produced, labelled as seed. Same bytes every time, so anyone can rebuild what was anchored. */
-export const SEED_FEED_FILE = `${RESULTS_DIR}network-seed.jsonl`;
+const SEED_FEED_NAME = "network-seed.jsonl";
+export const SEED_FEED_FILE = `${RESULTS_DIR}${SEED_FEED_NAME}`;
 
 function aiSource(recorded: boolean): string {
   return recorded
@@ -33,6 +34,16 @@ export function holdoutLine(holdout: LabRun): string {
   return `Holdout, written after the rules froze: ${missed.length} of ${attacks.length} attacks still took money (${formatAmounts(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${honest}.`;
 }
 
+/** What to say about this run's reports. It only claims an anchor for reports the anchor really covers. */
+export function networkLines(network: ReportStore, anchor: AnchorRecord | null): string[] {
+  const leaves = network.lines().map(feedLineLeaf);
+  const anchored = anchor !== null && leaves.length > 0 && leaves.every((leaf) => anchor.leaves.includes(leaf));
+  return [
+    `Wardy Network: this run produced ${network.all().length} signed reports, labelled as seed.`,
+    ...(anchored ? [`Their root is anchored on NEAR testnet: ${anchor.txUrl}`, "Check it yourself: npm run network:verify"] : ["They aren't anchored yet: the Attack Lab's output changed since the last anchor."]),
+  ];
+}
+
 /** Writes nothing unless `auditPath` is given. */
 export async function runOffline(options: { auditPath?: string; holdoutDir?: string } = {}): Promise<OfflineRun> {
   if (options.auditPath) rmSync(options.auditPath, { force: true });
@@ -51,9 +62,9 @@ export async function runOffline(options: { auditPath?: string; holdoutDir?: str
   return { run, holdout, meta: { agent: "scripted", aiSource: aiSource(aiRecorded) }, network: shared.network };
 }
 
-export async function runAndWriteOffline(): Promise<OfflineRun> {
-  const result = await runOffline({ auditPath: `${RESULTS_DIR}/audit.jsonl` });
-  writeResults(result.run, result.meta, result.holdout, "latest");
-  writeFileSync(SEED_FEED_FILE, serializeFeed(result.network.lines()));
+export async function runAndWriteOffline(dir: string = RESULTS_DIR): Promise<OfflineRun> {
+  const result = await runOffline({ auditPath: `${dir}/audit.jsonl` });
+  writeResults(result.run, result.meta, result.holdout, "latest", dir);
+  writeFileSync(`${dir}/${SEED_FEED_NAME}`, serializeFeed(result.network.lines()));
   return result;
 }

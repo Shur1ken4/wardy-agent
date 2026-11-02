@@ -125,6 +125,21 @@ describe("proofs", () => {
       expect(verifyMerkleProof(honest, { root: honest.root, count: 13 })).toBe(true);
     });
 
+    it("a small tree's proof can't claim to be from a bigger one", () => {
+      const [leaf] = leafList(1) as [string];
+      expect(verifyMerkleProof({ leaf, index: 0, count: 4, path: [], root: merkleRoot([leaf]) })).toBe(false);
+      const proof = merkleProof(leafList(2), 0);
+      expect(verifyMerkleProof(proof)).toBe(true);
+      expect(verifyMerkleProof({ ...proof, count: 4 })).toBe(false);
+    });
+
+    it("an index past the end can't borrow a real position's path", () => {
+      // Index 3 and index 1 climb the same way, so only the bounds check tells them apart.
+      const proof = merkleProof(leafList(2), 1);
+      expect(verifyMerkleProof(proof)).toBe(true);
+      expect(verifyMerkleProof({ ...proof, index: 3 })).toBe(false);
+    });
+
     it("an inner node can't pose as a leaf: the second-preimage attack", () => {
       // Two leaves hash up to one node. Claiming that node as a leaf of a smaller tree must fail.
       const tree = leafList(4);

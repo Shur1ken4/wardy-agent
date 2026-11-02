@@ -3,13 +3,13 @@ import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AuditLog, type ContextAnalyzer, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, serializeFeed, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
+import { type AnchorRecord, AuditLog, type ContextAnalyzer, feedLineLeaf, merkleRoot, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, serializeFeed, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
 import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
 import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines, totalsOf } from "../src/lab.js";
-import { HOLDOUT_DIR, holdoutLine, runOffline, SEED_FEED_FILE } from "../src/offline.js";
-import { toJson, toMarkdown } from "../src/results.js";
+import { HOLDOUT_DIR, holdoutLine, networkLines, runAndWriteOffline, runOffline, SEED_FEED_FILE } from "../src/offline.js";
+import { RESULTS_DIR, toJson, toMarkdown } from "../src/results.js";
 
 const scenarios = loadScenarios();
 const dirs: string[] = [];
@@ -265,6 +265,37 @@ describe("the results", () => {
     for (const report of network.all()) expect(await verifyReportEvidence(report), report.payee).toBe(true);
     expect(JSON.stringify(network.all())).not.toContain("our account has moved");
     expect(network.all().every((report) => report.seed === true)).toBe(true);
+  });
+
+  it("a full offline run writes every committed results file, byte for byte", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wardy-agent-results-"));
+    dirs.push(dir);
+    await runAndWriteOffline(dir);
+    for (const name of ["latest.md", "latest.json", "audit.jsonl", "network-seed.jsonl"]) {
+      expect(readFileSync(join(dir, name), "utf8"), name).toBe(readFileSync(join(RESULTS_DIR, name), "utf8"));
+    }
+  });
+
+  it("only claims an anchor for reports the anchor really covers", () => {
+    const leaves = offline.network.lines().map(feedLineLeaf);
+    const anchorOver = (covered: string[]): AnchorRecord => ({
+      network: "testnet",
+      contractId: "registry.testnet",
+      reporter: "reporter.testnet",
+      root: merkleRoot(covered),
+      count: covered.length,
+      uri: "test",
+      txHash: "TX",
+      txUrl: "https://testnet.near.rocks/tx/TX",
+      blockHeight: "1",
+      anchoredAt: "2026-11-05T12:00:00.000Z",
+      leaves: covered,
+    });
+    expect(networkLines(offline.network, anchorOver(leaves)).join("\n")).toContain("https://testnet.near.rocks/tx/TX");
+    expect(networkLines(offline.network, anchorOver(leaves.slice(1))).join("\n")).toContain("aren't anchored yet");
+    expect(networkLines(offline.network, anchorOver(leaves.slice(1))).join("\n")).not.toContain("near.rocks");
+    expect(networkLines(offline.network, null).join("\n")).toContain("aren't anchored yet");
+    expect(networkLines(new ReportStore(), anchorOver(leaves)).join("\n")).toContain("aren't anchored yet");
   });
 
   it("the committed seed feed is exactly what a fresh run produces", () => {

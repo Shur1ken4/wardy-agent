@@ -10,12 +10,10 @@ import {
   feedLineLeaf,
   type FeedLine,
   type MerkleProof,
-  merkleProof,
   merkleRoot,
   type NetworkReport,
   parseFeed,
   readAnchorRecord,
-  revocationLeaf,
   serializeFeed,
   verifyMerkleProof,
   verifyReportEvidence,
@@ -31,6 +29,7 @@ const flag = (name: string) => (process.argv.includes(name) ? process.argv[proce
 const offline = process.argv.includes("--offline");
 const feedPath = flag("--feed") ?? FEED_FILE;
 const anchorPath = flag("--anchor") ?? ANCHOR_FILE;
+const seedPath = flag("--seed") ?? SEED_FEED_FILE;
 
 let failures = 0;
 function check(what: string, passed: boolean, detail = "") {
@@ -96,7 +95,9 @@ async function main() {
   const leaves = lines.map(feedLineLeaf);
   const reports = lines.flatMap((line) => (line.kind === "report" ? [line.report] : []));
   const seeded = reports.filter((report) => report.seed);
-  console.log(`Feed: ${feedPath}: ${reports.length} reports (${seeded.length} seeded by Attack Lab, ${reports.length - seeded.length} from real testnet runs), ${lines.length - reports.length} revocations\n`);
+  console.log(`Feed: ${feedPath}: ${reports.length} reports (${seeded.length} seeded by Attack Lab, ${reports.length - seeded.length} from real testnet runs), ${lines.length - reports.length} revocations`);
+  // A valid signature only says who signed. Which of these keys to trust is each reader's own decision.
+  console.log(`Reporter keys: ${[...new Set(reports.map((report) => report.reporter))].join(", ")}\n`);
 
   const root = merkleRoot(leaves);
   check("The root recomputed from the feed matches the record", root === anchor.root && lines.length === anchor.count, root);
@@ -105,7 +106,7 @@ async function main() {
   const freshLines = fresh.network.lines();
   check(
     "A fresh Attack Lab run produces the committed seed reports, byte for byte",
-    existsSync(SEED_FEED_FILE) && readFileSync(SEED_FEED_FILE, "utf8") === serializeFeed(freshLines),
+    existsSync(seedPath) && readFileSync(seedPath, "utf8") === serializeFeed(freshLines),
   );
   const leafSet = new Set(leaves);
   check("Every seed report from that run is in the anchored feed", freshLines.every((line) => leafSet.has(feedLineLeaf(line))));
@@ -115,13 +116,9 @@ async function main() {
   const revocations = lines.flatMap((line) => (line.kind === "revoke" ? [line] : []));
   const revocationsValid = await Promise.all(revocations.map((line) => revocationIsValid(line, reports)));
   check("Every revocation was signed by the report's own reporter", revocationsValid.every(Boolean), `${revocations.length} of them`);
-  check("Revocation leaves match the reports they withdraw", revocations.every((line) => leafSet.has(revocationLeaf(line.reportLeaf, line.at)) && leafSet.has(line.reportLeaf)));
 
   const leaked = privateKeysIn(lines);
   check("No report carries private fields: no invoice text, amount, or payment history", leaked.size === 0, [...leaked].join(", "));
-
-  const proofsOk = leaves.every((_leaf, index) => verifyMerkleProof(merkleProof(leaves, index), { root: anchor.root, count: anchor.count }));
-  check("Every line proves against the anchored root", proofsOk, `${leaves.length} proofs`);
 
   // The real API, asked the way an agent would. The proof it returns is checked against the record, then the chain.
   const example = seeded[0];

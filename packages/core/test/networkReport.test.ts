@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeSignal, type SignalCode } from "../src/config.js";
 import { isValidReport, networkSignals, type ReportRules } from "../src/network/lookup.js";
-import { createNetworkReport, evidenceFamilies, reportLeaf, shouldPublishReport, verifyReportEvidence } from "../src/network/report.js";
+import { createNetworkReport, evidenceFamilies, reportLeaf, revocationLeaf, shouldPublishReport, verifyReportEvidence } from "../src/network/report.js";
 import { publishIfWarranted, ReportStore } from "../src/network/store.js";
 import { generateSigningKey, publicKeyOf, signText, signVerdict } from "../src/sign.js";
 import type { NetworkReport, Verdict } from "../src/types.js";
@@ -180,6 +180,8 @@ describe("verifyReportEvidence: anyone can check a report using only the report"
     ["a swapped verdict id", (created) => ({ ...created, evidence: { ...created.evidence, verdictId: "other" } })],
     ["a swapped request hash", (created) => ({ ...created, evidence: { ...created.evidence, requestHash: "c".repeat(64) } })],
     ["a verdict changed after signing", (created) => ({ ...created, evidence: { ...created.evidence, publicVerdict: { ...created.evidence.publicVerdict!, riskScore: 1 } } })],
+    ["a target of imitation the verdict didn't name", (created) => ({ ...created, evidence: { ...created.evidence, lookalikeOf: "someone-else.near" } })],
+    ["an attestation the verdict didn't have", (created) => ({ ...created, evidence: { ...created.evidence, attestationRef: "made-up" } })],
   ])("rejects %s, even signed by the real reporter", async (_name, tamper) => {
     expect(await verifyReportEvidence(await resigned(tamper(await report())))).toBe(false);
   });
@@ -254,6 +256,17 @@ describe("ReportStore", () => {
     expect(await store.revoke(created.reportId, AT, generateSigningKey())).toBe(false);
     expect(store.lines()).toHaveLength(1);
     expect(store.all()[0]?.revokedAt).toBeUndefined();
+  });
+
+  it("a second revocation line in a feed can't replace the first", async () => {
+    const created = await report();
+    const source = new ReportStore();
+    source.add(created);
+    await source.revoke(created.reportId, AT, KEY);
+    const later = "2030-01-01T00:00:00.000Z";
+    const store = new ReportStore();
+    store.merge([...source.lines(), { kind: "revoke", reportId: created.reportId, reportLeaf: created.merkleLeaf, at: later, signature: await signText(revocationLeaf(created.merkleLeaf, later), KEY) }]);
+    expect(store.all()[0]?.revokedAt).toBe(AT);
   });
 
   it("revoking twice keeps the first", async () => {

@@ -4,28 +4,55 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AnchorRecord, createNetworkReport, feedLineLeaf, type FeedLine, generateSigningKey, makeSignal, merkleRoot, type NetworkReport, parseFeed, publicKeyOf, reportLeaf, serializeFeed, signText, signVerdict } from "@wardy-agent/core";
+import { type AnchorRecord, createNetworkReport, feedLineLeaf, type FeedLine, generateSigningKey, makeSignal, merkleRoot, type NetworkReport, parseFeed, publicKeyOf, reportLeaf, revocationLeaf, serializeFeed, signText, signVerdict } from "@wardy-agent/core";
+import { SEED_FEED_FILE } from "@wardy-agent/attack-lab";
 import { afterAll, describe, expect, it } from "vitest";
 import { ANCHOR_FILE, type AnchoredRoot, DUMMY_URI, FEED_FILE, mayAnchorDummy, reasonToRefuse } from "../registry.js";
 
 const dir = mkdtempSync(join(tmpdir(), "wardy-agent-network-verify-test-"));
 const feedText = readFileSync(FEED_FILE, "utf8");
 const anchorText = readFileSync(ANCHOR_FILE, "utf8");
+const seedText = readFileSync(SEED_FEED_FILE, "utf8");
 let serial = 0;
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-function verify(feed = feedText, anchor = anchorText) {
+function verify(feed = feedText, anchor = anchorText, seed = seedText) {
   serial += 1;
   const feedPath = join(dir, `feed-${serial}.jsonl`);
   const anchorPath = join(dir, `anchor-${serial}.json`);
+  const seedPath = join(dir, `seed-${serial}.jsonl`);
   writeFileSync(feedPath, feed);
   writeFileSync(anchorPath, anchor);
-  const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/network-verify.ts", "--offline", "--feed", feedPath, "--anchor", anchorPath], { encoding: "utf8" });
+  writeFileSync(seedPath, seed);
+  const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/network-verify.ts", "--offline", "--feed", feedPath, "--anchor", anchorPath, "--seed", seedPath], { encoding: "utf8" });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
 const reportLines = () => parseFeed(feedText) as Extract<FeedLine, { kind: "report" }>[];
+
+/** A real-looking report with valid signatures, from a key nobody trusts. */
+async function reportFromAStranger(payee: string, key: string, seed: boolean): Promise<NetworkReport> {
+  const verdict = await signVerdict(
+    {
+      verdictId: crypto.randomUUID(),
+      requestId: crypto.randomUUID(),
+      mode: "pay",
+      requestHash: "a".repeat(64),
+      payee,
+      chain: "near",
+      asset: "nep141:wrap.near",
+      amount: "2",
+      decision: "BLOCK",
+      riskScore: 100,
+      signals: [makeSignal("LOOKALIKE_HOMOGLYPH", "x", { lookalikeOf: "sh0p.near" }), makeSignal("ACCOUNT_VERY_NEW", "y", {})],
+      reasons: ["x"],
+      createdAt: "2026-11-05T12:00:00.000Z",
+    },
+    key,
+  );
+  return createNetworkReport(verdict, { signingKey: key, createdAt: "2026-11-05T12:00:00.000Z", ...(seed ? { seed: true } : {}) });
+}
 
 /** An anchor that agrees with a changed feed, as a dishonest relay would write. Only the chain can catch this one. */
 function anchorFor(lines: FeedLine[]): string {
@@ -86,6 +113,36 @@ describe("npm run network:verify", () => {
     expect(status).toBe(1);
   });
 
+  it("fails when the committed seed feed isn't what a fresh Attack Lab run produces", () => {
+    const { status, output } = verify(feedText, anchorText, `${seedText}\n`);
+    expect(output).toMatch(/FAIL\s+A fresh Attack Lab run produces the committed seed reports/);
+    expect(status).toBe(1);
+  });
+
+  it("fails when the API won't back up a seed from a stranger, even with a matching anchor file", async () => {
+    const report = await reportFromAStranger("innocent-shop.near", generateSigningKey(), true);
+    const lines: FeedLine[] = [{ kind: "report", report }, ...reportLines()];
+    const { status, output } = verify(serializeFeed(lines), anchorFor(lines));
+    expect(output).toMatch(/FAIL\s+The API reports innocent-shop.near/);
+    expect(status).toBe(1);
+  });
+
+  it("shows every reporter key, because a valid signature only says who signed", async () => {
+    const report = await reportFromAStranger("other.testnet", generateSigningKey(), false);
+    const lines: FeedLine[] = [...reportLines(), { kind: "report", report }];
+    expect(verify(serializeFeed(lines), anchorFor(lines)).output).toContain(report.reporter);
+  });
+
+  it("fails on a revocation someone else signed", async () => {
+    const real = (reportLines()[0] as Extract<FeedLine, { kind: "report" }>).report;
+    const at = "2026-11-05T12:00:00.000Z";
+    const forged: FeedLine = { kind: "revoke", reportId: real.reportId, reportLeaf: real.merkleLeaf, at, signature: await signText(revocationLeaf(real.merkleLeaf, at), generateSigningKey()) };
+    const lines = [...reportLines(), forged];
+    const { status, output } = verify(serializeFeed(lines), anchorFor(lines));
+    expect(output).toMatch(/FAIL\s+Every revocation was signed by the report's own reporter/);
+    expect(status).toBe(1);
+  });
+
   it("the committed feed and anchor agree with each other", () => {
     const record = JSON.parse(anchorText) as AnchorRecord;
     expect(record.network).toBe("testnet");
@@ -142,25 +199,7 @@ describe("what's allowed on-chain", () => {
   it("refuses to accuse a mainnet name from a real testnet run", async () => {
     // A real report about a real name, with valid signatures, so only this rule stands in the way.
     const key = generateSigningKey();
-    const verdict = await signVerdict(
-      {
-        verdictId: crypto.randomUUID(),
-        requestId: crypto.randomUUID(),
-        mode: "pay",
-        requestHash: "a".repeat(64),
-        payee: "shop.near",
-        chain: "near",
-        asset: "nep141:wrap.near",
-        amount: "2",
-        decision: "BLOCK",
-        riskScore: 100,
-        signals: [makeSignal("LOOKALIKE_HOMOGLYPH", "x", { lookalikeOf: "sh0p.near" }), makeSignal("ACCOUNT_VERY_NEW", "y", {})],
-        reasons: ["x"],
-        createdAt: "2026-11-05T12:00:00.000Z",
-      },
-      key,
-    );
-    const report = await createNetworkReport(verdict, { signingKey: key, createdAt: "2026-11-05T12:00:00.000Z" });
+    const report = await reportFromAStranger("shop.near", key, false);
     expect(report.reporter).toBe(await publicKeyOf(key));
     expect(await reasonToRefuse(report, "real run", nobody)).toContain("isn't a testnet account");
   });
