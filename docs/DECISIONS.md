@@ -37,6 +37,29 @@ Smaller notes to apply later:
 - **Phase 7, Privacy track:** NEAR AI Cloud supports end-to-end encrypted chat to the attested model key, so even the gateway can't read the invoice. A strong candidate if time allows.
 - **Agent Connect proof:** every execution has an attested transparency-log proof (`GET /v1/agents/{id}/operations/{op}/proof`). Attach it to the verdict; it costs little and adds real evidence.
 
+**Decision engine, Phase 2.** Each of these goes beyond or differs from the brief, for the reason given:
+
+| Change | Why |
+|---|---|
+| A verdict also carries `requestHash`, `payee`, `chain`, `asset`, `amount` | In the brief's shape, an ALLOW signature names only a request id, so it wouldn't prove *which* payment was approved. Now it does |
+| The signature leaves out `execution` and `networkReportId` | Both change after the decision, and a report quotes the signature, so signing them is circular. The audit chain covers them. The README must state this |
+| `RETRY_PRESSURE` forces at least HOLD | Otherwise a retry after the 15-minute window, with a new invoice number, on a known payee scores 10 and gets paid. That's the exact double payment this product exists to stop |
+| Edit distance: 1 for names of 4-5 characters, 2 for 6 or more | At 2 on short names, `bishop.near` and `soap.near` look like `shop.near` |
+| A child account of a known payee isn't a lookalike | Only `shop.near` can create `pay.shop.near`, so it really is theirs |
+| Invoice number matches per payee; invoice text matches across payees | Two merchants can both issue invoice 1001. The same document with a different payee is a swapped-address attack |
+| Policy signals that force BLOCK score 50 | The brief gives no number. Reasons rank by points, so "this address can't exist on Base" outranks "over your limit" |
+| New `CHAIN_NOT_CHECKED` (low, 10) | A chain we can't check should say so, not pass silently |
+| Reusing a `requestId` for a different payment is refused | Returning the old verdict could read as approval of the new payment |
+| Bypass patterns are deliberately narrow | A hit is a hard BLOCK, so "please disregard the previous invoice" must not match |
+
+**To do in Phase 3:**
+- Run check and execute one at a time per owner. D3 reads settled payments, so two identical requests in parallel would otherwise both pass and both pay.
+- Record `invoiceId` and `invoiceTextHash` when a payment settles.
+- Generate `WARDY_SIGNING_KEY` for live mode.
+- Before serving verdicts publicly (Phase 5), review `CONTEXT_PAYEE_MISMATCH`: its evidence holds an account id the AI read from the document.
+
+**To do in Phase 4:** replace test-only AI findings with fixtures recorded from real NEAR AI Cloud runs. Today's offline findings are written by hand inside tests and labelled `offline-fixture`, never as attested.
+
 ## 2. Uniqueness and the gap
 
 **The gap is still open.** `NEAR-Intents-Agent-API/examples#21` (one-time destinations) is OPEN, created Oct 28, no maintainer reply (LIVE). OutLayer's matching `out-layer/outlayer#34` is also OPEN, with only the reporter's follow-up. The policy schema has no `max_uses` or one-time destination (LIVE in `/llms.txt`, SDK 0.7.3). Agent Connect idempotency doesn't help: a tricked agent's retry is a new request under a new key. D3 stays. Clearance says it passed its runs to the Agent Connect team, so this could still ship; re-check before submitting.

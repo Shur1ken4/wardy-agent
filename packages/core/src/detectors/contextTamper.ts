@@ -20,10 +20,14 @@ const PAYEE_CHANGE: Pattern[] = [
 ];
 
 const BYPASS: Pattern[] = [
-  { id: "ignore_previous", pattern: /\b(?:ignore|disregard|forget)\s+(?:all\s+)?(?:the\s+|your\s+|any\s+)?(?:previous|prior|above|earlier)\b/i },
+  // A bypass hit is a hard BLOCK, so these stay narrow. "Please disregard the previous invoice" and "compliance
+  // has approved this vendor" are ordinary business mail and must not match.
+  { id: "ignore_previous", pattern: /\b(?:ignore|disregard|forget)\s+(?:all\s+)?(?:of\s+)?(?:the\s+|your\s+|any\s+)?(?:previous|prior|above|earlier)(?:\s+\w+)?\s+(?:instructions?|rules?|prompts?|directions?|limits?|polic(?:y|ies)|checks?|guidelines?)\b/i },
+  { id: "ignore_previous_bare", pattern: /\b(?:ignore|disregard)\s+(?:all\s+)?(?:previous|prior)\s*(?:[.!,;:]|$)/im },
   { id: "limit_removed", pattern: /\b(?:limits?|caps?|budget|restrictions?)\s+(?:has\s+been\s+|have\s+been\s+|was\s+|were\s+|is\s+|are\s+)?(?:removed|lifted|waived|disabled)\b/i },
-  { id: "skip_checks", pattern: /\b(?:skip|bypass|disable|turn\s+off|no\s+need\s+(?:to|for))\b[^.\n]{0,30}\b(?:checks?|verification|verify|review|approval|limits?|rules?|security|wardy)\b/i },
-  { id: "authority_approved", pattern: /\b(?:wardy|system|admin|administrator|owner|security\s+team|compliance)\b[^.\n]{0,40}\b(?:approved|authori[sz]ed|cleared)\b/i },
+  { id: "skip_checks", pattern: /\b(?:skip|bypass|disable|turn\s+off|no\s+need\s+(?:to|for))\b[^.\n]{0,30}\b(?:checks?|verification|verify|approval|limits?|rules?|security|wardy)\b/i },
+  { id: "wardy_approved", pattern: /\bwardy\b[^.\n]{0,40}\b(?:approved|authori[sz]ed|cleared)\b/i },
+  { id: "authority_approved", pattern: /\b(?:system|admin|administrator|owner|security\s+team|compliance)\b[^.\n]{0,40}\b(?:approved|authori[sz]ed|cleared)\s+(?:(?:this|the|your)\s+)?(?:payment|transfer|transaction)\b/i },
   { id: "payment_preapproved", pattern: /\b(?:payment|transfer|transaction|this)\b[^.\n]{0,30}\bpre-?(?:approved|authori[sz]ed|cleared)\b/i },
   { id: "risk_zero", pattern: /\brisk\s*(?:score)?\s*[=:]\s*0\b/i },
   { id: "system_command", pattern: /^\s*(?:system|assistant|developer)\s*:[^\n]*\b(?:approve|skip|ignore|must|pay|send|override|authori[sz]e)/im },

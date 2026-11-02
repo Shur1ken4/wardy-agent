@@ -41,6 +41,14 @@ export interface CheckerDeps {
   newId?: () => string;
 }
 
+/** The same requestId arrived for a different payment. Returning the old verdict could look like approval. */
+export class RequestIdConflictError extends Error {
+  constructor(requestId: string) {
+    super(`Request id ${requestId} was already used for a different payment.`);
+    this.name = "RequestIdConflictError";
+  }
+}
+
 export interface Evaluation extends DecisionOutcome {
   signals: Signal[];
   ai: VerdictAi;
@@ -109,9 +117,16 @@ export class PaymentChecker {
   async check(input: unknown): Promise<Verdict> {
     const parsed = PaymentRequestSchema.parse(input);
     const existing = this.deps.ledger.verdictByRequest(parsed.requestId);
-    if (existing) return existing;
+    if (existing) {
+      if (existing.requestHash !== hashRequest(parsed)) throw new RequestIdConflictError(parsed.requestId);
+      return existing;
+    }
     const running = this.inFlight.get(parsed.requestId);
-    if (running) return running;
+    if (running) {
+      const verdict = await running;
+      if (verdict.requestHash !== hashRequest(parsed)) throw new RequestIdConflictError(parsed.requestId);
+      return verdict;
+    }
     const started = this.run(parsed).finally(() => this.inFlight.delete(parsed.requestId));
     this.inFlight.set(parsed.requestId, started);
     return started;

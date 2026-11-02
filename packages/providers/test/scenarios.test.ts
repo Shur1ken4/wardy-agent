@@ -17,6 +17,7 @@ import {
   PaymentRequestSchema,
   publicKeyOf,
   type ReportRules,
+  RequestIdConflictError,
   sha256Hex,
   USDC_ASSET,
   verifyAuditLines,
@@ -328,6 +329,29 @@ describe("the checker", () => {
     expect(second).toEqual(first);
     expect(audit.lines()).toHaveLength(1);
     expect(ledger.snapshot(OWNER_A).requests).toHaveLength(1);
+  });
+
+  it("refuses a reused requestId with a different payee, rather than returning the old ALLOW", async () => {
+    const { checker } = harness();
+    const request = pay({ payee: "acme-shop.near" });
+    expect((await checker.check(request)).decision).toBe("ALLOW");
+    await expect(checker.check({ ...request, payee: "acme-sh0p.near" })).rejects.toThrow(RequestIdConflictError);
+    await expect(checker.check({ ...request, amount: "5" })).rejects.toThrow(RequestIdConflictError);
+  });
+
+  it("refuses that even while the first call is still running", async () => {
+    const { checker } = harness();
+    const request = pay({ payee: "acme-shop.near" });
+    const results = await Promise.allSettled([checker.check(request), checker.check({ ...request, payee: "acme-sh0p.near" })]);
+    expect(results[0].status).toBe("fulfilled");
+    expect(results[1].status).toBe("rejected");
+  });
+
+  it("the same request with different context is still a replay: the payment hasn't changed", async () => {
+    const { checker } = harness();
+    const request = pay({ payee: "acme-shop.near" });
+    const first = await checker.check(request);
+    expect(await checker.check({ ...request, context: { emailText: "Other text" } })).toEqual(first);
   });
 
   it("two simultaneous calls with one requestId run once", async () => {
