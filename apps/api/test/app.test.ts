@@ -1,4 +1,4 @@
-import { AuditLog, DEFAULT_POLICY, generateSigningKey, type HoldNotice, Ledger, PaymentService, verifyVerdict, WNEAR_ASSET } from "@wardy-agent/core";
+import { AuditLog, DEFAULT_POLICY, generateSigningKey, type HoldNotice, Ledger, PaymentService, signVerdict, verifyVerdict, WNEAR_ASSET } from "@wardy-agent/core";
 import { MockChainData, MockCustody, OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
@@ -63,7 +63,7 @@ async function harness(options: Partial<AppOptions> = {}) {
       settledAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
     });
   const tokenOf = (notice: HoldNotice | undefined) => new URL(notice?.approvalUrl as string).searchParams.get("token") as string;
-  return { app, service, custody, holds, agent, owner, body, pay, makeKnown, tokenOf };
+  return { app, service, ledger, custody, holds, agent, owner, body, pay, makeKnown, tokenOf };
 }
 
 afterEach(async () => {
@@ -359,6 +359,26 @@ describe("reads", () => {
     const { verdictId } = (await pay()).json();
     const response = await app.inject({ method: "GET", url: `/v1/verdicts/${verdictId}/verify` });
     expect(response.json()).toMatchObject({ valid: true, publicKey: expect.stringMatching(/^[0-9a-f]{64}$/) });
+  });
+
+  it("says invalid when a stored verdict has been tampered with", async () => {
+    const { app, pay, makeKnown, ledger } = await harness();
+    makeKnown();
+    const verdict = (await pay()).json();
+    ledger.saveVerdict({ ...verdict, amount: "2000" });
+    const response = await app.inject({ method: "GET", url: `/v1/verdicts/${verdict.verdictId}/verify` });
+    expect(response.json().valid).toBe(false);
+  });
+
+  it("says invalid for a verdict signed with someone else's key, even a self-consistent one", async () => {
+    const { app, pay, makeKnown, ledger } = await harness();
+    makeKnown();
+    const { signature: _signature, wardyPublicKey: _key, execution: _execution, agentId: _agentId, ...unsigned } = (await pay()).json();
+    const forged = await signVerdict(unsigned, generateSigningKey());
+    expect(await verifyVerdict(forged)).toBe(true);
+    ledger.saveVerdict(forged);
+    const response = await app.inject({ method: "GET", url: `/v1/verdicts/${forged.verdictId}/verify` });
+    expect(response.json().valid).toBe(false);
   });
 
   it("a judge can verify what the API returned, with no help from the API", async () => {
