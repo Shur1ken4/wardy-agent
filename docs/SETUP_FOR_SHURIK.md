@@ -26,9 +26,13 @@ open -e .env
 
 This is the private AI that reads invoices.
 
-1. Go to https://nearbuilders.org/join and join. This is what gives you the $10 credit.
-2. Go to https://cloud.near.ai, sign in, and check the credit shows on the dashboard. If it doesn't, tell
-   me what you see.
+You don't need to know this key in advance. The website makes it for you, and you copy it once.
+
+1. Go to https://nearbuilders.org/join and join. This is what gives you the $10 credit. The page asks you
+   to connect a NEAR wallet, so you need one first. If you make a new one and it shows you a recovery
+   phrase, write the phrase on paper and never send it to anyone, including me.
+2. Go to https://cloud.near.ai, sign in with that same NEAR wallet, and check the credit shows on the
+   dashboard. If it doesn't, tell me what you see.
 3. Create an API key in the dashboard and copy it.
 
 You paste it in Step 4.
