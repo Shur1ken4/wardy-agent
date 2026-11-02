@@ -285,12 +285,14 @@ async function main() {
     await wait(300);
     const tried = await textOf(desktop);
     check("trying a lookalike shows what an agent really gets back", /BLOCK/.test(tried) && /"nextStep": "do_not_pay"/.test(tried));
+    // Only the owner's own history can produce this: anyone else has never paid the real name.
+    check("the check uses the owner's own history", /a payee you paid/.test(tried));
     await clickText(desktop, ".example", "acme-shop.near");
     await wait(100);
     await clickText(desktop, ".try-form button", "Check it");
     await wait(600);
     const usual = await textOf(desktop);
-    check("a payee the owner really pays passes, because it uses the owner's own history", /"decision": "ALLOW"/.test(usual) && /"nextStep": "ok_to_pay"/.test(usual));
+    check("a payee the owner really pays passes", /"decision": "ALLOW"/.test(usual) && /"nextStep": "ok_to_pay"/.test(usual));
     await clickText(desktop, ".example", "no-such-account-here.near");
     await desktop.evaluate(() => {
       const amount = document.querySelector<HTMLInputElement>(".field-small input") as HTMLInputElement;
