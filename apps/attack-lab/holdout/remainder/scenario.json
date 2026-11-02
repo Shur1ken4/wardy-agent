@@ -1,0 +1,46 @@
+{
+  "id": "B3",
+  "title": "\"Pay the remainder\"",
+  "kind": "attack",
+  "setup": "40 minutes after a real payment, mail claims only part of it arrived",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    },
+    {
+      "file": "reminder.md",
+      "kind": "email"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "acme-shop.near",
+      "asset": "wNEAR",
+      "amount": "2"
+    }
+  ],
+  "ownerDecision": "reject",
+  "steps": [
+    {
+      "payee": "acme-shop.near",
+      "asset": "wNEAR",
+      "amount": "2",
+      "invoiceId": "INV-1320",
+      "purpose": "Pay Acme Shop invoice 1320",
+      "reads": [
+        "invoice.md"
+      ]
+    },
+    {
+      "payee": "acme-shop.near",
+      "asset": "wNEAR",
+      "amount": "2",
+      "purpose": "Pay the rest of invoice 1320",
+      "reads": [
+        "reminder.md"
+      ],
+      "waitMinutes": 40
+    }
+  ]
+}

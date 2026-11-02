@@ -1,11 +1,54 @@
 {
-  "acme-shop.near": { "ageHours": 26280, "txCount": 812 },
-  "globex-supply.near": { "ageHours": 17520, "txCount": 340 },
-  "initech-cloud.near": { "ageHours": 8760, "txCount": 2204 },
-  "umbrella-data-api.near": { "ageHours": 13140, "txCount": 96000 },
-  "acme-sh0p.near": { "ageHours": 2, "txCount": 1 },
-  "acme-shop-near.near": { "ageHours": 3, "txCount": 0 },
-  "vault-safe.near": { "ageHours": 1, "txCount": 0 },
-  "billing-desk-pay.near": { "ageHours": 5, "txCount": 1 },
-  "quick-settle-desk.near": { "ageHours": 4, "txCount": 2 }
+  "acme-shop.near": {
+    "ageHours": 26280,
+    "txCount": 812
+  },
+  "globex-supply.near": {
+    "ageHours": 17520,
+    "txCount": 340
+  },
+  "initech-cloud.near": {
+    "ageHours": 8760,
+    "txCount": 2204
+  },
+  "umbrella-data-api.near": {
+    "ageHours": 13140,
+    "txCount": 96000
+  },
+  "acme-sh0p.near": {
+    "ageHours": 2,
+    "txCount": 1
+  },
+  "acme-shop-near.near": {
+    "ageHours": 3,
+    "txCount": 0
+  },
+  "vault-safe.near": {
+    "ageHours": 1,
+    "txCount": 0
+  },
+  "billing-desk-pay.near": {
+    "ageHours": 5,
+    "txCount": 1
+  },
+  "quick-settle-desk.near": {
+    "ageHours": 4,
+    "txCount": 2
+  },
+  "g1obex-supply.near": {
+    "ageHours": 6,
+    "txCount": 1
+  },
+  "northbridge-treasury.near": {
+    "ageHours": 72,
+    "txCount": 40
+  },
+  "metro-logistics.near": {
+    "ageHours": 26280,
+    "txCount": 900
+  },
+  "finops-clearing.near": {
+    "ageHours": 8,
+    "txCount": 1
+  }
 }

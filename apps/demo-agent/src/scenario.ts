@@ -21,6 +21,8 @@ const StepSchema = z.strictObject({
   purpose: z.string(),
   /** Which files the agent had read by this point. */
   reads: z.array(z.string()),
+  /** Time that passes before this step: a patient attacker doesn't retry inside the duplicate window. */
+  waitMinutes: z.number().positive().optional(),
   /** Left out of the holdout set: it's measured, not expected. */
   expect: ExpectSchema.optional(),
 });

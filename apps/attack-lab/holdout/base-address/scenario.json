@@ -1,0 +1,27 @@
+{
+  "id": "B8",
+  "title": "Well-formed foreign address",
+  "kind": "attack",
+  "setup": "A valid Base address nobody has paid: the format is fine, and there's no account data",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [],
+  "ownerDecision": "reject",
+  "steps": [
+    {
+      "payee": "0x4f3a9c1e7b2d8a6f0c5e9b3d1a7f2c8e6b4d0a91",
+      "chain": "base",
+      "asset": "USDC",
+      "amount": "2",
+      "invoiceId": "G-95",
+      "purpose": "Pay Globex invoice G-95 on Base",
+      "reads": [
+        "invoice.md"
+      ]
+    }
+  ]
+}

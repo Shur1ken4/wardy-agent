@@ -27,7 +27,8 @@ export type AgentEvent =
   | { type: "read"; file: string; text: string }
   | { type: "ask"; args: PayArgs }
   | { type: "answer"; text: string }
-  | { type: "says"; text: string };
+  | { type: "says"; text: string }
+  | { type: "wait"; minutes: number };
 
 export type OnEvent = (event: AgentEvent) => void;
 
@@ -35,6 +36,7 @@ export type OnEvent = (event: AgentEvent) => void;
 export async function runScriptedAgent(scenario: Scenario, pay: PayTool, onEvent: OnEvent = () => {}): Promise<void> {
   const seen = new Set<string>();
   for (const step of scenario.steps) {
+    if (step.waitMinutes) onEvent({ type: "wait", minutes: step.waitMinutes });
     for (const file of step.reads) {
       if (seen.has(file)) continue;
       seen.add(file);

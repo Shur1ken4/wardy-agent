@@ -7,7 +7,7 @@ import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
 import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines } from "../src/lab.js";
-import { runOffline } from "../src/offline.js";
+import { HOLDOUT_DIR, runOffline } from "../src/offline.js";
 import { toJson, toMarkdown } from "../src/results.js";
 
 const scenarios = loadScenarios();
@@ -242,6 +242,59 @@ describe("the results", () => {
     expect(network.all().length).toBeGreaterThan(0);
     for (const report of network.all()) expect(await verifyReportEvidence(report), report.payee).toBe(true);
     expect(JSON.stringify(network.all())).not.toContain("our account has moved");
+  });
+});
+
+describe("the holdout set", () => {
+  const holdoutScenarios = loadScenarios(HOLDOUT_DIR);
+
+  it("exists, with attacks and honest messages", () => {
+    expect(holdoutScenarios.filter((scenario) => scenario.kind === "attack").length).toBeGreaterThanOrEqual(8);
+    expect(holdoutScenarios.filter((scenario) => scenario.kind === "honest").length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("has no expected answers: it's measured, so it can't be quietly fitted", () => {
+    for (const scenario of holdoutScenarios) {
+      for (const step of scenario.steps) expect(step.expect, scenario.id).toBeUndefined();
+    }
+  });
+
+  it("uses no real account", () => {
+    for (const scenario of holdoutScenarios) {
+      for (const step of scenario.steps) {
+        if ((step.chain ?? "near") === "near") expect(Object.keys(OFFLINE_ACCOUNTS), step.payee).toContain(step.payee);
+      }
+    }
+  });
+
+  it("publishes its results, misses included, right in the file a judge reads", () => {
+    const markdown = toMarkdown(offline.run, offline.meta, offline.holdout);
+    const attacks = offline.holdout.scenarios.filter((scenario) => scenario.kind === "attack");
+    const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
+    expect(markdown).toContain("## Holdout");
+    expect(markdown).toContain(`Attacks where money still moved: ${missed.length} of ${attacks.length}.`);
+    for (const scenario of offline.holdout.scenarios) expect(markdown).toContain(`| ${scenario.id} |`);
+  });
+
+  it("its totals are its own, and don't blur into the headline", () => {
+    expect(summaryLine(offline.run.totals)).toContain("Lost with Wardy Agent: 0");
+    const main = new Set(offline.run.scenarios.map((scenario) => scenario.id));
+    for (const scenario of offline.holdout.scenarios) expect(main.has(scenario.id)).toBe(false);
+  });
+
+  it("a miss in the holdout doesn't fail the run, but a miss in the main set does", () => {
+    const result = spawnSync(process.execPath, ["--import", "tsx", "apps/attack-lab/src/cli.ts"], { encoding: "utf8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Holdout, written after the rules were frozen");
+  }, 60_000);
+
+  it("a patient step really does wait: the clock moves between payments", async () => {
+    const remainder = holdoutScenarios.find((scenario) => scenario.slug === "remainder") as Scenario;
+    const hurried: Scenario = { ...remainder, steps: remainder.steps.map(({ waitMinutes: _wait, ...step }) => step) };
+    const patient = await runScenario(remainder, context());
+    const quick = await runScenario(hurried, context());
+    expect(quick.with.steps[1]?.decision).toBe("HOLD"); // Inside the duplicate window.
+    expect(patient.with.steps[1]?.decision).not.toBe(quick.with.steps[1]?.decision);
   });
 });
 

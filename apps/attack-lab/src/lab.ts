@@ -147,8 +147,11 @@ function toStepResult(verdict: Verdict, ownerDecision: string | null): StepResul
   };
 }
 
-async function runAgent(scenario: Scenario, pay: PayTool, payToolName: string, ctx: LabContext, world: "with" | "without") {
-  const onEvent: OnEvent = (event) => ctx.onEvent?.(scenario, world, event);
+async function runAgent(scenario: Scenario, pay: PayTool, payToolName: string, ctx: LabContext, world: "with" | "without", onWait: (minutes: number) => void = () => {}) {
+  const onEvent: OnEvent = (event) => {
+    if (event.type === "wait") onWait(event.minutes);
+    ctx.onEvent?.(scenario, world, event);
+  };
   if (ctx.agent === "llm") {
     if (!ctx.llm) throw new Error("The LLM agent needs its model settings.");
     await runLlmAgent(scenario, pay, payToolName, ctx.llm, onEvent);
@@ -257,7 +260,9 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
   };
 
   try {
-    await runAgent(scenario, wardyPay, "wardy_pay", ctx, "with");
+    await runAgent(scenario, wardyPay, "wardy_pay", ctx, "with", (minutes) => {
+      tick += (minutes * 60_000) / STEP_MS;
+    });
   } finally {
     await app.close();
   }
@@ -366,7 +371,7 @@ export function summaryLines(run: LabRun): string[] {
     const last = scenario.with.steps.at(-1);
     const decisions = scenario.with.steps.map((step) => step.decision);
     const shown = decisions.every((decision) => decision === decisions[0]) ? decisions[0] : decisions.join(",").replace(/(BLOCK,)+BLOCK/, "BLOCK×3");
-    return `${scenario.id.padEnd(3)} ${scenario.slug.padEnd(19)} ${shorten(last?.payee ?? "").padEnd(25)} ${String(shown).padEnd(6)} (${last?.headline ?? "?"})`;
+    return `${scenario.id.padEnd(3)} ${scenario.slug.padEnd(21)} ${shorten(last?.payee ?? "").padEnd(25)} ${String(shown).padEnd(6)} (${last?.headline ?? "?"})`;
   });
   return [...lines, "", summaryLine(run.totals)];
 }
