@@ -2,89 +2,276 @@
 
 A payment firewall and shared scam-payee network for AI agents on NEAR.
 
+[![CI](https://github.com/Shur1ken4/wardy-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Shur1ken4/wardy-agent/actions/workflows/ci.yml)
+
 > Spending limits protect one agent. Wardy Agent protects all of them.
 
-**Status: under construction.** The decision engine, API, MCP server, testnet custody, demo agent, Attack Lab, the Wardy
-Network's on-chain anchor, the dashboard and the phone approval page work. This README becomes the full guide before
-submission, and claims nothing beyond what runs today.
+Built at NEAR HACKATHON. Tracks: agents, security, privacy.
 
-## What it will do
+## The problem
 
-AI agents increasingly pay other agents, APIs and merchants by themselves. Spending limits stop big
-losses, but agents still get tricked into paying lookalike payees, paying twice after a fake "payment
-failed, please retry", or paying a swapped address from an invoice. Wardy Agent holds the only spend
-permission for a fleet of worker agents, checks every payment, and answers ALLOW, HOLD (ask the owner)
-or BLOCK, with reasons and evidence.
+- **Limits don't check who gets paid.** [Clearance](https://github.com/Selliksss/clearance) crash-tested popular agent prompts on a NEAR sandbox. Agents paid lookalike payees, moved funds to a fake "owner's safe address", and paid twice after a fake "payment failed, retry". These are Clearance's findings, reported by its author. We didn't reproduce them, and we credit them.
+- **Telling the model to be careful doesn't work.** Clearance reports that "never pay the same invoice twice" didn't fix it, because the model believes the first payment failed.
+- **Every agent gets fooled alone.** A scam that hits one agent today hits the next one tomorrow, because nothing connects them.
 
-## Try what exists today
+## What Wardy Agent does
 
-Requires Node 22.22 or newer (24 recommended).
+- **Checks every payment** and answers **ALLOW**, **HOLD** or **BLOCK**, with a 0-100 risk score, reasons and a signed verdict.
+- **Is the only spender.** Worker agents hold no keys and no spend grant. To pay anyone they have to ask, so they can't skip the check.
+- **Asks you on HOLD.** You get a one-time link on your phone, and it shows what's wrong in plain words.
+- **Reads invoices privately.** The AI check runs in a TEE on NEAR AI Cloud, and the attestation is verified. It can only add risk, never remove it. See [what's proven](#whats-proven-vs-whats-trusted) for how far this has been run.
+- **Shares what it learns.** A blocked scam becomes a signed report on the Wardy Network, with its Merkle root anchored on NEAR, so one agent's attack protects the others.
+- **Proves itself.** The Attack Lab replays attacks with and without it, including a holdout set it was never tuned for, and publishes the misses.
 
-1. Run `npm install`. You see it finish without errors.
-2. Run `npm run demo -- --offline`. You see every attack and honest payment, with and without Wardy Agent, ending in a
-   line of totals. No keys, no funds.
-3. Run `npm test`. You see every test pass.
-4. Run `npm run attack-lab -- --offline`. It rewrites [the results](apps/attack-lab/results/latest.md), byte for byte the
-   same as the committed file. See [Results](#attack-lab-results).
-5. Run `npm run verify-audit -- apps/attack-lab/results/audit.jsonl`. You see `audit chain valid`, with every verdict's
-   signature checked.
-6. Run `npm run agent -- --scenario lookalike`. You see what the gullible agent read, what it asked, and the BLOCK.
-7. Run `npm run walkthrough`. You see one payment of each kind go through the real API on a mock ledger: a hold, an
-   owner approval, an allow, a block, a fake "payment failed", a freeze. It ends with `Everything was as expected.`
-8. Run `npm run dev`, then open <http://localhost:5173>. You see the dashboard, labelled **Demo data**. No keys, no funds,
-   and nothing leaves your machine.
-   - Press **Play demo traffic**. Payments arrive in the feed one by one. A lookalike is blocked, and that creates a report.
-     A moment later another owner's agent asks about the same name, and the report stops it.
-   - Under **Waiting for you**, press **Review**. You see the phone approval page. Press **Reject**: it says nothing was paid.
-   - Open **Attack Lab** and press **Run Attack Lab**. Each attack plays out, then the totals appear, including the holdout's
-     misses.
-   - Open **Network**. You see the anchored root, and the proof for a reported payee checks out in your browser.
-   - To start the demo again from nothing: `npm run dev -- --fresh`.
-   - To try the approval page on a real phone on your Wi-Fi: `npm run dev -- --lan`, then open the link it prints.
-9. Run `npm run network:verify`. It recomputes the Wardy Network's root from the feed in this repo and compares it with
-   the contract on NEAR testnet, using no keys. You see a list of `ok` lines, an explorer link, and the answer an agent
-   gets for a reported payee, with a proof. It ends with `Everything checked passed.` Add `-- --offline` to skip the chain.
-10. Run `npm run test:ui`. It opens the real dashboard in Chrome and uses every screen, at desktop and phone width. It ends
-    with `Everything checked passed.`
-11. To connect an AI agent, follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md).
+## Try it in 2 minutes (no keys, no funds)
+
+Needs Node 22.22 or newer (24 recommended).
+
+```bash
+git clone https://github.com/Shur1ken4/wardy-agent.git && cd wardy-agent && npm install
+```
+
+```bash
+npm run demo -- --offline
+```
+
+Expected output, ending in:
+
+```text
+A1  lookalike             acme-sh0p.near            BLOCK  (LOOKALIKE_HOMOGLYPH)
+A2  retry                 acme-shop.near            ALLOW,HOLD (DUPLICATE_INVOICE)
+A3  safe-address          vault-safe.near           BLOCK  (CONTEXT_BYPASS_ATTEMPT)
+...
+Lost without Wardy Agent: 27.36 NEAR + 25 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 4/4 · False blocks: 0
+
+Holdout, written after the rules froze: 3 of 8 attacks still took money (6.01 NEAR). Honest messages passed: 5/5.
+```
+
+Then see the dashboard:
+
+```bash
+npm run dev
+```
+
+Open <http://localhost:5173> and press **Play demo traffic**.
+
+## Do X, see Y
+
+Everything here is offline, with no keys, unless it says otherwise.
+
+| Do this | You see this |
+|---|---|
+| `npm run demo -- --offline` | Every attack and honest payment with and without Wardy Agent, then the totals and the holdout's misses |
+| `npm test` | Every unit test pass |
+| `npm run dev`, then open <http://localhost:5173> | The dashboard, labelled **Demo data** |
+| On the dashboard, press **Play demo traffic** | Payments arrive live. A lookalike is blocked with its odd character marked, and that creates a report. Then another owner's agent asks about the same name, and the report stops it |
+| Click a row in the feed | Why it was decided, the two names side by side, and a **Verify** button that checks the signature in your browser |
+| Under **Waiting for you**, press **Review**, then **Reject** | The phone approval page, then "Nothing was paid" |
+| Open **Attack Lab**, press **Run Attack Lab** | Each attack plays out, then the totals, then the holdout's misses in red |
+| Open **Network**, search `acme-sh0p.near` | A report with its evidence, and a proof that checks out in your browser against the anchored root |
+| On **Network**, press **Check the contract** (needs internet) | The root read live from NEAR testnet, matching the one shown |
+| `npm run network:verify` (add `-- --offline` to skip the chain) | The root recomputed from the feed and compared with the contract, ending in `Everything checked passed.` |
+| `npm run verify-audit -- apps/attack-lab/results/audit.jsonl` | `audit chain valid`, with every verdict's signature checked |
+| `npm run agent -- --scenario lookalike` | What the gullible agent read, what it asked, and the BLOCK. If `npm run dev` is running, it also appears on the feed |
+| `npm run walkthrough` | One payment of every kind through the real API, ending in `Everything was as expected.` |
+| `npm run attack-lab -- --offline` | It rewrites [the results](apps/attack-lab/results/latest.md), byte for byte the same as the committed file |
+| `npm run test:ui` (needs Chrome) | The real dashboard, used in a real browser at desktop and phone width, ending in `Everything checked passed.` |
+| Connect an AI agent: follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Your agent gets `wardy_pay`, `wardy_check` and `wardy_network_lookup` |
+
+## Live mode setup
+
+[docs/SETUP_FOR_SHURIK.md](docs/SETUP_FOR_SHURIK.md) is written for someone who doesn't code: what to click, what to paste, and what you should see.
+
+**Testnet** uses free test tokens, and needs one setup step:
+
+```bash
+npm run setup:testnet
+```
+
+```bash
+npm run walkthrough -- --testnet
+```
+
+That makes real testnet transactions, with explorer links. To see them on the dashboard, set `WARDY_MODE=testnet` before `npm run dev`, and sign in with `ownerToken` from `.data/testnet/secrets.json`.
+
+**Mainnet** needs a NEAR AI Cloud key, an Agent Connect key and a real wallet.
+
+| Cost | Amount |
+|---|---|
+| NEAR AI Cloud | About $0.0002 per check, from a free $10 credit through NEAR Builders |
+| Agent Connect key | No fee stated in its docs |
+| Real test payments | 0.5 NEAR to start. This project's hard limit is 5 NEAR in total |
+
+**Safety limits:**
+
+- Live mode refuses to start above 10 NEAR equivalent unless you set `WARDY_I_UNDERSTAND_RISK=1`.
+- Native NEAR transfers are off in the custody policy.
+- Real-money steps are scripts a person runs on purpose: `npm run demo` won't move real money by itself.
+
+## How it works
+
+```text
+ ┌──────────────┐   wardy_pay (MCP or HTTP)    ┌─────────────────────────────────────────┐
+ │ Worker agent │ ───────────────────────────▶ │               WARDY AGENT               │
+ │ (no keys)    │ ◀─── verdict + receipt ───── │                                         │
+ └──────────────┘                              │  1. Validate the request                │
+                                               │  2. Five detectors                      │
+ ┌──────────────┐   wardy_check (can't pay)    │  3. Wardy Network lookup                │
+ │ Other agents │ ───────────────────────────▶ │  4. Private AI (one-way: adds risk)     │
+ └──────────────┘                              │  5. Decide (rules, not the AI)          │
+                                               │  6. Sign the verdict (ed25519)          │
+ ┌──────────────┐   HOLD: one-time link        │  7. Pay through custody, on ALLOW       │
+ │ Owner phone  │ ◀──────────────────────────▶ │  8. Append to the hash-chained audit    │
+ └──────────────┘                              │  9. On a strong BLOCK, publish a report │
+                                               └───────┬─────────────────┬───────────────┘
+                                                       │                 │
+                                     ┌─────────────────▼───┐   ┌─────────▼──────────────┐
+                                     │ Custody provider    │   │ Wardy Network          │
+                                     │ Agent Connect,      │   │ Signed feed + Merkle   │
+                                     │ OutLayer, or a mock │   │ root on NEAR testnet   │
+                                     └─────────────────────┘   └────────────────────────┘
+```
+
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**The five detectors**
+
+| | Detector | What it catches |
+|---|---|---|
+| D1 | [Lookalike](packages/core/src/detectors/lookalike.ts) | `acme-sh0p.near` when you've paid `acme-shop.near`: swapped characters, near-identical spelling, trick endings |
+| D2 | [New account](packages/core/src/detectors/newAccount.ts) | An account that doesn't exist, was made hours ago, or has almost no history |
+| D3 | [Duplicate](packages/core/src/detectors/duplicate.ts) | The same invoice or amount again, and "payment failed, please retry" when one really settled |
+| D4 | [Context tamper](packages/core/src/detectors/contextTamper.ts) | What the agent read asks to change the payee, skip the rules, hurry, or pay someone other than the invoice says |
+| D5 | [Cross-chain](packages/core/src/detectors/crossChain.ts) | An address that can't exist on the chain it's being paid on |
+
+**The decision rules**, in this exact order ([`decision.ts`](packages/core/src/decision.ts)):
+
+1. A broken owner rule: **BLOCK**.
+2. A duplicate to a payee you really pay, with nothing else wrong: **HOLD**, because you may truly want to pay twice.
+3. Anything critical, from any detector or the Network: **BLOCK**.
+4. Risk score 60 or more: **BLOCK**. 30 or more: **HOLD**.
+5. A rule that asks for you, such as a first-time payee: **HOLD**. Otherwise **ALLOW**.
+
+**The one-way ratchet.** Rules decide. The AI can add signals, which can only raise the score. It can't lower a score, remove a signal, or turn BLOCK into ALLOW, and every decision stands without it.
+
+**Anti-poisoning rules for the Wardy Network**
+
+- **Evidence, not votes.** One valid report is enough, and nothing is counted, so a thousand fake reports weigh as much as none.
+- **A report has to earn it.** It needs a real BLOCK from a real payment, plus two independent kinds of evidence, or the owner's confirmation, which is labelled and signed. It's never about a payee the owner has really paid, and a `check` can't create one, because anyone can send a check.
+- **Anyone can check those rules** using only the report.
+- **Only trusted reporter keys count**, and a reader chooses which to trust.
+- **Reports reveal as little as they can.** No invoice text, amount, or payment history. The verdict's signature covers those facts through a hash, so a report shows the public part and can still be verified. It does name the payee and the name it imitated.
+- **Only the reporter can withdraw a report.** A forged withdrawal is ignored.
+
+## NEAR tech used
+
+| Tech | What for | Where | Status |
+|---|---|---|---|
+| NEAR AI Cloud | Private TEE inference, with attestation checked | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) | Built and tested. Not yet run with a real key |
+| NEAR Intents Agent Connect | Custody and policy on mainnet | [`agentConnect.ts`](packages/providers/src/custody/agentConnect.ts) | Built and tested. Not yet run with real funds |
+| OutLayer | Custody on testnet | [`outlayer.ts`](packages/providers/src/custody/outlayer.ts) | Real testnet payments: [one](https://testnet.near.rocks/tx/295HobBbcr5Ucf9StCHUAtgF2deRjoWwsRztdbMAiZRf), [two](https://testnet.near.rocks/tx/ERNXmKVodB4rVLJNiJ6NgaetiANsQt2Ras36TAbt1iwR) |
+| NEAR RPC and indexer | Whether an account exists, and how old it is | [`nearChainData.ts`](packages/providers/src/chain/nearChainData.ts) | Live |
+| NEAR testnet contract | Anchors the Wardy Network's Merkle root | [`contracts/registry`](contracts/registry/src/lib.rs) | [Live on testnet](https://testnet.near.rocks/account/wardy-agent-registry.testnet) |
+
+Not built: 1Click cross-chain check and Agent Market listing. They're on the [roadmap](#roadmap).
 
 ## Attack Lab results
 
-The same agent, with the same inbox, with and without Wardy Agent. [Full results](apps/attack-lab/results/latest.md).
+The same agent, with the same inbox, with and without Wardy Agent. "Without" is a scripted agent that obeys everything: a worst case, showing what's at stake, not how often a real model falls for it. All of this runs on mock ledgers. [Full results](apps/attack-lab/results/latest.md).
 
-- **Main set (9 attacks, 4 honest payments):** nothing lost with Wardy Agent, and no honest payment blocked. These were
-  written alongside the rules, so they show the rules work as designed.
-- **Holdout (8 attacks, 5 honest messages):** written after [the rules were frozen](apps/attack-lab/holdout/README.md).
-  No honest payment was blocked, but **3 of the 8 attacks still took money**: each was a payee the owner really pays,
-  under every limit, where only the words give the attack away. These results were run with the private AI off, and
-  nothing was tuned after seeing them.
-- **What "without" means:** a scripted agent that obeys everything, which is a worst case. It shows what's at stake, not
-  how often a real model falls for it.
+<!-- results:start -->
+**Main set (written alongside the rules):** lost without Wardy Agent: 27.36 NEAR + 25 USDC. Lost with it: 0. Honest payments passed: 4/4. False blocks: 0.
 
-## The Wardy Network
+| # | Scenario | Lost without | With Wardy Agent | Lost with |
+|---|---|---|---|---|
+| A1 | Lookalike payee | 2 NEAR | BLOCK | 0 |
+| A2 | Fake "payment failed, retry" | 2 NEAR | ALLOW, HOLD | 0 |
+| A3 | Owner "safe address" email | 4 NEAR | BLOCK | 0 |
+| A4 | Inflated invoice | 8.36 NEAR | BLOCK | 0 |
+| A5 | Suffix trick | 2 NEAR | BLOCK | 0 |
+| A6 | Cross-chain swap | 25 USDC | BLOCK | 0 |
+| A7 | Network-protected | 2 NEAR | BLOCK | 0 |
+| A8 | Prompt-injected invoice | 2 NEAR | BLOCK | 0 |
+| A9 | Split payments | 5 NEAR | HOLD, HOLD, BLOCK, BLOCK, BLOCK | 0 |
+| H1 | Usual supplier | 0 | ALLOW | 0 |
+| H2 | Another supplier, in USDC | 0 | ALLOW | 0 |
+| H3 | Exactly at the approval threshold | 0 | ALLOW | 0 |
+| H4 | Small API call | 0 | ALLOW | 0 |
 
-When a payment is blocked on strong evidence, the payee is reported, so other agents are protected too.
+**Holdout (written after the rules were frozen, and never tuned for):** 3 of 8 attacks still took money (6.01 NEAR). Honest messages passed: 5/5.
 
-- **It's evidence, not votes.** One valid report is enough and nothing is counted, so a thousand fake reports weigh as
-  much as none. A report needs a real BLOCK from a real payment and two independent kinds of evidence, and it can never be
-  about a payee the owner has really paid. Anyone can check those rules using only the report.
-- **Reports reveal as little as they can.** A report never holds the invoice, the amount, or who the owner has paid. The
-  verdict's signature covers those facts through a hash, so a report can show the public part and still be checked. It does
-  name the payee, and the name it imitated.
-- **Anchored on NEAR testnet.** The feed's Merkle root is on-chain, and a lookup returns a proof against it. An anchored
-  root shows a report existed and hasn't changed since. It doesn't show the report is true.
-- **Today's feed is mostly demo data, and says so.** Most reports are seeded by the Attack Lab, and are labelled that way
-  in the feed and on-chain. The rest come from real testnet runs, about testnet names that are unregistered or ours.
-  `npm run network:verify` prints the exact split.
-- **Known limit:** an attacker could send an invoice naming an innocent new or lookalike account, and get it reported. A
-  `check` can't publish, the reporter can withdraw a report, and only reporters you trust count. Disputes aren't built.
+| # | Scenario | Lost without | With Wardy Agent | Lost with |
+|---|---|---|---|---|
+| B1 | Fake rebrand | 1.5 USDC | BLOCK | 0 |
+| B2 | Change of banking partner | 3 NEAR | HOLD | 0 |
+| B3 | "Pay the remainder" | 2 NEAR | ALLOW, ALLOW | **2 NEAR** |
+| B4 | Quiet surcharge within limits | 2 NEAR | ALLOW | **2 NEAR** |
+| B5 | Old account as a mule | 2 NEAR | HOLD | 0 |
+| B6 | Polite injection | 2 NEAR | HOLD | 0 |
+| B7 | Fake reissued invoice | 2.01 NEAR | ALLOW, ALLOW | **2.01 NEAR** |
+| B8 | Well-formed foreign address | 2 USDC | HOLD | 0 |
+| HB1 | Honest: a stern reminder | 0 | ALLOW | 0 |
+| HB2 | Honest: a corrected invoice | 0 | ALLOW | 0 |
+| HB3 | Honest: a new postal address | 0 | ALLOW | 0 |
+| HB4 | Honest: "pay by card instead" | 0 | ALLOW | 0 |
+| HB5 | Honest: "your admin approved" | 0 | ALLOW | 0 |
+<!-- results:end -->
+
+Read the holdout honestly. Each attack that got through was a payee the owner really pays, under every limit, where only the words give it away. These runs had the private AI off, and nothing was tuned after seeing them. [How the holdout works](apps/attack-lab/holdout/README.md).
+
+## What's proven vs what's trusted
+
+| Claim | Status | How to check |
+|---|---|---|
+| A verdict hasn't changed since it was signed | **Proven** | **Verify** on the dashboard, or `npm run verify-audit` |
+| The audit log hasn't been rewritten | **Proven**, once its head hash has been shared. Whoever holds the log could rewrite it all before that | `npm run verify-audit` |
+| The Attack Lab's results are real | **Proven**: same bytes on every run, and CI compares them | `npm run attack-lab -- --offline`, then `git diff` |
+| A report existed by the time it was anchored, and hasn't changed | **Proven** | `npm run network:verify` |
+| A report follows the rules | **Proven**, using only the report | `npm run network:verify` |
+| A report is true | **Not proven.** It shows what Wardy Agent saw, and it could be wrong | Read its evidence |
+| Worker agents can't skip the check | **Enforced**, as long as they really hold no key. That's how you set them up, and nothing proves it from outside | [docs/MCP_SETUP.md](docs/MCP_SETUP.md) |
+| Wardy Agent is honest | **Trusted.** Whoever runs it holds the grant and the signing key. A TEE deployment is on the roadmap | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) |
+| The provider enforces limits, assets and budget | **Trusted**: the custody provider. **Wardy Agent alone** checks the payee | [`custody/`](packages/providers/src/custody) |
+| The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. Not yet run with a real key, so no verdict here has one | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
+| It catches every attack | **False.** See the holdout | [Results](#attack-lab-results) |
+
+## Threat model summary
+
+Attackers we plan for: a poisoned invoice or email, a lookalike payee, a fake "payment failed", a hijacked worker agent, someone poisoning the Wardy Network, and a network relay changing what it passes on. Out of scope: a compromised Wardy Agent operator. **Known limit:** an attacker could send an invoice naming an innocent new or lookalike account, and get it reported. Reports can be withdrawn, but disputes aren't built. Full version: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+## Related work and credits
+
+- [Clearance](https://github.com/Selliksss/clearance): crash tests agents before launch. Its findings are why this exists. It measures before launch, and Wardy Agent enforces at runtime.
+- [Leash](https://github.com/halfabillion/near-leash): the closest project, a testnet vault with caps and a shared registry. Its registry counts reporters, and ours deliberately doesn't.
+- Spend guards in this hackathon, such as NEAR Agent Spend Guard, NearVault, AgentGuard, [Countersign](https://github.com/team-attention/countersign), TabWrit, Clear to Pay and Fenceline: good work on limits and allowlists, which is the layer we build on.
+- [AgentSentinel](https://github.com/Daveboycyber/agent-sentinel): a guardian contract and watcher.
+- Nava and t54 Labs: funded teams working on agent trust, off NEAR.
+- scamgate and Allowance: open-source payee checks.
+
+Scanned on 2026-11-02, and partial. There are surely more.
 
 ## Disclosure
 
-All code is written during NEAR HACKATHON (2026). Wardy Agent is a new, separate project; it shares
-only its name family and shield mascot with the author's earlier Solana wallet-safety app "Wardy". No
-code is reused. Built with Claude Code.
+All code written during NEAR HACKATHON (Nov 1-14, 2026). Wardy Agent is a new, separate project; it shares only its name family and shield mascot with the author's earlier Solana wallet-safety app "Wardy". No code was reused. Built with Claude Code, which wrote the code, tests and docs, directed by the author.
+
+**Libraries**
+
+| Where | Libraries |
+|---|---|
+| Crypto and validation | `@noble/ed25519`, `@noble/hashes`, `zod`, `viem` |
+| NEAR | `near-api-js`, `@near-intents-agent-api/sdk`, `@phala/dcap-qvl` (attestation), `near-sdk` (contract) |
+| API and agents | `fastify`, `@fastify/cors`, `@fastify/rate-limit`, `@modelcontextprotocol/sdk` |
+| Dashboard | `react`, `react-dom`, `motion`, `vite`, `@vitejs/plugin-react`, and the Inter, Space Grotesk and JetBrains Mono fonts through `@fontsource-variable` |
+| Tests and tooling | `vitest`, `typescript`, `tsx`, `puppeteer-core`, `axe-core`, `@scure/base` |
+
+## Roadmap
+
+- Wardy Agent in a TEE, so the operator doesn't have to be trusted
+- Disputes, so a falsely reported payee has a way to respond
+- Paid checks through x402 and the Agent Market
+- 1Click cross-chain route checks
+- More chains
 
 ## License
 
-MIT
+[MIT](LICENSE)

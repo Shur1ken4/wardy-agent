@@ -162,3 +162,21 @@ npm run hello:custody -- freeze-test
 
 Done. I created the free testnet accounts and deployed the registry contract there. See it at
 https://testnet.near.rocks/account/wardy-agent-registry.testnet.
+
+## See the dashboard (no setup)
+
+This works at any time, with no keys:
+
+```bash
+npm run dev
+```
+
+Open http://localhost:5173. You'll see the dashboard, labelled **Demo data**. Press **Play demo traffic** to watch it work.
+
+To try the approval page on your real phone, make sure the phone is on the same Wi-Fi, then run:
+
+```bash
+npm run dev -- --lan
+```
+
+Open the **Dashboard** link it prints on your phone. Stop it with Control + C when you're done, because anyone on your Wi-Fi can open it while it runs.

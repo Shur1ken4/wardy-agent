@@ -38,6 +38,7 @@
     "network:anchor": "tsx scripts/network-anchor.ts",
     "network:verify": "tsx scripts/network-verify.ts",
     "walkthrough": "tsx scripts/walkthrough.ts",
+    "readme:results": "tsx scripts/readme-results.ts",
     "mcp:config": "tsx scripts/mcp-config.ts"
   },
   "devDependencies": {
