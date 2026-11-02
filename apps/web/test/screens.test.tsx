@@ -12,7 +12,11 @@ import { policyChipText } from "../src/components/Header";
 import { Payee, StatTile } from "../src/components/parts";
 import { ReadPrivately, VerdictDetail } from "../src/components/VerdictDetail";
 import { HoldCard, Outcome, takeToken } from "../src/screens/Approve";
+import { Tiles } from "../src/screens/Live";
 import { type LabScenario, ResultsTable, Totals } from "../src/screens/AttackLab";
+import type { Stats } from "../src/lib/api";
+import { startCountUp } from "../src/lib/countUp";
+import { type Dashboard, DashboardContext } from "../src/lib/dashboard";
 import { checkSignature } from "../src/lib/verify";
 import { proofHolds } from "../src/screens/Network";
 
@@ -379,6 +383,78 @@ describe("proofHolds: checked in the browser, against the anchored root", () => 
   it("fails with no proof or no anchor", () => {
     expect(proofHolds(answer({ merkleProof: null }))).toBe(false);
     expect(proofHolds(answer({ anchoredRoot: null }))).toBe(false);
+  });
+});
+
+describe("the tiles never claim a number they don't know", () => {
+  const withStats = (stats: Stats | null) =>
+    renderToStaticMarkup(
+      <DashboardContext.Provider value={{ stats } as Dashboard}>
+        <Tiles />
+      </DashboardContext.Provider>,
+    );
+  const values = (html: string) => [...html.matchAll(/class="tile-value">(.*?)<\/div>/g)].map((match) => match[1]);
+
+  it("before the numbers arrive, every tile shows a dash, not a zero", () => {
+    expect(values(withStats(null))).toEqual(["–", "–", "–", "–", "–"]);
+  });
+
+  it("once they arrive, it shows them", () => {
+    const html = withStats({ checkedToday: 9, blockedToday: 4, heldNow: 1, paidToday: 3, saved: [{ asset: "nep141:wrap.near", amount: "10.36" }], checksForOthers: 1, earned: { checksSold: 0, revenue: [] } });
+    expect(values(html).slice(0, 3)).toEqual(["9", "4", "1"]);
+    expect(html).toContain("10.36");
+    expect(html).toContain("NEAR");
+  });
+
+  it("a real zero is still a zero", () => {
+    expect(values(withStats({ checkedToday: 0, blockedToday: 0, heldNow: 0, paidToday: 0, saved: [], checksForOthers: 0, earned: { checksSold: 0, revenue: [] } }))).toEqual(["0", "0", "0", "0", "0"]);
+  });
+});
+
+describe("startCountUp: the exact number always wins", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** An animation like one in a background tab: its first frame runs, then it never finishes. */
+  const stalled = (from: number) => (_start: number, _end: number, options: { onUpdate(latest: number): void }) => {
+    options.onUpdate(from);
+    return { stop: vi.fn() };
+  };
+
+  it("clears a stalled number by itself, so a wrong value can't stay on the screen", () => {
+    vi.useFakeTimers();
+    const shown: (string | null)[] = [];
+    startCountUp({ from: 0, to: 9, decimals: 0, seconds: 0.5, show: (text) => shown.push(text), animate: stalled(0) });
+    expect(shown).toEqual(["0"]);
+    vi.advanceTimersByTime(700);
+    expect(shown.at(-1)).toBeNull();
+  });
+
+  it("clears as soon as a normal animation finishes", () => {
+    const shown: (string | null)[] = [];
+    startCountUp({
+      from: 1,
+      to: 2,
+      decimals: 2,
+      seconds: 0.5,
+      show: (text) => shown.push(text),
+      animate: (_from, _to, options) => {
+        options.onUpdate(1.5);
+        options.onComplete();
+        return { stop: () => {} };
+      },
+    });
+    expect(shown).toEqual(["1.50", null]);
+  });
+
+  it("stopping early leaves nothing running", () => {
+    vi.useFakeTimers();
+    const stop = vi.fn();
+    const shown: (string | null)[] = [];
+    const cancel = startCountUp({ from: 0, to: 1, decimals: 0, seconds: 0.5, show: (text) => shown.push(text), animate: () => ({ stop }) });
+    cancel();
+    expect(stop).toHaveBeenCalled();
+    vi.advanceTimersByTime(2000);
+    expect(shown).toEqual([]);
   });
 });
 

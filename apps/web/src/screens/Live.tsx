@@ -10,7 +10,7 @@ import type { VerdictView } from "@wardy-agent/core";
 const TRAFFIC_SECONDS = 16;
 
 /** Shows a dash until the numbers have really arrived, so nothing ever claims a zero it doesn't know. */
-function Tiles() {
+export function Tiles() {
   const { stats } = useDashboard();
   const count = (value: number | undefined) => (value === undefined ? "–" : <CountUp value={value} />);
   const saved = stats?.saved ?? [];

@@ -2,6 +2,7 @@
 import type { Decision } from "@wardy-agent/core";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { startCountUp } from "../lib/countUp";
 import { payeeParts } from "../lib/format";
 
 export function Chip({ decision, large = false }: { decision: Decision; large?: boolean }) {
@@ -32,10 +33,7 @@ export function Payee({ payee, lookalikeOf, positions, sweep = false }: { payee:
 const COUNT_SECONDS = 0.5;
 const decimalsIn = (text: string): number => text.split(".")[1]?.length ?? 0;
 
-/**
- * A number that counts to its new value. The exact text always wins in the end: a background tab can stall animation
- * frames for as long as it likes, and a security console must not sit on a wrong number while that happens.
- */
+/** A number that counts to its new value. */
 export function CountUp({ value, from }: { value: string | number; from?: number }) {
   const text = String(value);
   const target = Number(text);
@@ -50,18 +48,7 @@ export function CountUp({ value, from }: { value: string | number; from?: number
       setShown(null);
       return;
     }
-    const decimals = decimalsIn(text);
-    const controls = animate(start, target, {
-      duration: COUNT_SECONDS,
-      ease: "easeOut",
-      onUpdate: (latest) => setShown(latest.toFixed(decimals)),
-      onComplete: () => setShown(null),
-    });
-    const settle = setTimeout(() => setShown(null), COUNT_SECONDS * 1000 + 150);
-    return () => {
-      controls.stop();
-      clearTimeout(settle);
-    };
+    return startCountUp({ from: start, to: target, decimals: decimalsIn(text), seconds: COUNT_SECONDS, show: setShown, animate });
   }, [target, text, reduceMotion]);
 
   return <>{shown ?? text}</>;

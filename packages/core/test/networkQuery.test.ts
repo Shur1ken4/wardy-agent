@@ -112,6 +112,10 @@ describe("rules anyone can check on a report, even one signed by a real reporter
     expect(await verifyReportEvidence(await signed(await blocked({}, KEY, [...CODES, "KNOWN_PAYEE"])))).toBe(false);
   });
 
+  it("a held payment can't become a report unless the owner confirmed it", async () => {
+    expect(await verifyReportEvidence(await signed(await blocked({ decision: "HOLD" })))).toBe(false);
+  });
+
   it("a check can't become a report: anyone can send a check", async () => {
     expect(await verifyReportEvidence(await signed(await blocked({ mode: "check" })))).toBe(false);
   });

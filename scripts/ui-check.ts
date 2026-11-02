@@ -83,7 +83,10 @@ const textOf = (page: Page) => page.evaluate(() => document.body.innerText);
 
 /** Everything checked on every screen: it fits, it can be tapped, and a screen reader can use it. */
 async function inspect(page: Page, name: string, options: { fullPage?: boolean } = {}) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  // Measured against the screen's real width. On a phone, the browser widens window.innerWidth to fit a page that's too
+  // wide, so comparing against that would always pass.
+  const screenWidth = page.viewport()?.width ?? 0;
+  const overflow = (await page.evaluate(() => document.documentElement.scrollWidth)) - screenWidth;
   check(`${name}: nothing wider than the screen`, overflow <= 0, overflow > 0 ? `${overflow}px too wide` : "");
   const small = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("button, .btn")]

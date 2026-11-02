@@ -32,10 +32,10 @@ export interface Dashboard {
   refresh(): Promise<void>;
 }
 
-const Context = createContext<Dashboard | null>(null);
+export const DashboardContext = createContext<Dashboard | null>(null);
 
 export function useDashboard(): Dashboard {
-  const value = useContext(Context);
+  const value = useContext(DashboardContext);
   if (!value) throw new Error("useDashboard needs a DashboardProvider.");
   return value;
 }
@@ -229,5 +229,5 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }),
     [health, apiError, credential, signInError, stats, policy, verdicts, holds, live, reaction, frozen, setFrozen, refresh],
   );
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }
