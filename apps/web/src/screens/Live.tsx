@@ -12,7 +12,7 @@ import type { VerdictView } from "@wardy-agent/core";
 const TRAFFIC_SECONDS = 15;
 
 /** The sphere, with what it's pointing at. Each new payment sends a wave across it, and the name spells out below. */
-function SphereWithData() {
+export function SphereWithData() {
   const { verdicts, reaction, network } = useDashboard();
   const latest = verdicts[0];
   const lookalike = latest ? lookalikeSignal(latest.signals) : undefined;

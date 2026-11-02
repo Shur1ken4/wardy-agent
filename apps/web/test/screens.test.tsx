@@ -8,6 +8,7 @@ import { generateSigningKey, publicKeyOf, signVerdict } from "@wardy-agent/core/
 import type { PayeeLookup, Signal, VerdictView } from "@wardy-agent/core";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isLocked } from "../src/App";
 import { policyChipText } from "../src/components/Header";
 import { Payee, StatTile } from "../src/components/parts";
 import { LetterSphere } from "../src/components/LetterSphere";
@@ -16,7 +17,7 @@ import { ReadPrivately, VerdictDetail } from "../src/components/VerdictDetail";
 import { payeeParts } from "../src/lib/format";
 import { Agents } from "../src/screens/Agents";
 import { HoldCard, Outcome, takeToken } from "../src/screens/Approve";
-import { Tiles } from "../src/screens/Live";
+import { SphereWithData, Tiles } from "../src/screens/Live";
 import { type LabScenario, ResultsTable, Totals } from "../src/screens/AttackLab";
 import type { Stats } from "../src/lib/api";
 import { startCountUp } from "../src/lib/countUp";
@@ -394,8 +395,7 @@ describe("the letter sphere", () => {
   const html = renderToStaticMarkup(<LetterSphere signal={null} leftLabel="LEFT DATA" rightLabel="RIGHT DATA" />);
 
   it("is hidden from screen readers, because everything it shows is also in the page as text", () => {
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain("<canvas");
+    expect(html).toMatch(/<canvas[^>]*aria-hidden="true"/);
   });
 
   it("can be paused: moving content has to be stoppable", () => {
@@ -406,6 +406,45 @@ describe("the letter sphere", () => {
   it("shows the data it points at as real text", () => {
     expect(html).toContain("LEFT DATA");
     expect(html).toContain("RIGHT DATA");
+  });
+});
+
+describe("what the sphere points at", () => {
+  const anchor = { network: "testnet", contractId: "c", root: "a".repeat(64), count: 6, uri: "", blockHeight: "1", anchoredAt: "", txHash: "t", txUrl: "https://testnet.near.rocks/tx/REALTX" };
+  const render = (value: Partial<Dashboard>) =>
+    renderToStaticMarkup(
+      <DashboardContext.Provider value={{ verdicts: [], reaction: null, network: null, ...value } as Dashboard}>
+        <SphereWithData />
+      </DashboardContext.Provider>,
+    );
+
+  it("links to the real anchor", () => {
+    const html = render({ network: { anchor } });
+    expect(html).toContain('href="https://testnet.near.rocks/tx/REALTX"');
+    expect(html).toContain("rel=\"noreferrer\"");
+  });
+
+  it.each<[string, Dashboard["network"]]>([["no anchor", { anchor: null }], ["nothing loaded yet", null]])("with %s, it says so, instead of claiming one", (_name, network) => {
+    const html = render({ network });
+    expect(html).toContain("Nothing anchored yet");
+    expect(html).not.toContain("near.rocks");
+  });
+
+  it("before any payment, it says it's waiting, not that something passed", () => {
+    const html = render({});
+    expect(html).toContain("Waiting for a payment");
+    expect(html).not.toContain("ALLOW");
+  });
+});
+
+describe("which pages need the owner", () => {
+  it.each(["/", "/policy", "/attack-lab", "/earnings"])("%s is the owner's", (path) => {
+    expect(isLocked(path, true)).toBe(true);
+    expect(isLocked(path, false)).toBe(false);
+  });
+
+  it.each(["/network", "/agents"])("%s is public", (path) => {
+    expect(isLocked(path, true)).toBe(false);
   });
 });
 

@@ -13,6 +13,10 @@ import { Network } from "./screens/Network";
 import { Policy } from "./screens/Policy";
 import { SignIn } from "./screens/SignIn";
 
+/** The Wardy Network and the guide for agents are public. Everything else is the owner's. */
+const PUBLIC_PAGES = new Set(["/network", "/agents"]);
+export const isLocked = (path: string, needsCredential: boolean): boolean => needsCredential && !PUBLIC_PAGES.has(path);
+
 function NotFound() {
   return (
     <Page>
@@ -27,8 +31,7 @@ function Console() {
   const { path, search } = useLocation();
   const { apiError, needsCredential } = useDashboard();
   const openVerdict = search.get("verdict");
-  // The Wardy Network and the guide for agents are public. Everything else is the owner's.
-  const locked = needsCredential && path !== "/network" && path !== "/agents";
+  const locked = isLocked(path, needsCredential);
 
   const screen = (() => {
     if (locked) return <SignIn />;
