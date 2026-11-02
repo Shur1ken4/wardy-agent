@@ -15,8 +15,8 @@ or branding may say just "Wardy" in a way that could be confused with it.
   with its expected output.
 - Don't invent endpoints, addresses, model names or SDK methods. Verify against live docs or mark
   `TODO-VERIFY`. Boring, reliable code over clever code. A judge must be able to clone and run it.
-- Commit early and often. Never commit secrets. Don't push, create a remote or make the repo public
-  without Shurik's explicit OK.
+- Commit early and often. Never commit secrets. Shurik approved pushing commits to the private `origin`
+  (2026-11-02). Force-pushing or making the repo public still needs their explicit OK.
 
 ## Safety boundary (non-negotiable)
 - **Real mainnet funds: you write the script, Shurik runs it.** You never execute a mainnet transfer,
