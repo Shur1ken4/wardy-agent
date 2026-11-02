@@ -1,0 +1,20 @@
+{
+  "network": "testnet",
+  "contractId": "wardy-agent-registry.testnet",
+  "reporter": "wardy-agent-reporter.testnet",
+  "root": "98069c6f587d11a5a06260245a2e16a2dd3da5ccc74f3c217a48b2def63ac22b",
+  "count": 6,
+  "uri": "5 reports seeded by Attack Lab, 1 from real testnet runs. Feed: config/network-feed.testnet.jsonl in the wardy-agent repo",
+  "txHash": "HqqwfzdWxs4TnVGqgCmHygAo2EE1aUidkqqAhZH5vuqp",
+  "txUrl": "https://testnet.near.rocks/tx/HqqwfzdWxs4TnVGqgCmHygAo2EE1aUidkqqAhZH5vuqp",
+  "blockHeight": "275915397",
+  "anchoredAt": "2026-11-02T15:07:49.948Z",
+  "leaves": [
+    "8addebe152387fc4bf3efe7d92bca5d87f60fd63d9cdeb097f93bc19945e37a8",
+    "e17f543eb7ce4857b410d5a7ba85ff9641d6f70e4ac600601210c222e0197c01",
+    "50aa8fa9442fc725732888611ce0ea4b0dd9c1160453a87cb64da032d773ae18",
+    "daa8c4c4b5cd82061944855508ae543de81cb6a54e88e45e6a68e145471e5492",
+    "e06c0327a92f41fa4a826ea4590f54791f4d1724483f825d422ac998443f2458",
+    "f5668300a76424090da5959388e4926defdbc91369c7fd9f82e1e16c3cdc7bf7"
+  ]
+}

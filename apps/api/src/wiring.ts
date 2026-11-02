@@ -3,18 +3,22 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   AuditLog,
   type ContextAnalyzer,
   type CustodyProvider,
   generateSigningKey,
   Ledger,
+  NetworkQuery,
   OFFLINE_TEST_SIGNING_KEY,
   type OwnerPolicy,
   OwnerPolicySchema,
   PaymentService,
   publicKeyOf,
   publishIfWarranted,
+  readAnchorRecord,
+  type ReportRules,
   ReportStore,
   SEED_PAYEES,
   type AccountFactsSource,
@@ -41,12 +45,14 @@ const DEFAULT_OWNER = "demo-owner.near";
 const MAX_LIVE_BALANCE_NEAR = 10;
 const POLICY_FILE = new URL("../../../config/policy.json", import.meta.url);
 const OUTLAYER_WALLET_FILE = ".data/outlayer-testnet.json";
+export const ANCHOR_FILE = fileURLToPath(new URL("../../../config/network-anchor.testnet.json", import.meta.url));
 const OFFLINE_FUNDS = { "nep141:wrap.near": "100", "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "100" };
 
 export interface Wiring {
   mode: Mode;
   service: PaymentService;
   reports: ReportStore;
+  network: NetworkQuery;
   custody: CustodyProvider;
   agentToken: string;
   ownerToken: string;
@@ -113,6 +119,9 @@ export interface WireOverrides {
   custody?: CustodyProvider;
   /** Offline, the demo owner starts with a past. False gives a clean slate. */
   seedHistory?: boolean;
+  anchorFile?: string;
+  /** Where testnet's throw-away secrets live, if not with the data. So a fresh ledger can keep the same reporter. */
+  secretsDir?: string;
 }
 
 export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wiring> {
@@ -146,7 +155,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     // No NearBlocks here: its testnet index is weeks behind, so its age data would be wrong.
     chainData = new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" });
     analyzer = nearAi(env);
-    const secrets = localSecrets(dataDir);
+    const secrets = localSecrets(overrides.secretsDir ?? dataDir);
     signingKey = env.WARDY_SIGNING_KEY || secrets.signingKey;
     agentToken = env.WARDY_AGENT_TOKEN || secrets.agentToken;
     ownerToken = env.WARDY_OWNER_TOKEN || secrets.ownerToken;
@@ -179,6 +188,14 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     seedOfflineHistory(ledger, fleetOwnerId, new Date());
   }
 
+  const reportRules: ReportRules = {
+    trustedReporters: new Set([await publicKeyOf(signingKey)]),
+    verifyEvidence: verifyReportEvidence,
+    allowSeedReports: mode === "offline",
+  };
+  const anchorFile = overrides.anchorFile ?? ANCHOR_FILE;
+  const network = new NetworkQuery(reports, reportRules, () => readAnchorRecord(anchorFile));
+
   const webUrl = env.WARDY_WEB_URL || "http://localhost:5173";
   const service = new PaymentService({
     ledger,
@@ -187,11 +204,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     chainData,
     ...(analyzer ? { analyzer } : {}),
     reportsFor: (payee, chain) => reports.reportsFor(payee, chain),
-    reportRules: {
-      trustedReporters: new Set([await publicKeyOf(signingKey)]),
-      verifyEvidence: verifyReportEvidence,
-      allowSeedReports: mode === "offline",
-    },
+    reportRules,
     onBlocked: (verdict) => publishIfWarranted(reports, verdict, { signingKey, createdAt: new Date().toISOString() }),
     signingKey,
     custody,
@@ -199,5 +212,5 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     policy,
     approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}?token=${token}`,
   });
-  return { mode, service, reports, custody, agentToken, ownerToken, webUrl, dataDir };
+  return { mode, service, reports, network, custody, agentToken, ownerToken, webUrl, dataDir };
 }

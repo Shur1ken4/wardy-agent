@@ -31,7 +31,7 @@ async function report(codes: SignalCode[] = ["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VER
 
 /** What an attacker with no key can do: recalculate the hash after changing a field. */
 function rehashed(tampered: NetworkReport): NetworkReport {
-  const { merkleLeaf: _leaf, reportSignature: _signature, revokedAt: _revoked, ...fields } = tampered;
+  const { merkleLeaf: _leaf, reportSignature: _signature, revokedAt: _revoked, revocationSignature: _revocation, ...fields } = tampered;
   return { ...tampered, merkleLeaf: reportLeaf(fields) };
 }
 
@@ -105,9 +105,9 @@ describe("createNetworkReport", () => {
 
   it("leaves out what changes after the decision", async () => {
     const verdict = await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { execution: { status: "refused", provider: "mock" }, networkReportId: "x" });
-    const { signedVerdict } = (await createNetworkReport(verdict, { signingKey: KEY, createdAt: AT })).evidence;
-    expect(signedVerdict).not.toHaveProperty("execution");
-    expect(signedVerdict).not.toHaveProperty("networkReportId");
+    const { publicVerdict } = (await createNetworkReport(verdict, { signingKey: KEY, createdAt: AT })).evidence;
+    expect(publicVerdict).not.toHaveProperty("execution");
+    expect(publicVerdict).not.toHaveProperty("networkReportId");
   });
 
   it("marks seed data as seed", async () => {
@@ -144,9 +144,9 @@ describe("verifyReportEvidence: anyone can check a report using only the report"
     ["a swapped verdict id", (created) => ({ ...created, evidence: { ...created.evidence, verdictId: "other" } })],
     ["a swapped request hash", (created) => ({ ...created, evidence: { ...created.evidence, requestHash: "c".repeat(64) } })],
     ["a changed target of imitation", (created) => ({ ...created, evidence: { ...created.evidence, lookalikeOf: "someone-else.near" } })],
-    ["a forged verdict inside", (created) => ({ ...created, evidence: { ...created.evidence, signedVerdict: { ...created.evidence.signedVerdict!, riskScore: 1 } } })],
+    ["a forged verdict inside", (created) => ({ ...created, evidence: { ...created.evidence, publicVerdict: { ...created.evidence.publicVerdict!, riskScore: 1 } } })],
     ["no verdict at all", (created) => {
-      const { signedVerdict: _gone, ...evidence } = created.evidence;
+      const { publicVerdict: _gone, ...evidence } = created.evidence;
       return { ...created, evidence };
     }],
   ])("rejects %s", async (_name, tamper) => {
@@ -161,7 +161,7 @@ describe("verifyReportEvidence: anyone can check a report using only the report"
     ["a seed flag added", (created) => ({ ...created, seed: true })],
     ["a changed date", (created) => ({ ...created, createdAt: "2020-01-01T00:00:00.000Z" })],
     ["a changed id", (created) => ({ ...created, reportId: "other" })],
-    ["a forged verdict inside", (created) => ({ ...created, evidence: { ...created.evidence, signedVerdict: { ...created.evidence.signedVerdict!, riskScore: 1 } } })],
+    ["a forged verdict inside", (created) => ({ ...created, evidence: { ...created.evidence, publicVerdict: { ...created.evidence.publicVerdict!, riskScore: 1 } } })],
   ])("rejects %s, even with its hash recalculated", async (_name, tamper) => {
     expect(await verifyReportEvidence(rehashed(tamper(await report())))).toBe(false);
   });
@@ -179,7 +179,7 @@ describe("verifyReportEvidence: anyone can check a report using only the report"
     ["a swapped signature", (created) => ({ ...created, evidence: { ...created.evidence, verdictSignature: "ab".repeat(64) } })],
     ["a swapped verdict id", (created) => ({ ...created, evidence: { ...created.evidence, verdictId: "other" } })],
     ["a swapped request hash", (created) => ({ ...created, evidence: { ...created.evidence, requestHash: "c".repeat(64) } })],
-    ["a verdict changed after signing", (created) => ({ ...created, evidence: { ...created.evidence, signedVerdict: { ...created.evidence.signedVerdict!, riskScore: 1 } } })],
+    ["a verdict changed after signing", (created) => ({ ...created, evidence: { ...created.evidence, publicVerdict: { ...created.evidence.publicVerdict!, riskScore: 1 } } })],
   ])("rejects %s, even signed by the real reporter", async (_name, tamper) => {
     expect(await verifyReportEvidence(await resigned(tamper(await report())))).toBe(false);
   });
@@ -237,14 +237,32 @@ describe("ReportStore", () => {
     const created = await report();
     const store = new ReportStore(path);
     store.add(created);
-    expect(store.revoke(created.reportId, AT)).toBe(true);
+    expect(await store.revoke(created.reportId, AT, KEY)).toBe(true);
     const lines = readFileSync(path, "utf8").trim().split("\n");
     expect(lines).toHaveLength(2); // A revocation is a new line, not a rewrite.
     expect(new ReportStore(path).all()[0]?.revokedAt).toBe(AT);
   });
 
-  it("can't revoke what isn't there", () => {
-    expect(new ReportStore().revoke("nope", AT)).toBe(false);
+  it("can't revoke what isn't there", async () => {
+    expect(await new ReportStore().revoke("nope", AT, KEY)).toBe(false);
+  });
+
+  it("only the reporter can revoke", async () => {
+    const store = new ReportStore();
+    const created = await report();
+    store.add(created);
+    expect(await store.revoke(created.reportId, AT, generateSigningKey())).toBe(false);
+    expect(store.lines()).toHaveLength(1);
+    expect(store.all()[0]?.revokedAt).toBeUndefined();
+  });
+
+  it("revoking twice keeps the first", async () => {
+    const store = new ReportStore();
+    const created = await report();
+    store.add(created);
+    expect(await store.revoke(created.reportId, AT, KEY)).toBe(true);
+    expect(await store.revoke(created.reportId, "2030-01-01T00:00:00.000Z", KEY)).toBe(false);
+    expect(store.all()[0]?.revokedAt).toBe(AT);
   });
 
   it("a revoked report stops counting at once", async () => {
@@ -253,7 +271,7 @@ describe("ReportStore", () => {
     store.add(created);
     const rules: ReportRules = { trustedReporters: new Set([created.reporter]), verifyEvidence: verifyReportEvidence, allowSeedReports: false };
     expect(await networkSignals({ payee: "acme-sh0p.near", chain: "near" }, store.all(), [], rules)).toHaveLength(1);
-    store.revoke(created.reportId, AT);
+    await store.revoke(created.reportId, AT, KEY);
     expect(await networkSignals({ payee: "acme-sh0p.near", chain: "near" }, store.all(), [], rules)).toEqual([]);
   });
 });
@@ -277,7 +295,7 @@ describe("publishIfWarranted", () => {
   it("can report again after a revocation", async () => {
     const store = new ReportStore();
     const id = (await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT })) as string;
-    store.revoke(id, AT);
+    await store.revoke(id, AT, KEY);
     expect(await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT })).toBeDefined();
   });
 

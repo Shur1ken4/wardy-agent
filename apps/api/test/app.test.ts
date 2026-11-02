@@ -1,4 +1,4 @@
-import { AuditLog, DEFAULT_POLICY, generateSigningKey, type HoldNotice, Ledger, PaymentService, signVerdict, verifyVerdict, WNEAR_ASSET } from "@wardy-agent/core";
+import { AuditLog, DEFAULT_POLICY, generateSigningKey, type HoldNotice, Ledger, NetworkQuery, PaymentService, ReportStore, signVerdict, verifyVerdict, WNEAR_ASSET } from "@wardy-agent/core";
 import { MockChainData, MockCustody, OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
@@ -29,7 +29,7 @@ async function harness(options: Partial<AppOptions> = {}) {
   service.on("hold", (notice) => holds.push(notice));
   const app = await buildApp({
     service,
-    reports: { reportsFor: () => [], recent: () => [] },
+    network: new NetworkQuery(new ReportStore(), { trustedReporters: new Set(), verifyEvidence: () => false, allowSeedReports: false }, () => null),
     agentToken: AGENT_TOKEN,
     ownerToken: OWNER_TOKEN,
     mode: "offline",
@@ -401,7 +401,7 @@ describe("reads", () => {
   it("the network lookup says honestly when there's nothing", async () => {
     const { app } = await harness();
     expect((await app.inject({ method: "GET", url: "/v1/network/payee/near/acme-sh0p.near" })).json()).toMatchObject({ reported: false, reports: [] });
-    expect((await app.inject({ method: "GET", url: "/v1/network/reports" })).json()).toEqual({ reports: [] });
+    expect((await app.inject({ method: "GET", url: "/v1/network/reports" })).json()).toEqual({ reports: [], anchor: null });
   });
 
   it("stats come from real verdicts, and earnings stay empty until something is earned", async () => {

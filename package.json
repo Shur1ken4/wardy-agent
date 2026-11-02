@@ -32,8 +32,9 @@
     "agent": "tsx apps/demo-agent/src/cli.ts",
     "dev": "tsx apps/api/src/server.ts",
     "verify-audit": "tsx scripts/verify-audit.ts",
-    "network:seed": "node scripts/not-built-yet.mjs network:seed 5",
-    "network:anchor": "node scripts/not-built-yet.mjs network:anchor 5",
+    "network:seed": "tsx scripts/seed-network.ts",
+    "network:anchor": "tsx scripts/network-anchor.ts",
+    "network:verify": "tsx scripts/network-verify.ts",
     "walkthrough": "tsx scripts/walkthrough.ts",
     "mcp:config": "tsx scripts/mcp-config.ts"
   },

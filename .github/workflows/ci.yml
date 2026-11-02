@@ -27,6 +27,9 @@ jobs:
         run: git diff --exit-code -- apps/attack-lab/results
       - name: Every verdict in the results is signed and chained
         run: npm run verify-audit -- apps/attack-lab/results/audit.jsonl
+      # The chain isn't asked here, so an RPC outage can't fail CI. Without --offline, the same command asks it too.
+      - name: The anchored Wardy Network feed verifies
+        run: npm run network:verify -- --offline
       - name: The demo prints its summary with no keys
         run: |
           npm run demo -- --offline | tee demo-output.txt

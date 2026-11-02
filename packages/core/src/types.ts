@@ -111,6 +111,28 @@ export interface Verdict {
   createdAt: string;
 }
 
+/**
+ * The part of a verdict a public report may show. The signature covers these fields plus `privateHash`, a hash of the
+ * rest, so anyone can check it without learning the amount, the asset, or who the owner has paid before.
+ */
+export interface PublicVerdict {
+  verdictId: string;
+  mode: Verdict["mode"];
+  requestHash: string;
+  payee: string;
+  chain: Chain;
+  decision: Verdict["decision"];
+  riskScore: number;
+  wardyPublicKey: string;
+  createdAt: string;
+  /** What counted against the payee. Limits are left out: they're the owner's business, not evidence. */
+  codes: string[];
+  lookalikeOf?: string;
+  attestationRef?: string;
+  privateHash: string;
+  signature: string;
+}
+
 export interface NetworkReport {
   reportId: string;
   payee: string;
@@ -124,8 +146,8 @@ export interface NetworkReport {
     requestHash: string;
     attestationRef?: string;
     lookalikeOf?: string;
-    /** The signed verdict itself, so anyone can check this report without asking us. Has no context text. */
-    signedVerdict?: Omit<Verdict, "execution" | "networkReportId">;
+    /** The public part of the signed verdict, so anyone can check this report without asking us. */
+    publicVerdict?: PublicVerdict;
   };
   /** Public key of the Wardy Agent instance that reported. */
   reporter: string;
@@ -137,6 +159,8 @@ export interface NetworkReport {
   seed?: boolean;
   /** Set when the reporter withdraws the report. A revoked report no longer counts. */
   revokedAt?: string;
+  /** The reporter's signature over the revocation. Without a valid one, `revokedAt` is ignored. */
+  revocationSignature?: string;
 }
 
 export interface AccountFacts {

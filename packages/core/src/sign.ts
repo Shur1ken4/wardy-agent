@@ -2,7 +2,7 @@ import * as ed from "@noble/ed25519";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { canonicalJson } from "./canonical.js";
 import { sha256Hex } from "./hash.js";
-import type { Verdict } from "./types.js";
+import type { PublicVerdict, Verdict } from "./types.js";
 
 /** Public on purpose: offline demos need a key that works for everyone. The UI labels it as a test key. */
 export const OFFLINE_TEST_SIGNING_KEY = sha256Hex("wardy-agent offline test key, public on purpose");
@@ -31,36 +31,57 @@ export async function verifyText(text: string, signature: string, publicKey: str
 export type UnsignedVerdict = Omit<Verdict, "signature" | "wardyPublicKey">;
 
 /**
- * What the signature covers: the decision and the exact payment. It's a list, not "everything else", so a
- * display field added to a verdict later can't break verification. `execution` and `networkReportId` change after
- * the decision, and a report quotes this signature, so neither can be in it; the audit chain covers them.
+ * What the signature covers: the decision and the exact payment, in two layers. The public layer is listed field by
+ * field, so a display field added to a verdict later can't break verification. The private layer goes in as a hash, so
+ * a public report can show the first and still prove the signature, without revealing the amount or the owner's payment
+ * history. The private layer holds a random `requestId`, so its hash can't be guessed by trying amounts. `execution` and
+ * `networkReportId` change after the decision, and a report quotes this signature, so neither can be in it; the audit
+ * chain covers them.
  */
-const SIGNED_FIELDS = [
-  "verdictId",
-  "requestId",
-  "mode",
-  "requestHash",
-  "payee",
-  "chain",
-  "asset",
-  "amount",
-  "decision",
-  "riskScore",
-  "signals",
-  "reasons",
-  "ai",
-  "wardyPublicKey",
-  "createdAt",
-] as const satisfies readonly (keyof Verdict)[];
+function publicPart(verdict: Omit<Verdict, "signature">): Omit<PublicVerdict, "signature"> {
+  const { verdictId, mode, requestHash, payee, chain, decision, riskScore, wardyPublicKey, createdAt } = verdict;
+  const { requestId, asset, amount, signals, reasons, ai } = verdict;
+  const lookalikeOf = signals.find((signal) => signal.detector === "lookalike" && typeof signal.evidence.lookalikeOf === "string")?.evidence.lookalikeOf as string | undefined;
+  return {
+    verdictId,
+    mode,
+    requestHash,
+    payee,
+    chain,
+    decision,
+    riskScore,
+    wardyPublicKey,
+    createdAt,
+    // KNOWN_PAYEE scores below zero, but stays visible: the signature has to say if a report's target was a real payee.
+    codes: signals.filter((signal) => (signal.points > 0 && signal.detector !== "policy") || signal.code === "KNOWN_PAYEE").map((signal) => signal.code),
+    ...(lookalikeOf ? { lookalikeOf } : {}),
+    ...(ai?.attestationRef ? { attestationRef: ai.attestationRef } : {}),
+    privateHash: sha256Hex(canonicalJson({ requestId, asset, amount, signals, reasons, ai })),
+  };
+}
 
-function signedBytes(verdict: Omit<Verdict, "signature">): Uint8Array {
-  const payload = Object.fromEntries(SIGNED_FIELDS.map((field) => [field, verdict[field]]));
-  return utf8ToBytes(canonicalJson(payload));
+const signedBytes = (part: Omit<PublicVerdict, "signature">): Uint8Array => utf8ToBytes(canonicalJson(part));
+
+export function publicVerdictOf(verdict: Verdict): PublicVerdict {
+  return { ...publicPart(verdict), signature: verdict.signature };
+}
+
+/** Checks a verdict from its public part alone. Pass `expectedPublicKey` to also prove who signed it. */
+export async function verifyPublicVerdict(part: PublicVerdict, expectedPublicKey?: string): Promise<boolean> {
+  if (expectedPublicKey !== undefined && part.wardyPublicKey !== expectedPublicKey) return false;
+  try {
+    const { signature, ...signed } = part;
+    return await ed.verifyAsync(hexToBytes(signature), signedBytes(signed), hexToBytes(part.wardyPublicKey), {
+      zip215: false, // RFC 8032's stricter rules, so a signature has one valid form.
+    });
+  } catch {
+    return false;
+  }
 }
 
 export async function signVerdict(unsigned: UnsignedVerdict, signingKey: string): Promise<Verdict> {
   const withKey = { ...unsigned, wardyPublicKey: await publicKeyOf(signingKey) };
-  const signature = await ed.signAsync(signedBytes(withKey), hexToBytes(signingKey));
+  const signature = await ed.signAsync(signedBytes(publicPart(withKey)), hexToBytes(signingKey));
   return { ...withKey, signature: bytesToHex(signature) };
 }
 
@@ -70,11 +91,8 @@ export async function signVerdict(unsigned: UnsignedVerdict, signingKey: string)
  * who signed it.
  */
 export async function verifyVerdict(verdict: Verdict, expectedPublicKey?: string): Promise<boolean> {
-  if (expectedPublicKey !== undefined && verdict.wardyPublicKey !== expectedPublicKey) return false;
   try {
-    return await ed.verifyAsync(hexToBytes(verdict.signature), signedBytes(verdict), hexToBytes(verdict.wardyPublicKey), {
-      zip215: false, // RFC 8032's stricter rules, so a signature has one valid form.
-    });
+    return await verifyPublicVerdict(publicVerdictOf(verdict), expectedPublicKey);
   } catch {
     return false;
   }

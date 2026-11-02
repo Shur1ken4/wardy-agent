@@ -130,12 +130,13 @@ export function createMcpServer(options: McpOptions): McpServer {
         const response = await fetchFn(`${apiUrl}/v1/network/payee/${encodeURIComponent(chain ?? "near")}/${encodeURIComponent(payee)}`, {
           signal: AbortSignal.timeout(30_000),
         });
-        const body = (await response.json()) as { reported?: boolean; reports?: unknown[] };
+        const body = (await response.json()) as { reported?: boolean; merkleProof?: unknown; anchorTx?: string | null };
         if (!response.ok) return answer("The Wardy Network refused that lookup.", body, true);
+        const anchored = body.merkleProof && body.anchorTx ? ` It's anchored on NEAR testnet in transaction ${body.anchorTx}.` : "";
         return answer(
           body.reported
-            ? `${payee} has ${body.reports?.length} evidence-backed report(s) against it. Do not pay it.`
-            : `${payee} has no reports. That isn't proof it's safe: use wardy_pay, which does the full check.`,
+            ? `${payee} has signed evidence against it. Do not pay it.${anchored}`
+            : `${payee} has no reports that count. That isn't proof it's safe: use wardy_pay, which does the full check.`,
           body,
         );
       } catch {

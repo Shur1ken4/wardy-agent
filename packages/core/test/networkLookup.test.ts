@@ -100,8 +100,9 @@ describe("anti-poisoning", () => {
     expect(await isValidReport({ ...report(), evidence: undefined } as unknown as NetworkReport, rules)).toBe(false);
   });
 
-  it("a revoked report no longer counts", async () => {
-    expect(await codes([report({ revokedAt: "2026-11-05T13:00:00.000Z" })])).toEqual([]);
+  it("a revocation nobody signed can't get a payee off the list", async () => {
+    expect(await codes([report({ revokedAt: "2026-11-05T13:00:00.000Z" })])).toEqual(["NETWORK_REPORTED_SCAM"]);
+    expect(await codes([report({ revokedAt: "2026-11-05T13:00:00.000Z", revocationSignature: "ab".repeat(64) })])).toEqual(["NETWORK_REPORTED_SCAM"]);
   });
 
   it("seed fixtures never count in live decisions", async () => {

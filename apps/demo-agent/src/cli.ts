@@ -64,7 +64,7 @@ if (running) {
   const dataDir = mkdtempSync(join(tmpdir(), "wardy-agent-demo-"));
   const wiring = await wire({ WARDY_MODE: "offline" }, { dataDir });
   wiring.service.on("hold", ({ approvalUrl }) => console.log(`\nThe owner, and only the owner, gets this link: ${approvalUrl}`));
-  const app = await buildApp({ service: wiring.service, reports: wiring.reports, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
+  const app = await buildApp({ service: wiring.service, network: wiring.network, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
   apiUrl = await app.listen({ host: "127.0.0.1", port: 0 });
   agentToken = wiring.agentToken;
   ownerId = wiring.service.fleetOwnerId;

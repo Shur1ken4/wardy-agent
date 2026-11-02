@@ -4,6 +4,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { holdoutLine, runOffline, summaryLines } from "@wardy-agent/attack-lab";
+import { ANCHOR_FILE } from "@wardy-agent/api";
+import { feedLineLeaf, readAnchorRecord } from "@wardy-agent/core";
 
 const offline = process.argv.includes("--offline");
 if (!offline && existsSync(".env")) process.loadEnvFile(".env");
@@ -21,12 +23,19 @@ if (mode === "live") {
   process.exit(0);
 }
 
-const { run, holdout, meta } = await runOffline();
+const { run, holdout, meta, network } = await runOffline();
 console.log(`Wardy Agent demo: ${run.scenarios.length} scenarios, with and without it, on mock ledgers. No keys, no funds.\n`);
 for (const line of summaryLines(run)) console.log(line);
 // The headline alone would flatter: those scenarios were written alongside the rules.
 console.log(`\n${holdoutLine(holdout)}`);
 console.log(`Private AI: ${meta.aiSource}`);
+
+// Only claims an anchor for what this run really produced. The chain itself is checked by network:verify.
+const anchor = readAnchorRecord(ANCHOR_FILE);
+const leaves = network.lines().map(feedLineLeaf);
+const anchored = anchor !== null && leaves.length > 0 && leaves.every((leaf) => anchor.leaves.includes(leaf));
+console.log(`Wardy Network: this run produced ${network.all().length} signed reports, labelled as seed.`);
+console.log(anchored ? `Their root is anchored on NEAR testnet: ${anchor.txUrl}\nCheck it yourself: npm run network:verify` : "They aren't anchored yet: the Attack Lab's output changed since the last anchor.");
 console.log("Full results: apps/attack-lab/results/latest.md");
 
 const problems = run.scenarios.flatMap((scenario) => scenario.problems.map((problem) => `${scenario.id}: ${problem}`));

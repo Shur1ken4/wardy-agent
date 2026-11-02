@@ -1,8 +1,9 @@
 // Network lookup. One valid, evidence-backed report is enough, and nothing here counts or votes, so a thousand
-// fake reports weigh exactly as much as none. Phase 5 adds report creation and Merkle proofs.
+// fake reports weigh exactly as much as none.
 import { makeSignal } from "../config.js";
 import { type KnownPayee, samePayee } from "../ledger.js";
 import type { Chain, NetworkReport, Signal } from "../types.js";
+import { verifyRevocation } from "./report.js";
 
 export interface ReportRules {
   trustedReporters: ReadonlySet<string>;
@@ -13,7 +14,7 @@ export interface ReportRules {
 }
 
 export async function isValidReport(report: NetworkReport, rules: ReportRules): Promise<boolean> {
-  if (report.revokedAt) return false;
+  if (await verifyRevocation(report)) return false;
   if (report.seed && !rules.allowSeedReports) return false;
   if (!rules.trustedReporters.has(report.reporter)) return false;
   const { verdictId, verdictSignature, requestHash } = report.evidence ?? {};

@@ -3,12 +3,12 @@ import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AuditLog, type ContextAnalyzer, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
+import { AuditLog, type ContextAnalyzer, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, serializeFeed, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
 import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
 import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines, totalsOf } from "../src/lab.js";
-import { HOLDOUT_DIR, holdoutLine, runOffline } from "../src/offline.js";
+import { HOLDOUT_DIR, holdoutLine, runOffline, SEED_FEED_FILE } from "../src/offline.js";
 import { toJson, toMarkdown } from "../src/results.js";
 
 const scenarios = loadScenarios();
@@ -264,6 +264,30 @@ describe("the results", () => {
     expect(network.all().length).toBeGreaterThan(0);
     for (const report of network.all()) expect(await verifyReportEvidence(report), report.payee).toBe(true);
     expect(JSON.stringify(network.all())).not.toContain("our account has moved");
+    expect(network.all().every((report) => report.seed === true)).toBe(true);
+  });
+
+  it("the committed seed feed is exactly what a fresh run produces", () => {
+    expect(readFileSync(SEED_FEED_FILE, "utf8")).toBe(serializeFeed(offline.network.lines()));
+  });
+
+  it("the seed feed quotes nothing an agent read, in any scenario", () => {
+    const feed = serializeFeed(offline.network.lines()).toLowerCase();
+    const private_ = scenarios.flatMap((scenario) => Object.values(scenario.files).flatMap((text) => text.split(/\n|(?<=[.!?:])\s/)));
+    // Whole sentences only: a line that's just the payee's name is public, because a report has to name its payee.
+    const sentences = private_.map((line) => line.trim().toLowerCase()).filter((line) => line.length >= 20 && line.includes(" "));
+    expect(sentences.length).toBeGreaterThan(20);
+    for (const sentence of sentences) expect(feed, sentence).not.toContain(sentence);
+  });
+
+  it("the seed feed shows no amount or payment history", () => {
+    const feed = serializeFeed(offline.network.lines());
+    for (const key of ["\"amount\"", "\"asset\"", "paidCount", "\"reasons\"", "\"signals\"", "paid 3 times", "procure-bot", "demo-owner"]) expect(feed, key).not.toContain(key);
+  });
+
+  it("only accuses names we've checked are unregistered: every one is in the fixture list check:fixtures runs on", () => {
+    const fixtureNames = Object.keys(JSON.parse(readFileSync(fileURLToPath(new URL("../../../packages/providers/fixtures/accounts.json", import.meta.url)), "utf8")));
+    for (const report of offline.network.all()) expect(fixtureNames, report.payee).toContain(report.payee);
   });
 });
 

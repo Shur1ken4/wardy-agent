@@ -13,7 +13,7 @@ try {
   const { mode, service } = wiring;
   const app = await buildApp({
     service,
-    reports: wiring.reports,
+    network: wiring.network,
     agentToken: wiring.agentToken,
     ownerToken: wiring.ownerToken,
     mode,

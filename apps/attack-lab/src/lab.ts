@@ -9,12 +9,14 @@ import {
   type ContextAnalyzer,
   formatDecimal,
   Ledger,
+  NetworkQuery,
   normalizeAsset,
   OFFLINE_TEST_SIGNING_KEY,
   parseDecimal,
   PaymentService,
   publicKeyOf,
   publishIfWarranted,
+  type ReportRules,
   ReportStore,
   SEED_PAYEES,
   USDC_ASSET,
@@ -180,6 +182,12 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
   const ledger = new Ledger();
   seedOfflineHistory(ledger, FLEET_OWNER, now(), newId);
   let approvalUrl = "";
+  // Every report made here is demo data, on names checked to be unregistered, and it's labelled as seed.
+  const reportRules: ReportRules = {
+    trustedReporters: new Set([await publicKeyOf(OFFLINE_TEST_SIGNING_KEY)]),
+    verifyEvidence: verifyReportEvidence,
+    allowSeedReports: true,
+  };
   const service = new PaymentService({
     ledger,
     audit: ctx.audit,
@@ -187,12 +195,8 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
     chainData: new MockChainData(OFFLINE_ACCOUNTS, now),
     ...(ctx.analyzer ? { analyzer: ctx.analyzer } : {}),
     reportsFor: (payee, chain) => ctx.network.reportsFor(payee, chain),
-    reportRules: {
-      trustedReporters: new Set([await publicKeyOf(OFFLINE_TEST_SIGNING_KEY)]),
-      verifyEvidence: verifyReportEvidence,
-      allowSeedReports: false,
-    },
-    onBlocked: (verdict) => publishIfWarranted(ctx.network, verdict, { signingKey: OFFLINE_TEST_SIGNING_KEY, createdAt: now().toISOString(), reportId: newId() }),
+    reportRules,
+    onBlocked: (verdict) => publishIfWarranted(ctx.network, verdict, { signingKey: OFFLINE_TEST_SIGNING_KEY, createdAt: now().toISOString(), reportId: newId(), seed: true }),
     signingKey: OFFLINE_TEST_SIGNING_KEY,
     now,
     newId,
@@ -206,7 +210,7 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
   });
   const app = await buildApp({
     service,
-    reports: ctx.network,
+    network: new NetworkQuery(ctx.network, reportRules, () => null),
     agentToken: OFFLINE_AGENT_TOKEN,
     ownerToken: OFFLINE_OWNER_TOKEN,
     mode: "offline",

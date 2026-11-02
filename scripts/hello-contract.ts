@@ -1,21 +1,17 @@
 // `npm run hello:contract`: deploys the registry to NEAR **testnet** and anchors a dummy root. Free test
-// tokens only. Safe to re-run: it skips what's already done and anchors one more dummy root each time.
+// tokens only. Safe to re-run: it skips what's already done. It anchors one more dummy root each time, until a real
+// feed is anchored. After that it never does, because a dummy would replace the real root as the latest.
 // Keys stay in the git-ignored .data/ folder. The public addresses go in config/registry.testnet.json.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { actions } from "near-api-js";
-import { EXPLORER, ensureAccount, loadKeys, provider, txLink } from "./testnet.js";
+import { type AnchoredRoot, DUMMY_URI, latestRoot, mayAnchorDummy, REGISTRY_ID, REPORTER_ID, view } from "./registry.js";
+import { EXPLORER, ensureAccount, loadKeys, txLink } from "./testnet.js";
 
 const WASM = "contracts/registry/target/near/wardy_network_registry.wasm";
 const CONFIG_FILE = "config/registry.testnet.json";
-const REGISTRY_ID = "wardy-agent-registry.testnet";
-const REPORTER_ID = "wardy-agent-reporter.testnet";
 const TGAS_30 = 30_000_000_000_000n;
 const TGAS_100 = 100_000_000_000_000n;
-
-async function view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-  return provider.callFunction({ contractId: REGISTRY_ID, method, args }) as Promise<T>;
-}
 
 async function isDeployed(): Promise<boolean> {
   try {
@@ -24,14 +20,6 @@ async function isDeployed(): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-interface AnchoredRoot {
-  root: string;
-  count: number;
-  uri: string;
-  block_height: string;
-  reporter: string;
 }
 
 async function main() {
@@ -64,7 +52,7 @@ async function main() {
   }
 
   // The owner isn't a registered reporter, so this has to fail on-chain.
-  const before = await view<AnchoredRoot | null>("get_latest_root");
+  const before = await latestRoot();
   const count = (before?.count ?? 0) + 1;
   try {
     await registry.signAndSendTransaction({
@@ -77,9 +65,14 @@ async function main() {
     console.log(`Refused:     an unregistered account can't anchor (${(error as Error).message.slice(0, 90)})`);
   }
 
-  // A dummy root, labelled as one. The real report feed arrives in Phase 5.
+  if (!mayAnchorDummy(before)) {
+    console.log(`Not anchoring a dummy root: the contract holds a real feed (${before?.count} leaves). Check it with: npm run network:verify`);
+    return;
+  }
+
+  // A dummy root, labelled as one.
   const root = createHash("sha256").update(`wardy-agent hello anchor ${count}`).digest("hex");
-  const uri = "hello-contract dummy root, not a real report feed";
+  const uri = DUMMY_URI;
   const anchored = await reporter.signAndSendTransaction({
     receiverId: REGISTRY_ID,
     actions: [actions.functionCall("anchor_root", { root, count, uri }, TGAS_30, 0n)],

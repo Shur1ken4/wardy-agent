@@ -88,6 +88,20 @@ describe("tools", () => {
     expect(result.content[0]?.text).toContain("isn't proof");
   });
 
+  it("wardy_network_lookup says not to pay, without counting anything, and names the anchor", async () => {
+    const client = await connect(recording(200, { reported: true, reports: [{}, {}], merkleProof: { root: "abc" }, anchorTx: "TX123" }).fetchFn);
+    const result = (await client.callTool({ name: "wardy_network_lookup", arguments: { payee: "x.near" } })) as ToolResult;
+    expect(result.content[0]?.text).toContain("Do not pay it");
+    expect(result.content[0]?.text).toContain("TX123");
+    expect(result.content[0]?.text).not.toMatch(/\b2\b/);
+  });
+
+  it("wardy_network_lookup doesn't claim an anchor it wasn't given", async () => {
+    const client = await connect(recording(200, { reported: true, reports: [{}], merkleProof: null, anchorTx: "TX123" }).fetchFn);
+    const result = (await client.callTool({ name: "wardy_network_lookup", arguments: { payee: "x.near" } })) as ToolResult;
+    expect(result.content[0]?.text).not.toContain("anchored");
+  });
+
   it("returns a summary and the full verdict", async () => {
     const verdict = { decision: "BLOCK", payee: "x.near", amount: "2", reasons: ["Looks like a payee you paid."], execution: { status: "refused" } };
     const client = await connect(recording(200, verdict).fetchFn);
@@ -170,7 +184,7 @@ describe("end to end over stdio", () => {
     dir = mkdtempSync(join(tmpdir(), "wardy-agent-mcp-"));
     const wiring = await wire({ WARDY_MODE: "offline" }, { dataDir: dir, seedHistory: false });
     ownerId = wiring.service.fleetOwnerId;
-    const app = await buildApp({ service: wiring.service, reports: wiring.reports, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
+    const app = await buildApp({ service: wiring.service, network: wiring.network, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
     client = new Client({ name: "end-to-end", version: "1" });
     await client.connect(

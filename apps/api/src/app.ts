@@ -4,14 +4,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
-import { type NetworkReport, type PaymentService, RequestIdConflictError, ServiceError, type Verdict } from "@wardy-agent/core";
+import { type NetworkSource, type PaymentService, RequestIdConflictError, ServiceError, type Verdict } from "@wardy-agent/core";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from "fastify";
 import { z, ZodError } from "zod";
-
-export interface ReportSource {
-  reportsFor(payee: string, chain: string): NetworkReport[];
-  recent(limit: number): NetworkReport[];
-}
 
 export interface Earnings {
   checksSold: number;
@@ -20,7 +15,7 @@ export interface Earnings {
 
 export interface AppOptions {
   service: PaymentService;
-  reports: ReportSource;
+  network: NetworkSource;
   /** Lets a worker agent ask to pay. It isn't a spend grant, and it can't approve anything. */
   agentToken: string;
   /** Lets the owner freeze, unfreeze and see what's waiting. */
@@ -28,6 +23,7 @@ export interface AppOptions {
   mode: string;
   corsOrigins?: string[];
   checkRateLimitPerMinute?: number;
+  networkRateLimitPerMinute?: number;
   logger?: boolean | object;
   earnings?(): Earnings;
 }
@@ -54,7 +50,7 @@ function requireToken(request: FastifyRequest, expected: string) {
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
-  const { service, reports } = options;
+  const { service, network } = options;
   const corsOrigins = options.corsOrigins ?? ["http://localhost:5173", "http://127.0.0.1:5173"];
   const app = Fastify({
     logger: (options.logger ?? false) as boolean | FastifyBaseLogger,
@@ -152,17 +148,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ownerId: service.fleetOwnerId,
   }));
 
-  app.get("/v1/network/payee/:chain/:payee", async (request) => {
+  // Free so agents use it, but limited: each answer checks signatures.
+  const networkLimit = { config: { rateLimit: { max: options.networkRateLimitPerMinute ?? 120, timeWindow: "1 minute" } } };
+
+  app.get("/v1/network/payee/:chain/:payee", networkLimit, async (request) => {
     const { chain, payee } = PayeeParams.parse(request.params);
-    const found = reports.reportsFor(payee, chain);
-    // Proofs and the anchored root arrive with the Wardy Network in Phase 5.
-    return { reported: found.length > 0, reports: found, merkleProof: null, anchoredRoot: null, anchorTx: null };
+    return network.lookup(payee, chain);
   });
 
-  app.get("/v1/network/reports", async (request) => {
-    const { limit } = LimitQuery.parse(request.query);
-    return { reports: reports.recent(limit) };
-  });
+  app.get("/v1/network/reports", networkLimit, async (request) => network.feed(LimitQuery.parse(request.query).limit));
 
   app.get("/v1/stats", async () => ({
     ...service.stats(),
