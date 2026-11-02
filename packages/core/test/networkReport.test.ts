@@ -6,7 +6,7 @@ import { makeSignal, type SignalCode } from "../src/config.js";
 import { isValidReport, networkSignals, type ReportRules } from "../src/network/lookup.js";
 import { createNetworkReport, evidenceFamilies, reportLeaf, shouldPublishReport, verifyReportEvidence } from "../src/network/report.js";
 import { publishIfWarranted, ReportStore } from "../src/network/store.js";
-import { generateSigningKey, publicKeyOf, signVerdict } from "../src/sign.js";
+import { generateSigningKey, publicKeyOf, signText, signVerdict } from "../src/sign.js";
 import type { NetworkReport, Verdict } from "../src/types.js";
 import { makeUnsignedVerdict, NOW } from "./helpers.js";
 
@@ -26,7 +26,19 @@ function blocked(codes: SignalCode[], overrides: Partial<Verdict> = {}, key = KE
 }
 
 async function report(codes: SignalCode[] = ["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"]): Promise<NetworkReport> {
-  return createNetworkReport(await blocked(codes), { createdAt: AT });
+  return createNetworkReport(await blocked(codes), { signingKey: KEY, createdAt: AT });
+}
+
+/** What an attacker with no key can do: recalculate the hash after changing a field. */
+function rehashed(tampered: NetworkReport): NetworkReport {
+  const { merkleLeaf: _leaf, reportSignature: _signature, revokedAt: _revoked, ...fields } = tampered;
+  return { ...tampered, merkleLeaf: reportLeaf(fields) };
+}
+
+/** What a buggy or dishonest reporter could do, holding the real key: sign whatever it likes. */
+async function resigned(tampered: NetworkReport, key = KEY): Promise<NetworkReport> {
+  const sealed = rehashed(tampered);
+  return { ...sealed, reportSignature: await signText(sealed.merkleLeaf, key) };
 }
 
 describe("shouldPublishReport", () => {
@@ -76,7 +88,7 @@ describe("shouldPublishReport", () => {
 describe("createNetworkReport", () => {
   it("carries the evidence, and says what it imitates", async () => {
     const verdict = await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"]);
-    const created = createNetworkReport(verdict, { createdAt: AT });
+    const created = await createNetworkReport(verdict, { signingKey: KEY, createdAt: AT });
     expect(created).toMatchObject({
       payee: "acme-sh0p.near",
       chain: "near",
@@ -93,20 +105,20 @@ describe("createNetworkReport", () => {
 
   it("leaves out what changes after the decision", async () => {
     const verdict = await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { execution: { status: "refused", provider: "mock" }, networkReportId: "x" });
-    const { signedVerdict } = createNetworkReport(verdict, { createdAt: AT }).evidence;
+    const { signedVerdict } = (await createNetworkReport(verdict, { signingKey: KEY, createdAt: AT })).evidence;
     expect(signedVerdict).not.toHaveProperty("execution");
     expect(signedVerdict).not.toHaveProperty("networkReportId");
   });
 
   it("marks seed data as seed", async () => {
-    const created = createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"]), { createdAt: AT, seed: true });
+    const created = await createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"]), { signingKey: KEY, createdAt: AT, seed: true });
     expect(created.seed).toBe(true);
     expect(await verifyReportEvidence(created)).toBe(true);
   });
 
   it("a leaf commits to the report: change a field, and the leaf changes", async () => {
     const created = await report();
-    const { merkleLeaf: _leaf, ...withoutLeaf } = created;
+    const { merkleLeaf: _leaf, reportSignature: _signature, ...withoutLeaf } = created;
     expect(reportLeaf(withoutLeaf)).toBe(created.merkleLeaf);
     expect(reportLeaf({ ...withoutLeaf, payee: "other.near" })).not.toBe(created.merkleLeaf);
   });
@@ -141,14 +153,54 @@ describe("verifyReportEvidence: anyone can check a report using only the report"
     expect(await verifyReportEvidence(tamper(await report()))).toBe(false);
   });
 
+  // The signature is what stops these: recalculating the hash is free, so it can't be what's trusted.
+  it.each<[string, (created: NetworkReport) => NetworkReport]>([
+    ["a report about someone else", (created) => ({ ...created, payee: "innocent.near" })],
+    ["added reasons", (created) => ({ ...created, codes: [...created.codes, "NETWORK_REPORTED_SCAM"] })],
+    ["a changed target of imitation", (created) => ({ ...created, evidence: { ...created.evidence, lookalikeOf: "someone-else.near" } })],
+    ["a seed flag added", (created) => ({ ...created, seed: true })],
+    ["a changed date", (created) => ({ ...created, createdAt: "2020-01-01T00:00:00.000Z" })],
+    ["a changed id", (created) => ({ ...created, reportId: "other" })],
+    ["a forged verdict inside", (created) => ({ ...created, evidence: { ...created.evidence, signedVerdict: { ...created.evidence.signedVerdict!, riskScore: 1 } } })],
+  ])("rejects %s, even with its hash recalculated", async (_name, tamper) => {
+    expect(await verifyReportEvidence(rehashed(tamper(await report())))).toBe(false);
+  });
+
+  it("rejects a seed flag stripped from a seed report", async () => {
+    const seeded = await createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"]), { signingKey: KEY, createdAt: AT, seed: true });
+    const { seed: _seed, ...stripped } = seeded;
+    expect(await verifyReportEvidence(rehashed(stripped))).toBe(false);
+  });
+
+  // The evidence checks stop these: even a signature from the real key can't make the evidence say something else.
+  it.each<[string, (created: NetworkReport) => NetworkReport]>([
+    ["real evidence about one payee on a report about another", (created) => ({ ...created, payee: "innocent.near" })],
+    ["another chain", (created) => ({ ...created, chain: "base" })],
+    ["a swapped signature", (created) => ({ ...created, evidence: { ...created.evidence, verdictSignature: "ab".repeat(64) } })],
+    ["a swapped verdict id", (created) => ({ ...created, evidence: { ...created.evidence, verdictId: "other" } })],
+    ["a swapped request hash", (created) => ({ ...created, evidence: { ...created.evidence, requestHash: "c".repeat(64) } })],
+    ["a verdict changed after signing", (created) => ({ ...created, evidence: { ...created.evidence, signedVerdict: { ...created.evidence.signedVerdict!, riskScore: 1 } } })],
+  ])("rejects %s, even signed by the real reporter", async (_name, tamper) => {
+    expect(await verifyReportEvidence(await resigned(tamper(await report())))).toBe(false);
+  });
+
+  it("rejects a report signed by someone other than its named reporter", async () => {
+    expect(await verifyReportEvidence(await resigned(await report(), generateSigningKey()))).toBe(false);
+  });
+
+  it("rejects a garbage signature without throwing", async () => {
+    expect(await verifyReportEvidence({ ...(await report()), reportSignature: "zz" })).toBe(false);
+    expect(await verifyReportEvidence({ ...(await report()), reportSignature: "" })).toBe(false);
+  });
+
   it("rejects a report built on an ALLOW", async () => {
     const allowed = await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { decision: "ALLOW" });
-    expect(await verifyReportEvidence(createNetworkReport(allowed, { createdAt: AT }))).toBe(false);
+    expect(await verifyReportEvidence(await createNetworkReport(allowed, { signingKey: KEY, createdAt: AT }))).toBe(false);
   });
 
   it("an attacker's own well-formed report verifies, so the trusted-reporter check is what stops it", async () => {
     const attackerKey = generateSigningKey();
-    const forged = createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { payee: "innocent.near" }, attackerKey), { createdAt: AT });
+    const forged = await createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { payee: "innocent.near" }, attackerKey), { signingKey: attackerKey, createdAt: AT });
     expect(await verifyReportEvidence(forged)).toBe(true);
     const rules: ReportRules = { trustedReporters: new Set([await publicKeyOf(KEY)]), verifyEvidence: verifyReportEvidence, allowSeedReports: false };
     expect(await isValidReport(forged, rules)).toBe(false);
@@ -170,7 +222,7 @@ describe("ReportStore", () => {
   it("finds reports by payee and chain, most recent first", async () => {
     const store = new ReportStore();
     const first = await report();
-    const second = createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { payee: "other.near" }), { createdAt: AT });
+    const second = await createNetworkReport(await blocked(["LOOKALIKE_HOMOGLYPH", "ACCOUNT_VERY_NEW"], { payee: "other.near" }), { signingKey: KEY, createdAt: AT });
     store.add(first);
     store.add(second);
     expect(store.reportsFor("acme-sh0p.near", "near").map((item) => item.reportId)).toEqual([first.reportId]);
@@ -211,27 +263,27 @@ describe("publishIfWarranted", () => {
 
   it("publishes once, and returns the id", async () => {
     const store = new ReportStore();
-    const id = publishIfWarranted(store, await blocked(codes), { createdAt: AT });
+    const id = await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT });
     expect(id).toBe(store.all()[0]?.reportId);
   });
 
   it("doesn't pad the feed with repeats about one payee", async () => {
     const store = new ReportStore();
-    publishIfWarranted(store, await blocked(codes), { createdAt: AT });
-    expect(publishIfWarranted(store, await blocked(codes), { createdAt: AT })).toBeUndefined();
+    await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT });
+    expect(await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT })).toBeUndefined();
     expect(store.all()).toHaveLength(1);
   });
 
   it("can report again after a revocation", async () => {
     const store = new ReportStore();
-    const id = publishIfWarranted(store, await blocked(codes), { createdAt: AT }) as string;
+    const id = (await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT })) as string;
     store.revoke(id, AT);
-    expect(publishIfWarranted(store, await blocked(codes), { createdAt: AT })).toBeDefined();
+    expect(await publishIfWarranted(store, await blocked(codes), { signingKey: KEY, createdAt: AT })).toBeDefined();
   });
 
   it("publishes nothing when one suspicion is all there is", async () => {
     const store = new ReportStore();
-    expect(publishIfWarranted(store, await blocked(["LOOKALIKE_HOMOGLYPH"]), { createdAt: AT })).toBeUndefined();
+    expect(await publishIfWarranted(store, await blocked(["LOOKALIKE_HOMOGLYPH"]), { signingKey: KEY, createdAt: AT })).toBeUndefined();
     expect(store.all()).toEqual([]);
   });
 });

@@ -131,6 +131,8 @@ export interface NetworkReport {
   reporter: string;
   createdAt: string;
   merkleLeaf: string;
+  /** The reporter's signature over merkleLeaf, so no field can be changed in transit. */
+  reportSignature: string;
   /** Produced by the Attack Lab on fixture names. Never counts in live decisions. */
   seed?: boolean;
   /** Set when the reporter withdraws the report. A revoked report no longer counts. */

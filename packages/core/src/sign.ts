@@ -15,6 +15,19 @@ export async function publicKeyOf(signingKey: string): Promise<string> {
   return bytesToHex(await ed.getPublicKeyAsync(hexToBytes(signingKey)));
 }
 
+/** Signs a piece of text, such as a report's leaf. */
+export async function signText(text: string, signingKey: string): Promise<string> {
+  return bytesToHex(await ed.signAsync(utf8ToBytes(text), hexToBytes(signingKey)));
+}
+
+export async function verifyText(text: string, signature: string, publicKey: string): Promise<boolean> {
+  try {
+    return await ed.verifyAsync(hexToBytes(signature), utf8ToBytes(text), hexToBytes(publicKey), { zip215: false });
+  } catch {
+    return false;
+  }
+}
+
 export type UnsignedVerdict = Omit<Verdict, "signature" | "wardyPublicKey">;
 
 /**

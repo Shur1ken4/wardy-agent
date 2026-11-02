@@ -202,6 +202,7 @@ describe("attacks", () => {
       reporter,
       createdAt: NOW.toISOString(),
       merkleLeaf: "0".repeat(64),
+      reportSignature: "not-checked-by-this-test",
     };
 
     // Owner B has no history at all, so without the network nothing connects this payee to a lookalike.

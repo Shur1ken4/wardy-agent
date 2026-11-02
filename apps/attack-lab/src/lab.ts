@@ -192,7 +192,7 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
       verifyEvidence: verifyReportEvidence,
       allowSeedReports: false,
     },
-    onBlocked: (verdict) => publishIfWarranted(ctx.network, verdict, { createdAt: now().toISOString(), reportId: newId() }),
+    onBlocked: (verdict) => publishIfWarranted(ctx.network, verdict, { signingKey: OFFLINE_TEST_SIGNING_KEY, createdAt: now().toISOString(), reportId: newId() }),
     signingKey: OFFLINE_TEST_SIGNING_KEY,
     now,
     newId,

@@ -61,13 +61,17 @@ export class ReportStore {
  * Publishes a report if this BLOCK warrants one, and returns its id. One live report per payee from one reporter is
  * enough: nothing here counts, so repeats would only pad the feed.
  */
-export function publishIfWarranted(store: ReportStore, verdict: Verdict, options: { createdAt: string; reportId?: string; seed?: boolean }): string | undefined {
+export async function publishIfWarranted(
+  store: ReportStore,
+  verdict: Verdict,
+  options: { signingKey: string; createdAt: string; reportId?: string; seed?: boolean },
+): Promise<string | undefined> {
   if (!shouldPublishReport(verdict)) return undefined;
   const alreadyReported = store
     .reportsFor(verdict.payee, verdict.chain)
     .some((report) => report.reporter === verdict.wardyPublicKey && !report.revokedAt);
   if (alreadyReported) return undefined;
-  const report = createNetworkReport(verdict, options);
+  const report = await createNetworkReport(verdict, options);
   store.add(report);
   return report.reportId;
 }

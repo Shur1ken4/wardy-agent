@@ -3,7 +3,7 @@
 // transactions. It never moves real money by itself: live mode points you at the steps you run on purpose.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { runOffline, summaryLines } from "@wardy-agent/attack-lab";
+import { holdoutLine, runOffline, summaryLines } from "@wardy-agent/attack-lab";
 
 const offline = process.argv.includes("--offline");
 if (!offline && existsSync(".env")) process.loadEnvFile(".env");
@@ -21,10 +21,12 @@ if (mode === "live") {
   process.exit(0);
 }
 
-const { run, meta } = await runOffline();
+const { run, holdout, meta } = await runOffline();
 console.log(`Wardy Agent demo: ${run.scenarios.length} scenarios, with and without it, on mock ledgers. No keys, no funds.\n`);
 for (const line of summaryLines(run)) console.log(line);
-console.log(`\nPrivate AI: ${meta.aiSource}`);
+// The headline alone would flatter: those scenarios were written alongside the rules.
+console.log(`\n${holdoutLine(holdout)}`);
+console.log(`Private AI: ${meta.aiSource}`);
 console.log("Full results: apps/attack-lab/results/latest.md");
 
 const problems = run.scenarios.flatMap((scenario) => scenario.problems.map((problem) => `${scenario.id}: ${problem}`));

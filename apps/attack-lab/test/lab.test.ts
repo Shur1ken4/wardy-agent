@@ -1,13 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { AuditLog, type ContextAnalyzer, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
 import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
 import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines } from "../src/lab.js";
-import { HOLDOUT_DIR, runOffline } from "../src/offline.js";
+import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines, totalsOf } from "../src/lab.js";
+import { HOLDOUT_DIR, holdoutLine, runOffline } from "../src/offline.js";
 import { toJson, toMarkdown } from "../src/results.js";
 
 const scenarios = loadScenarios();
@@ -152,6 +153,27 @@ describe("the lab can't simply report success", () => {
     expect((await runScenario(trusting, context())).with.lost[WNEAR_ASSET]).toBeDefined();
   });
 
+  it("an honest payment that was allowed but never paid doesn't count as passed", () => {
+    const h1 = byId("H1");
+    const unpaid: ScenarioResult = { ...h1, with: { ...h1.with, steps: h1.with.steps.map((step) => ({ ...step, executionStatus: "failed" })) } };
+    expect(totalsOf([h1]).honestPassed).toBe(1);
+    expect(totalsOf([unpaid]).honestPassed).toBe(0);
+  });
+
+  it("an honest scenario where nothing happened doesn't count as passed", () => {
+    const h1 = byId("H1");
+    expect(totalsOf([{ ...h1, with: { ...h1.with, steps: [] } }]).honestPassed).toBe(0);
+  });
+
+  it("if another owner's agent is told ALLOW for a bad payee, it pays by its own means, and that counts as a loss", async () => {
+    const a7 = scenarios.find((scenario) => scenario.id === "A7") as Scenario;
+    // An old, active account with no reports: nothing looks wrong, so Wardy Agent says ALLOW. The lab must count it.
+    const missed: Scenario = { ...a7, steps: a7.steps.map((step) => ({ ...step, payee: "metro-logistics.near", reads: [] })) };
+    const result = await runScenario(missed, context());
+    expect(result.with.steps[0]?.decision).toBe("ALLOW");
+    expect(result.with.lost).toEqual({ [WNEAR_ASSET]: "2" });
+  });
+
   it("a payment moved by the engine appears in the loss: nothing's hard-coded", async () => {
     const a2 = scenarios.find((scenario) => scenario.id === "A2") as Scenario;
     const result = await runScenario({ ...a2, ownerDecision: "approve" }, context());
@@ -281,6 +303,24 @@ describe("the holdout set", () => {
     const main = new Set(offline.run.scenarios.map((scenario) => scenario.id));
     for (const scenario of offline.holdout.scenarios) expect(main.has(scenario.id)).toBe(false);
   });
+
+  it("gets no help from reports the main set produced", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wardy-agent-holdout-"));
+    dirs.push(dir);
+    // A holdout attack on the very payee A1 got reported, so a shared network would show.
+    cpSync(join(fileURLToPath(new URL("../../demo-agent/scenarios/", import.meta.url)), "network-protected"), join(dir, "same-payee"), { recursive: true });
+    const { holdout } = await runOffline({ holdoutDir: dir });
+    expect(holdout.scenarios[0]?.with.steps[0]?.codes).not.toContain("NETWORK_REPORTED_SCAM");
+  });
+
+  it("the demo prints it next to the headline, computed from the run", () => {
+    const line = holdoutLine(offline.holdout);
+    const attacks = offline.holdout.scenarios.filter((scenario) => scenario.kind === "attack");
+    const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
+    expect(line).toContain(`${missed.length} of ${attacks.length} attacks still took money`);
+    const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/demo.ts", "--offline"], { encoding: "utf8" });
+    expect(result.stdout).toContain(line);
+  }, 60_000);
 
   it("a miss in the holdout doesn't fail the run, but a miss in the main set does", () => {
     const result = spawnSync(process.execPath, ["--import", "tsx", "apps/attack-lab/src/cli.ts"], { encoding: "utf8" });

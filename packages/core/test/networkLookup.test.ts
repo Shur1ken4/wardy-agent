@@ -28,6 +28,7 @@ function report(overrides: Partial<NetworkReport> = {}, evidence: Partial<Networ
     reporter: REPORTER,
     createdAt: "2026-11-05T12:00:00.000Z",
     merkleLeaf: "b".repeat(64),
+    reportSignature: "not-checked-by-these-tests",
     ...overrides,
   };
 }

@@ -192,7 +192,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
       verifyEvidence: verifyReportEvidence,
       allowSeedReports: mode === "offline",
     },
-    onBlocked: (verdict) => publishIfWarranted(reports, verdict, { createdAt: new Date().toISOString() }),
+    onBlocked: (verdict) => publishIfWarranted(reports, verdict, { signingKey, createdAt: new Date().toISOString() }),
     signingKey,
     custody,
     fleetOwnerId,

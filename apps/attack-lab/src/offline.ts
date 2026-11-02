@@ -4,7 +4,7 @@ import { AuditLog, ReportStore } from "@wardy-agent/core";
 import { loadScenarios } from "@wardy-agent/demo-agent";
 import { MockContextAnalyzer, RECORDED_AI_FINDINGS } from "@wardy-agent/providers";
 import { fileURLToPath } from "node:url";
-import { type LabRun, runLab } from "./lab.js";
+import { formatAmounts, type LabRun, runLab } from "./lab.js";
 import { RESULTS_DIR, type ResultsMeta, writeResults } from "./results.js";
 
 export const HOLDOUT_DIR = fileURLToPath(new URL("../holdout/", import.meta.url));
@@ -21,8 +21,16 @@ export interface OfflineRun {
   meta: ResultsMeta;
 }
 
+/** A plain statement of how the holdout went, computed from the run. */
+export function holdoutLine(holdout: LabRun): string {
+  const attacks = holdout.scenarios.filter((scenario) => scenario.kind === "attack");
+  const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
+  const honest = holdout.scenarios.length - attacks.length;
+  return `Holdout, written after the rules froze: ${missed.length} of ${attacks.length} attacks still took money (${formatAmounts(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${honest}.`;
+}
+
 /** Writes nothing unless `auditPath` is given. */
-export async function runOffline(options: { auditPath?: string } = {}): Promise<OfflineRun> {
+export async function runOffline(options: { auditPath?: string; holdoutDir?: string } = {}): Promise<OfflineRun> {
   if (options.auditPath) rmSync(options.auditPath, { force: true });
   const audit = new AuditLog(options.auditPath);
   const aiRecorded = Object.keys(RECORDED_AI_FINDINGS).length > 0;
@@ -35,7 +43,7 @@ export async function runOffline(options: { auditPath?: string } = {}): Promise<
   };
   const run = await runLab(loadScenarios(), shared);
   // Its own network: a holdout attack shouldn't get help from reports the main set produced.
-  const holdout = await runLab(loadScenarios(HOLDOUT_DIR), { ...shared, network: new ReportStore() });
+  const holdout = await runLab(loadScenarios(options.holdoutDir ?? HOLDOUT_DIR), { ...shared, network: new ReportStore() });
   return { run, holdout, meta: { agent: "scripted", aiSource: aiSource(aiRecorded) } };
 }
 
