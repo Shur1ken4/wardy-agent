@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Secrets and local state
+.env
+.env.*
+!.env.example
+.data/
+.intents/
+*.key
+*.pem
+secrets/
+
+# Rust
+target/
+contracts/**/res/
+
+# Vite
+apps/web/dist/
