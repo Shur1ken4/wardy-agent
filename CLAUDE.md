@@ -48,7 +48,8 @@ or branding may say just "Wardy" in a way that could be confused with it.
 - **Principles:**
   1. Wardy Agent is the only spender, so the worker cannot skip the check.
   2. One-way ratchet: rules decide; the AI can only add risk, never lower it or turn BLOCK into ALLOW.
-  3. No evidence, no report. No votes, no counts, no reputation by popularity.
+  3. No evidence, no report. No votes, no counts, no reputation by popularity. A public report needs
+     two independent detector families or owner confirmation, and the reporter can revoke it.
   4. Honest scope: the README has a "What's proven vs what's trusted" section.
   5. False blocks are failures: honest-payment pass rate is a headline metric.
 

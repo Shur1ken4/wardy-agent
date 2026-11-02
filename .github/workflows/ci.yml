@@ -23,3 +23,15 @@ jobs:
       - run: npm test
       # Phase 4 adds: npm run attack-lab -- --offline, npm run demo -- --offline,
       # and a check that the expected summary line is printed.
+
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/registry
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml pins the version; rustup installs it on first use.
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test

@@ -4,5 +4,11 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@near-intents-agent-api/sdk": "^0.7.3",
+    "@phala/dcap-qvl": "^0.7.0",
+    "near-api-js": "^7.4.0",
+    "viem": "^2.57.14"
+  }
 }

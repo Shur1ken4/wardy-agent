@@ -13,8 +13,8 @@ If this file and the master brief disagree, this file wins, because the brief sa
 | # | The brief says | What I found | What we do |
 |---|---|---|---|
 | 1 | No hackathon entry does the shared registry | **The official Security track starter prompt asks for exactly this**: a counterparty check, allow/warn/block, and "a shared blocklist that other agents can report to, with evidence attached". Leash has already shipped a version. | Stop claiming the registry is unique. Lead with what a blocklist can't do (section 2). |
-| 2 | Demo uses `shop.near` and `sh0p.near` | **Both are real mainnet accounts** (created 2020 and 2022, LIVE). A signed report anchored on NEAR saying `sh0p.near` is a scam would be a false public accusation against a stranger. | Fixtures use `acme-shop.near`, `acme-sh0p.near`, `acme-shop-near.near`: all unregistered today (LIVE). Live and anchored data use accounts we control. Fixture reports are flagged as seed data and never count in live decisions. |
-| 3 | Every BLOCK publishes a report; one valid report BLOCKs everywhere; disputes are stretch | A signed verdict proves Wardy Agent's *opinion*, not that a payee is a scammer. One lookalike false positive would spread to every agent, permanently. | **Proposed, needs Shurik's OK:** publish only when two independent detector families agree (for example D1 + D4, or D1 + D2) or the owner confirms. Single-family blocks stay local. The reporter can revoke its own report. Every attack scenario still produces a report. |
+| 2 | Demo uses `shop.near` and `sh0p.near` | **Both are real mainnet accounts** (created 2020 and 2022, LIVE). A signed report anchored on NEAR saying `sh0p.near` is a scam would be a false public accusation against a stranger. | **Approved by Shurik, 2026-11-02:** fixtures use `acme-shop.near`, `acme-sh0p.near`, `acme-shop-near.near`: all unregistered today (LIVE). Live and anchored data use accounts we control. Fixture reports are flagged as seed data and never count in live decisions. |
+| 3 | Every BLOCK publishes a report; one valid report BLOCKs everywhere; disputes are stretch | A signed verdict proves Wardy Agent's *opinion*, not that a payee is a scammer. One lookalike false positive would spread to every agent, permanently. | **Approved by Shurik, 2026-11-02:** publish only when two independent detector families agree (for example D1 + D4, or D1 + D2) or the owner confirms. Single-family blocks stay local. The reporter can revoke its own report. Every attack scenario should still produce a report; the Attack Lab assertions check this. |
 | 4 | Node 20+ | Vitest 5 needs Node 22.12+, near-api-js 22.22+, the Agent Connect SDK 24+. Node 20 reached end of life in April 2026. | `engines` >= 22.22, `.nvmrc` 24, CI on 22 and 24. TODO-VERIFY the SDK on Node 22; if it fails, load it only in live mode. |
 | 5 | SQLite via `better-sqlite3` is fine | It's a native build that needs Node 22+. That's a needless clean-clone risk for judges. | JSONL ledger with an in-memory index, behind a small interface. No native dependencies. |
 | 6 | "Two locks": provider limits plus Wardy Agent's checks | Provider `destinations` in `only` mode needs an owner signature per new payee, has a 10-minute cooldown and a 256-entry cap. That can't serve agents that choose their own payees. | Provider `destinations` is `any`. The README states it plainly: the provider locks limits, assets, budget and freeze; **Wardy Agent alone locks the payee**. That's the gap we fill, and it goes in "What's proven vs what's trusted". |
@@ -27,6 +27,7 @@ If this file and the master brief disagree, this file wins, because the brief sa
 | 13 | README section list | Also required: list libraries and AI-written code (Q-005). A local-only demo needs a **video**, because screenshots aren't enough (Q-012). A hosted demo is a plus; keep it up to Nov 18, ideally Nov 25. | Add a libraries section. Decide on a hosted read-only dashboard in Phase 8. |
 | 14 | Claude Code runs the real ALLOW payment | My safety rules forbid me from moving real funds, even when asked. | **I write the script, Shurik runs the one command** for anything touching real mainnet money. Testnet I can run myself. Everything else is unchanged. |
 | 15 | Start Nov 3 | Started Nov 2. | One day of buffer. |
+| 16 | Verify attestation in Node, as other repos do | NEAR AI's own TypeScript verifier uses `@phala/dcap-qvl-node`, which has **critical advisory [GHSA-796p-j2gh-9m2q](https://github.com/advisories/GHSA-796p-j2gh-9m2q) with no fix**: it skips the QE Identity check, so a forged quote can pass. | We use `@phala/dcap-qvl` 0.7.0 (pure JS, same project, outside the affected range). A test feeds it forged QE Identity data and requires a rejection. Its `elliptic` dependency has a low-severity advisory about *signing*; we only verify, so it stays, noted here. |
 
 Smaller notes to apply later:
 
@@ -87,7 +88,9 @@ Smaller notes to apply later:
   - A named recipient must exist on NEAR; implicit (64-hex) ids don't need to.
   - `transfer` credits the payee's **NEAR Intents balance**, not their wallet. `withdraw` to chain `near` delivers native NEAR. Must-level payments use `transfer`.
   - Policy edits have a 10-minute cooldown. Plan demos around it.
-- **TODO-VERIFY:** whether a settled transfer exposes a NEAR tx hash for the "tx link" (the schema mentions `transaction_hash`; otherwise link the `op_…` proof). Whether a funded implicit owner account works for onboarding (the SDK examples support it). Which portal gives Shurik a key.
+- **Funding (DOCS):** `POST /deposit` with `origin_asset: nep141:wrap.near` expects a **wNEAR token transfer** to the deposit address, not a plain NEAR send. That's awkward from a wallet, so `hello:custody fund` does it from the owner account in one transaction: register the address on `wrap.near`, wrap the NEAR, transfer.
+- **Licensing:** the examples repo has **no license**, so nothing is copied from it. `scripts/hello-custody.ts` is our own code on the MIT-licensed SDK.
+- **TODO-VERIFY (`npm run hello:custody`, run by Shurik):** whether a settled transfer exposes a NEAR tx hash for the "tx link" (the schema mentions `transaction_hash`; otherwise link the `op_…` proof). Whether a funded implicit owner account works for onboarding (the SDK's examples support it). The deposit minimum and any fee, which aren't in the docs. Which portal gives Shurik a key. That the native refusal returns `native_method_denied`.
 
 ### OutLayer: fallback custody, and a real testnet path
 
@@ -114,11 +117,17 @@ Smaller notes to apply later:
   - Streaming and alias resolution produce gateway-kind signatures, so avoid both.
   - A signature lookup can transiently return 404 or `Chat id not found`: bounded retry, then `attested: false`, visibly.
   - A 2xx with `error_code` is not a signature.
-- **TODO-VERIFY:** `provider=near` reports actually return for `glm-5.3-flash`, and which Node library verifies the TDX quote. Never fake a result: if full verification isn't possible in Node, the UI states the lower level.
+- **TDX in Node:** `@phala/dcap-qvl` 0.7.0, collateral from Intel's PCS. `report_data` is the signing address right-padded to 32 bytes, then the raw 32-byte nonce (read from the official verifier). Tested on a real Intel quote: it verifies; tampered and forged-identity variants are rejected (LIVE, offline test).
+- **Code:** `packages/providers/src/ai/nearAiCloud.ts`. `attested` is true only if all eight checks pass.
+- **NVIDIA tokens:** read from NVIDIA's own HTTPS answer. TLS authenticates them; the JWT signature isn't separately checked. State this in "What's proven".
+- **TODO-VERIFY:** `provider=near` reports actually return for `glm-5.3-flash`, and the service accepts our exact request. `npm run hello:ai` settles both once the key is in `.env`. Never fake a result: anything less than all eight checks shows as `partial`.
 
 ### Chain data: new-account detector, Must
 
-- **NearBlocks:** `GET https://api.nearblocks.io/v1/account/{id}` gives `created.block_timestamp` in nanoseconds, plus `deleted` (LIVE). `/v1/account/{id}/txns/count` gives the count (LIVE). Testnet: `https://api-testnet.nearblocks.io` (LIVE).
+- **Code:** `packages/providers/src/chain/nearChainData.ts`; try it with `npm run hello:indexer`.
+- **NearBlocks:** `GET https://api.nearblocks.io/v1/account/{id}` gives `created.block_timestamp` in nanoseconds, plus `deleted` (LIVE). `/v1/account/{id}/txns/count` gives the count (LIVE). Mainnet data is current: 3 blocks behind the chain head (LIVE).
+- **NearBlocks testnet is stale (LIVE):** `https://api-testnet.nearblocks.io` doesn't list our account or transactions, and its stub reports block 270.4M against a chain head of 275.9M, roughly 40 days behind. So `testnet` mode gets existence from RPC but no account age, and the detector reports that age is unavailable.
+- **Explorer links:** use **NEAR Rocks** (FastNEAR): `https://testnet.near.rocks/tx/{hash}`, `https://testnet.near.rocks/account/{id}`, and `https://near.rocks/...` for mainnet. It shows our transactions and answers a plain HTTP request (LIVE). NearBlocks pages show a bot check, so an AI judge couldn't open them and I couldn't confirm what they show. NEAR Validate (`https://nearvalidate.org/txns/{hash}?network=testnet`) also works, as a backup.
 - **Limits:** free tier about 6 calls a minute, 333 a day, attribution required (from NearBlocks' pricing pages, seen through search; the main page refused a direct fetch). Worked with no key today. So: cache in `.data/`, credit NearBlocks in the README and UI.
 - **Gotcha (LIVE):** an unknown account answers **HTTP 200** with a stub and no `account_id`. Never read that as data.
 - **RPC:** `view_account` on `https://free.rpc.fastnear.com` confirms existence and returns `UNKNOWN_ACCOUNT` when absent (LIVE). It gives no age. Fallback when the indexer is down, which yields `ACCOUNT_DATA_UNAVAILABLE`.
@@ -126,9 +135,11 @@ Smaller notes to apply later:
 
 ### Registry contract: Must
 
-- Rust, `near-sdk` 5.30.0, `cargo-near` 0.22.0 (crates.io, LIVE). Rust 1.98.1 is installed. I install the `wasm32-unknown-unknown` target and `cargo-near` in Phase 1. Rust chosen as the brief prefers; Leash shows the same SDK version deploys to testnet today.
-- Called with `near-api-js` 7.4 (`Account.callFunction`). Testnet RPC `https://test.rpc.fastnear.com`.
-- **TODO-VERIFY:** faucet-based testnet account creation from a script. Fallback: https://near-faucet.io.
+- **Deployed (LIVE):** [`wardy-agent-registry.testnet`](https://testnet.near.rocks/account/wardy-agent-registry.testnet). Addresses and tx hashes: `config/registry.testnet.json`. The anchored roots so far are labelled dummies from `npm run hello:contract`. The on-chain code hash `7pUhLfAo…` equals the bs58 SHA-256 `cargo near build` printed. The account's history shows the two anchor attempts from a non-reporter, both refused on-chain.
+- Rust as the brief prefers, from the `cargo near new` template: `near-sdk` 5.29.1, `cargo-near` 0.22.0, toolchain pinned to 1.93.0 by `rust-toolchain.toml`. 139 KB. 20 unit tests, clippy clean.
+- **Stricter than the brief:** `anchor_root` refuses a shrinking `count`, and refuses a different root at the same `count`. A rewritten feed fails on-chain; a retry after a lost response is harmless.
+- **Testnet faucet (LIVE):** `POST https://helper.nearprotocol.com/account` with `{newAccountId, newAccountPublicKey}` (the same service `near-cli-rs` uses). Keys are in the git-ignored `.data/testnet-accounts.json`, and hold only free test tokens.
+- Called with `near-api-js` 7.4 (`Account.signAndSendTransaction`, `provider.callFunction`). Testnet RPC `https://test.rpc.fastnear.com`.
 
 ### 1Click: Should S2
 

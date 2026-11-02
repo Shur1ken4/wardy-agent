@@ -19,7 +19,7 @@ open -e .env
 | NEAR AI Cloud | Free $10 credit through NEAR Builders. A check costs about $0.0002 |
 | Agent Connect key | No fee stated in the docs |
 | Testnet | Free, and I handle it |
-| Real test payments | Under 2 NEAR to start, about $8 at today's $4.13. Hard limit for the whole project: 5 NEAR |
+| Real test payments | 0.5 NEAR to start, about $2 at today's $4.13. It stays on accounts you hold the keys to. Hard limit for the whole project: 5 NEAR |
 | Agent Market paid hire (later, optional) | The job price you set, probably under $1 |
 
 ## Step 1: NEAR AI Cloud key (needed)
@@ -95,17 +95,69 @@ The prize is paid to a NEAR mainnet account that you own, such as `yourname.near
 your normal wallet, not the project accounts above. It only goes in the submission form, never in the repo.
 I can't create or choose this for you.
 
+## Step 6: The real-money check (only after I say so)
+
+**Wait until I've seen `setup:check` and `hello:ai` pass.** These steps use real NEAR. I can't run them for you,
+but I'm here for each one. Each step that signs or spends tells you exactly what it will do and waits for you
+to type `yes`. Limits are built in: the script funds at most 2 NEAR at a time and pays at most 0.1 per test.
+Run them in this order and send me the output of each. They never print your keys.
+
+**1. Give the owner account a little NEAR.** From your normal wallet, send **0.5 NEAR** to the owner account
+(the long name `npm run setup:keys` printed, also in `.env` as `AGENT_OWNER_ACCOUNT_ID`). Then run this, and
+the owner line should show `holds 0.5000 NEAR`:
+
+```bash
+npm run setup:check
+```
+
+**2. Create the agent.** You sign its rules once. You should see `Agent created and saved to .env`.
+
+```bash
+npm run hello:custody -- create-agent
+```
+
+**3. Issue the spend grant.** This is the permission only Wardy Agent will hold. You should see `Grant issued`.
+
+```bash
+npm run hello:custody -- issue-grant
+```
+
+**4. Fund the agent.** It moves 0.2 NEAR from the owner account into the agent, and may take a few minutes. You
+should see a balance for `nep141:wrap.near`. If it says the amount is below a minimum, stop and tell me.
+
+```bash
+npm run hello:custody -- fund 0.2
+```
+
+**5. Make one real payment.** It sends 0.01 wNEAR to our own test merchant, so the money stays yours. You should
+see `Status: SUCCESS`. If it says anything else, **don't run it again**; send me the output.
+
+```bash
+npm run hello:custody -- pay 0.01
+```
+
+**6. Prove native NEAR is locked.** It asks for a tiny native transfer that must be refused. You should see `PASS`.
+
+```bash
+npm run hello:custody -- native-test
+```
+
+**7. Prove freeze works.** It freezes the agent, tries a payment, then unfreezes. You should see `PASS`.
+
+```bash
+npm run hello:custody -- freeze-test
+```
+
 ## Things you'll do later (I'll tell you when)
 
 | When | What | Why it has to be you |
 |---|---|---|
-| Phase 1 | Send about 0.5 NEAR to the owner account, then fund the agent with about 1 NEAR | Real money: you run or approve every transfer |
-| Phase 1 and 3 | Run one command for each real test payment | Same reason. I write the script and tell you what you should see |
+| Phase 3 | Run one command for a real ALLOW payment | Real money. I write the script and tell you what you should see |
 | Phase 7, optional | Sign up at https://market.near.ai and create the listing | Website account, confirmed email |
 | Phase 7, optional | Create a Telegram bot with @BotFather | Your Telegram account |
 | Nov 14 | Record the video, post on X, confirm the submission | Only you can post or confirm |
 
 ## Testnet (nothing to do)
 
-I'll create the free testnet accounts from a script in Phase 1. If the faucet refuses, I'll ask you to use
-https://near-faucet.io, which takes a minute.
+Done. I created the free testnet accounts and deployed the registry contract there. See it at
+https://testnet.near.rocks/account/wardy-agent-registry.testnet.

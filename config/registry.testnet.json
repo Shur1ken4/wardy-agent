@@ -1,0 +1,7 @@
+{
+  "network": "testnet",
+  "contractId": "wardy-agent-registry.testnet",
+  "reporter": "wardy-agent-reporter.testnet",
+  "deployTx": "8HW9b9rECaGyN1C3LjEzLfsBezj4bmi9ySinkYWdNgk2",
+  "helloAnchorTx": "7TdsT2pg7aMXbsUmNCPUXRoJXW17ZsnjkXVvXM8KUfWP"
+}
