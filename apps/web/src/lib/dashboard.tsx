@@ -134,8 +134,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const follow = async (controller: AbortController) => {
       while (!controller.signal.aborted) {
         try {
-          setLive(true);
-          await liveFeed(onEvent, controller.signal);
+          await liveFeed(onEvent, controller.signal, () => setLive(true));
         } catch (error) {
           if (controller.signal.aborted) return;
           if (error instanceof ApiError && error.status === 401) return;

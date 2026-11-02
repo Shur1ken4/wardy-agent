@@ -109,20 +109,21 @@ async function main() {
   const server = await startServer(dataDir);
   const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args: ["--no-first-run", "--disable-extensions", "--no-sandbox"] });
   try {
-    console.log("Reloading again and again");
+    console.log("Moving between pages");
     {
-      // Each time, it waits for the live feed to connect, because an open feed is what a reload could leave behind.
+      // A different address each time, because that's when a browser keeps the old page alive in its back/forward cache,
+      // still holding its connection. Each time, it waits for the feed to connect, since that's what could be left behind.
       const page = await newPage(browser, 1280, 800, 1, "reloads");
       let hungAt = 0;
       for (let attempt = 1; attempt <= 14 && !hungAt; attempt += 1) {
         try {
-          await page.goto(BASE, { waitUntil: "domcontentloaded", timeout: 8000 });
+          await page.goto(`${BASE}/?visit=${attempt}`, { waitUntil: "domcontentloaded", timeout: 8000 });
           await page.waitForSelector(".live-dot:not(.off)", { timeout: 8000 });
         } catch {
           hungAt = attempt;
         }
       }
-      check("14 reloads in a row don't hang the dashboard", hungAt === 0, hungAt ? `it hung on reload ${hungAt}` : "");
+      check("14 page loads in a row don't hang the dashboard", hungAt === 0, hungAt ? `it hung on load ${hungAt}` : "");
       await page.close();
     }
 

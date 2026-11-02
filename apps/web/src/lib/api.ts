@@ -125,13 +125,15 @@ export const api = {
   playTraffic: () => call<{ started: boolean }>("/v1/demo/traffic", { method: "POST" }),
 };
 
-async function openStream(path: string, init: RequestInit, onEvent: (event: ServerEvent) => void): Promise<void> {
+async function openStream(path: string, init: RequestInit, onEvent: (event: ServerEvent) => void, onOpen?: () => void): Promise<void> {
   const response = await fetch(path, { ...init, headers: { ...authHeaders(), ...(init.headers ?? {}) } });
   if (!response.ok) throw new ApiError(response.status, "stream_refused", "The live feed refused the connection.");
+  onOpen?.();
   await readEvents(response, onEvent);
 }
 
-export const liveFeed = (onEvent: (event: ServerEvent) => void, signal: AbortSignal) => openStream("/v1/stream", { signal }, onEvent);
+/** `onOpen` runs once the server has really answered, so "Live" on the screen is true. */
+export const liveFeed = (onEvent: (event: ServerEvent) => void, signal: AbortSignal, onOpen: () => void) => openStream("/v1/stream", { signal }, onEvent, onOpen);
 export const runAttackLab = (onEvent: (event: ServerEvent) => void, signal: AbortSignal) => openStream("/v1/lab/run", { method: "POST", signal }, onEvent);
 
 export interface OnChainRoot {

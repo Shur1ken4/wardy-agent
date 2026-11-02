@@ -150,7 +150,7 @@ export function Live() {
       <section className="section">
         <div className="section-head">
           <h2 className="section-title">Live checks</h2>
-          <span className={live ? "live-dot" : "live-dot off"}>{live ? "Live" : "Reconnecting"}</span>
+          <span className={live ? "live-dot" : "live-dot off"}>{live ? "Live" : "Connecting"}</span>
         </div>
         <div className="card">
           {verdicts.length === 0 ? (
