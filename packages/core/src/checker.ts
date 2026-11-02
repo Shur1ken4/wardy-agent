@@ -5,7 +5,7 @@ import type { AuditLog } from "./audit.js";
 import { decide, type DecisionOutcome } from "./decision.js";
 import { contextDocument, contextSignals, hasContextText } from "./detectors/contextTamper.js";
 import { crossChainSignals } from "./detectors/crossChain.js";
-import { duplicateSignals } from "./detectors/duplicate.js";
+import { duplicateSignals, invoiceTextHash } from "./detectors/duplicate.js";
 import { lookalikeSignals } from "./detectors/lookalike.js";
 import { newAccountSignals } from "./detectors/newAccount.js";
 import { hashRequest } from "./hash.js";
@@ -24,12 +24,14 @@ import {
   type Signal,
   type Verdict,
   type VerdictAi,
+  type VerdictMode,
 } from "./types.js";
 
 export interface CheckerDeps {
   ledger: Ledger;
   audit: AuditLog;
-  policyFor(ownerId: string): OwnerPolicy;
+  /** Null for an owner whose rules we don't hold, such as another agent asking for a check. */
+  policyFor(ownerId: string): OwnerPolicy | null;
   seedPayees: readonly string[];
   chainData: AccountFactsSource;
   /** Without one, only the deterministic checks read the text, and the verdict says so. */
@@ -83,6 +85,7 @@ export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps
 
   const lookalike = lookalikeSignals(request, known, deps.seedPayees);
   const payeeIsKnown = lookalike.some((signal) => signal.code === "KNOWN_PAYEE");
+  const policy = deps.policyFor(request.ownerId);
   const signals = [
     ...lookalike,
     ...newAccountSignals(request, facts, now),
@@ -92,7 +95,7 @@ export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps
     ...contextSignals(request, analysis),
     ...crossChainSignals(request),
     ...(await networkSignals(request, reports, known, deps.reportRules)),
-    ...policySignals(request, deps.policyFor(request.ownerId), snapshot, now, payeeIsKnown),
+    ...(policy ? policySignals(request, policy, snapshot, now, payeeIsKnown) : []),
   ];
 
   const ai: VerdictAi = analysis?.findings
@@ -114,44 +117,52 @@ export class PaymentChecker {
   constructor(private readonly deps: CheckerDeps) {}
 
   /** Validates, decides and records. The same requestId always returns the original verdict. */
-  async check(input: unknown): Promise<Verdict> {
+  async check(input: unknown, mode: VerdictMode = "pay"): Promise<Verdict> {
     const parsed = PaymentRequestSchema.parse(input);
-    const existing = this.deps.ledger.verdictByRequest(parsed.requestId);
+    const existing = this.deps.ledger.verdictByRequest(parsed.requestId, mode);
     if (existing) {
       if (existing.requestHash !== hashRequest(parsed)) throw new RequestIdConflictError(parsed.requestId);
       return existing;
     }
-    const running = this.inFlight.get(parsed.requestId);
+    const key = `${mode}:${parsed.requestId}`;
+    const running = this.inFlight.get(key);
     if (running) {
       const verdict = await running;
       if (verdict.requestHash !== hashRequest(parsed)) throw new RequestIdConflictError(parsed.requestId);
       return verdict;
     }
-    const started = this.run(parsed).finally(() => this.inFlight.delete(parsed.requestId));
-    this.inFlight.set(parsed.requestId, started);
+    const started = this.run(parsed, mode).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, started);
     return started;
   }
 
-  private async run(parsed: PaymentRequest): Promise<Verdict> {
+  private async run(parsed: PaymentRequest, mode: VerdictMode): Promise<Verdict> {
     const { ledger, audit, signingKey } = this.deps;
     const now = this.deps.now?.() ?? new Date();
     const request = { ...parsed, asset: normalizeAsset(parsed.asset) };
     const evaluation = await evaluatePayment(request, this.deps, now);
 
-    // Recorded after evaluating, so velocity counts only earlier requests plus this one.
-    ledger.recordRequest({
-      requestId: request.requestId,
-      ownerId: request.ownerId,
-      agentId: request.agentId,
-      payee: request.payee,
-      chain: request.chain,
-      createdAt: now.toISOString(),
-    });
+    // Recorded after evaluating, so velocity counts only earlier requests plus this one. A check isn't a
+    // payment request: asking before paying mustn't look like a split-payment attack.
+    if (mode === "pay") {
+      const invoiceText = request.context?.invoiceText;
+      ledger.recordRequest({
+        requestId: request.requestId,
+        ownerId: request.ownerId,
+        agentId: request.agentId,
+        payee: request.payee,
+        chain: request.chain,
+        createdAt: now.toISOString(),
+        ...(request.invoiceId ? { invoiceId: request.invoiceId } : {}),
+        ...(invoiceText ? { invoiceTextHash: invoiceTextHash(invoiceText) } : {}),
+      });
+    }
 
     const verdict = await signVerdict(
       {
         verdictId: this.deps.newId?.() ?? randomUUID(),
         requestId: request.requestId,
+        mode,
         requestHash: hashRequest(parsed),
         payee: request.payee,
         chain: request.chain,

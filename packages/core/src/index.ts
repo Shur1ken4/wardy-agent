@@ -15,5 +15,7 @@ export * from "./hash.js";
 export * from "./ledger.js";
 export * from "./network/lookup.js";
 export * from "./policy.js";
+export * from "./seed.js";
+export * from "./service.js";
 export * from "./sign.js";
 export * from "./types.js";

@@ -90,6 +90,13 @@ async function nearBalance(accountId: string): Promise<string> {
   return `holds ${(Number(BigInt(yocto) / 10n ** 20n) / 10_000).toFixed(4)} NEAR`;
 }
 
+function checkOwnKeys(): Line {
+  const name = "Wardy Agent keys";
+  const missing = ["WARDY_SIGNING_KEY", "WARDY_AGENT_TOKEN", "WARDY_OWNER_TOKEN"].filter((key) => !process.env[key]);
+  if (missing.length > 0) return { status: "MISSING", name, note: `${missing.join(", ")}: run npm run setup:keys again` };
+  return { status: "OK", name, note: "signing key and API credentials are set" };
+}
+
 async function guarded(name: string, run: () => Promise<Line>): Promise<Line> {
   try {
     return await run();
@@ -119,6 +126,7 @@ async function main() {
     await guarded("Agent Connect key", checkAgentConnect),
     owner.line,
     merchant.line,
+    checkOwnKeys(),
   ];
   for (const { status, name, note } of lines) console.log(`${status.padEnd(8)}${name.padEnd(20)}${note}`);
   const ready = lines.every((line) => line.status === "OK");

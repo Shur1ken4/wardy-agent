@@ -35,4 +35,8 @@ export class MockCustody implements CustodyProvider {
   balance(asset: string): string {
     return formatDecimal(this.balances.get(asset) ?? 0n);
   }
+
+  async balanceNearEquivalent(): Promise<number> {
+    return 0; // Pretend money: the live-mode safety limit doesn't apply.
+  }
 }

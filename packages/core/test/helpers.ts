@@ -43,6 +43,7 @@ export function makeUnsignedVerdict(overrides: Partial<Verdict> = {}): Omit<Verd
   return {
     verdictId: randomUUID(),
     requestId: randomUUID(),
+    mode: "pay",
     requestHash: "a".repeat(64),
     payee: "acme-shop.near",
     chain: "near",

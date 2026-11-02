@@ -4,5 +4,13 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fastify/cors": "^11.4.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "@wardy-agent/core": "*",
+    "@wardy-agent/providers": "*",
+    "fastify": "^5.12.8",
+    "zod": "^4.6.7"
+  }
 }

@@ -7,7 +7,8 @@ export type { AccountFacts };
 
 export interface ChainDataOptions {
   rpcUrl: string;
-  nearblocksUrl: string;
+  /** Leave out where the index can't be trusted, such as testnet today: age then reads as unavailable. */
+  nearblocksUrl?: string;
   nearblocksApiKey?: string;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
@@ -54,6 +55,7 @@ async function indexerFacts(
   accountId: string,
   options: ChainDataOptions,
 ): Promise<Pick<AccountFacts, "createdAt" | "txCount">> {
+  if (!options.nearblocksUrl) return { createdAt: null, txCount: null };
   const headers: Record<string, string> = options.nearblocksApiKey
     ? { authorization: `Bearer ${options.nearblocksApiKey}` }
     : {};

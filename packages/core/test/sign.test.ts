@@ -19,6 +19,7 @@ describe("signVerdict and verifyVerdict", () => {
 
   it.each<[string, Partial<Verdict>]>([
     ["the decision", { decision: "BLOCK" }],
+    ["the mode", { mode: "check" }],
     ["the risk score", { riskScore: 99 }],
     ["the payee", { payee: "attacker.near" }],
     ["the amount", { amount: "2000" }],
@@ -42,6 +43,11 @@ describe("signVerdict and verifyVerdict", () => {
       networkReportId: "report-1",
     };
     expect(await verifyVerdict(updated)).toBe(true);
+  });
+
+  it("a display field added to a verdict doesn't break verification", async () => {
+    const verdict = await signVerdict(makeUnsignedVerdict(), KEY);
+    expect(await verifyVerdict({ ...verdict, agentId: "procure-bot" } as Verdict)).toBe(true);
   });
 
   it("gives the same signature whether or not those later fields are present", async () => {

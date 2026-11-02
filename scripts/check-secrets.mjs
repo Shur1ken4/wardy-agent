@@ -15,6 +15,7 @@ export const SECRET_PATTERNS = [
   ["API secret key", /\bsk-[A-Za-z0-9_-]{20,}/],
   ["Telegram bot token", /\b\d{8,10}:[A-Za-z0-9_-]{35}\b/],
   ["PEM private key", /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+  ["Wardy Agent secret", /\bWARDY_(?:SIGNING_KEY|AGENT_TOKEN|OWNER_TOKEN)=[A-Za-z0-9]{16,}/],
 ];
 
 const ENV_FILE = /(^|\/)\.env(\.(?!example$)[^/]+)?$/;

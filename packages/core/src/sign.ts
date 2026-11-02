@@ -18,13 +18,30 @@ export async function publicKeyOf(signingKey: string): Promise<string> {
 export type UnsignedVerdict = Omit<Verdict, "signature" | "wardyPublicKey">;
 
 /**
- * What the signature covers: the decision and the exact payment. `execution` and `networkReportId` change
- * after the decision, and a report quotes this signature, so neither can be inside it. The audit chain
- * covers those later changes.
+ * What the signature covers: the decision and the exact payment. It's a list, not "everything else", so a
+ * display field added to a verdict later can't break verification. `execution` and `networkReportId` change after
+ * the decision, and a report quotes this signature, so neither can be in it; the audit chain covers them.
  */
+const SIGNED_FIELDS = [
+  "verdictId",
+  "requestId",
+  "mode",
+  "requestHash",
+  "payee",
+  "chain",
+  "asset",
+  "amount",
+  "decision",
+  "riskScore",
+  "signals",
+  "reasons",
+  "ai",
+  "wardyPublicKey",
+  "createdAt",
+] as const satisfies readonly (keyof Verdict)[];
+
 function signedBytes(verdict: Omit<Verdict, "signature">): Uint8Array {
-  const { execution: _execution, networkReportId: _networkReportId, ...signed } = verdict as Verdict;
-  const { signature: _signature, ...payload } = signed;
+  const payload = Object.fromEntries(SIGNED_FIELDS.map((field) => [field, verdict[field]]));
   return utf8ToBytes(canonicalJson(payload));
 }
 

@@ -3,7 +3,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { isEvmChain } from "./accounts.js";
-import type { Chain, Verdict } from "./types.js";
+import type { Chain, Verdict, VerdictMode } from "./types.js";
 
 export interface RequestRecord {
   requestId: string;
@@ -12,6 +12,9 @@ export interface RequestRecord {
   payee: string;
   chain: Chain;
   createdAt: string;
+  /** Kept so a held payment can be recorded properly when the owner approves it later. Only ever a hash. */
+  invoiceId?: string;
+  invoiceTextHash?: string;
 }
 
 export interface SettledPayment {
@@ -25,6 +28,16 @@ export interface SettledPayment {
   invoiceTextHash?: string;
   settledAt: string;
   txHash?: string;
+  /** Custody couldn't confirm it. Counted as paid anyway, so a retry can't pay twice. */
+  uncertain?: boolean;
+}
+
+export interface ApprovalRecord {
+  verdictId: string;
+  /** Only a hash is stored: the token itself goes only to the owner. */
+  tokenHash: string;
+  expiresAt: string;
+  usedAt?: string;
 }
 
 export interface KnownPayee {
@@ -42,7 +55,9 @@ export interface LedgerSnapshot {
 type LedgerLine =
   | { kind: "request"; record: RequestRecord }
   | { kind: "settled"; payment: SettledPayment }
-  | { kind: "verdict"; verdict: Verdict };
+  | { kind: "verdict"; verdict: Verdict }
+  | { kind: "approval"; approval: ApprovalRecord }
+  | { kind: "frozen"; frozen: boolean };
 
 /** EVM addresses are case-insensitive, so `0xAb` and `0xaB` are one payee. */
 export function samePayee(a: { payee: string; chain: Chain }, b: { payee: string; chain: Chain }): boolean {
@@ -55,6 +70,8 @@ export class Ledger {
   private readonly settled: SettledPayment[] = [];
   private readonly verdicts = new Map<string, Verdict>();
   private readonly verdictIdByRequest = new Map<string, string>();
+  private readonly approvals = new Map<string, ApprovalRecord>();
+  private frozen = false;
 
   constructor(private readonly path?: string) {
     if (!path) return;
@@ -81,9 +98,11 @@ export class Ledger {
   private apply(line: LedgerLine) {
     if (line.kind === "request") this.requests.push(line.record);
     else if (line.kind === "settled") this.settled.push(line.payment);
+    else if (line.kind === "approval") this.approvals.set(line.approval.verdictId, line.approval);
+    else if (line.kind === "frozen") this.frozen = line.frozen;
     else {
       this.verdicts.set(line.verdict.verdictId, line.verdict);
-      this.verdictIdByRequest.set(line.verdict.requestId, line.verdict.verdictId);
+      this.verdictIdByRequest.set(`${line.verdict.mode}:${line.verdict.requestId}`, line.verdict.verdictId);
     }
   }
 
@@ -109,9 +128,35 @@ export class Ledger {
     return this.verdicts.get(verdictId);
   }
 
-  verdictByRequest(requestId: string): Verdict | undefined {
-    const verdictId = this.verdictIdByRequest.get(requestId);
+  /** A check and a payment may share a request id: asking first must not stop the payment later. */
+  verdictByRequest(requestId: string, mode: VerdictMode = "pay"): Verdict | undefined {
+    const verdictId = this.verdictIdByRequest.get(`${mode}:${requestId}`);
     return verdictId ? this.verdicts.get(verdictId) : undefined;
+  }
+
+  /** Saves an approval, or a newer version of one. */
+  saveApproval(approval: ApprovalRecord) {
+    this.write({ kind: "approval", approval });
+  }
+
+  approvalFor(verdictId: string): ApprovalRecord | undefined {
+    return this.approvals.get(verdictId);
+  }
+
+  openApprovals(): ApprovalRecord[] {
+    return [...this.approvals.values()].filter((approval) => !approval.usedAt);
+  }
+
+  setFrozen(frozen: boolean) {
+    this.write({ kind: "frozen", frozen });
+  }
+
+  isFrozen(): boolean {
+    return this.frozen;
+  }
+
+  allVerdicts(): Verdict[] {
+    return [...this.verdicts.values()];
   }
 
   /** Most recent first. */

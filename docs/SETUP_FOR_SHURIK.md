@@ -85,8 +85,9 @@ Save the file, then run:
 npm run setup:check
 ```
 
-You should see `OK` on four lines and `All set for Phase 1.` The owner line will say "not on-chain yet",
-which is normal. This check only reads; it moves no money. If a line says `MISSING` or `FAILED`, send me that
+You should see `OK` on five lines and `All set for Phase 1.` The owner line will say "not on-chain yet",
+which is normal. If the `Wardy Agent keys` line says `MISSING`, run `npm run setup:keys` again: it only fills
+what's empty, so it's safe. This check only reads; it moves no money. If a line says `MISSING` or `FAILED`, send me that
 line. It never prints your keys, so it's safe to share.
 
 ## Step 5: Your payout account (needed before submitting, not now)

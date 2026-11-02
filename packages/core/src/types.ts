@@ -8,8 +8,7 @@ const MAX_CONTEXT_CHARS = 20_000;
 
 export const AmountSchema = z
   .string()
-  .refine(isDecimal, "must be a decimal string such as 2 or 0.01")
-  .refine((value) => parseDecimal(value) > 0n, "must be above zero");
+  .refine((value) => isDecimal(value) && parseDecimal(value) > 0n, "must be a decimal above zero, such as 2 or 0.01");
 
 export const PaymentRequestSchema = z.strictObject({
   requestId: z.uuid(),
@@ -74,14 +73,24 @@ export interface VerdictAi {
 }
 
 export interface VerdictExecution {
-  status: "executed" | "pending_owner" | "refused" | "failed";
+  /** uncertain: custody couldn't confirm either way, so the money may have moved. Never retried automatically. */
+  status: "executed" | "pending_owner" | "refused" | "failed" | "uncertain";
   txHash?: string;
+  /** The provider's own id for the operation, when it has one. */
+  reference?: string;
   provider: string;
+  failureCode?: string;
+  /** Why, in plain words. */
+  note?: string;
 }
+
+/** pay: Wardy Agent may execute it. check: a question from another agent; nothing can ever move. */
+export type VerdictMode = "pay" | "check";
 
 export interface Verdict {
   verdictId: string;
   requestId: string;
+  mode: VerdictMode;
   /** sha256 of the canonical request without its context, so the signature binds to this exact payment. */
   requestHash: string;
   payee: string;
@@ -181,8 +190,10 @@ export interface CustodyTransfer {
 }
 
 export interface CustodyResult {
-  status: "executed" | "failed";
+  /** failed: proven not to have moved money. uncertain: it may have. Never report uncertain as failed. */
+  status: "executed" | "failed" | "uncertain";
   txHash?: string;
+  reference?: string;
   provider: string;
   failureCode?: string;
 }
@@ -190,4 +201,6 @@ export interface CustodyResult {
 export interface CustodyProvider {
   readonly name: string;
   transfer(request: CustodyTransfer): Promise<CustodyResult>;
+  /** What the wallet holds, valued in NEAR. Live mode refuses to start above the safety limit. */
+  balanceNearEquivalent?(): Promise<number>;
 }

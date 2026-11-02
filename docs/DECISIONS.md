@@ -52,10 +52,27 @@ Smaller notes to apply later:
 | Reusing a `requestId` for a different payment is refused | Returning the old verdict could read as approval of the new payment |
 | Bypass patterns are deliberately narrow | A hit is a hard BLOCK, so "please disregard the previous invoice" must not match |
 
-**To do in Phase 3:**
-- Run check and execute one at a time per owner. D3 reads settled payments, so two identical requests in parallel would otherwise both pass and both pay.
-- Record `invoiceId` and `invoiceTextHash` when a payment settles.
-- Generate `WARDY_SIGNING_KEY` for live mode.
+**API and execution, Phase 3.** Each of these goes beyond or differs from the brief:
+
+| Change | Why |
+|---|---|
+| Payments run one at a time per owner | D3 reads what has settled, so two identical requests in parallel would otherwise both pass and both pay. A test sends ten at once: one pays |
+| New `uncertain` status, counted as paid | A lost response doesn't mean no payment. Agent Connect says never to resend under a new key. A retry after `uncertain` is held, not paid |
+| Two credentials: agent and owner | The brief defines none. Without them, anything reaching the API could spend, and a hijacked agent could unfreeze. Offline uses public ones; live refuses to start without its own |
+| The approval token reaches only the owner | If `/v1/pay` returned the link, an agent could approve its own HOLD. It goes to the owner's channel; only its hash is stored |
+| Hard limits are checked again on approval | The budget may be gone by the time the owner answers |
+| A `check` is signed as a check, and has its own request-id space | Asking first must not stop the payment, count as a split-payment attempt, or read as permission to pay |
+| Another owner's check uses no policy | Our limits and freeze are ours; they'd give other agents wrong answers |
+| Live server output carries no approval token | "Never log tokens in production". Offline and testnet print the link for convenience |
+| The signature covers an explicit list of fields | Found when the API added `agentId` for display and broke verification of its own answers |
+| API binds to 127.0.0.1 by default | Anyone can read verdicts and ask for checks, which is fine locally and not on the open internet. A hosted demo needs a review first |
+
+**Facts found by real testnet calls, 2026-11-02 (LIVE), because OutLayer's docs don't show them:**
+- A transfer returns `{ request_id, status, tx_hash }`.
+- `X-Idempotency-Key` works on `/wallet/v1/transfer`, though the docs mention it only for other routes. A replay answers HTTP 200 with `error: duplicate_idempotency_key` and the first result nested under `result`. The balance moved once.
+- A transfer to a missing account answers 422 `onchain_tx_failed`, with a real `tx_hash` and no money moved. Too little balance answers 402 `wallet_underfunded`.
+
+**Still open:**
 - Before serving verdicts publicly (Phase 5), review `CONTEXT_PAYEE_MISMATCH`: its evidence holds an account id the AI read from the document.
 
 **To do in Phase 4:** replace test-only AI findings with fixtures recorded from real NEAR AI Cloud runs. Today's offline findings are written by hand inside tests and labelled `offline-fixture`, never as attested.
@@ -121,7 +138,7 @@ Smaller notes to apply later:
 - **Auth:** `POST /register` returns a `wk_…` key once. Then `Authorization: Bearer wk_…`.
 - **Calls:** `POST /wallet/v1/transfer` `{to, amount}` (yocto), `POST /wallet/v1/intents/transfer`, `GET /wallet/v1/balance?chain=near`.
 - **Gotchas:** Intents routes return 503 on testnet. Free tier is 100 custody operations per wallet per day. Cumulative limits are best-effort under concurrency. A 422 `onchain_tx_failed` must not be retried.
-- **Decision:** Agent Connect is the live provider. Since it has no testnet, I propose a small OutLayer testnet adapter for `WARDY_MODE=testnet`, so I can run real ALLOW transactions end to end with no real money.
+- **Decision:** Agent Connect is the live provider. Since it has no testnet, `WARDY_MODE=testnet` uses OutLayer testnet (`packages/providers/src/custody/outlayer.ts`), so real transactions run end to end with no real money. The adapter refuses mainnet URLs, because it sends native NEAR, which skips the rules we rely on in live custody. Set up with `npm run setup:testnet`.
 
 ### NEAR AI Cloud: private context check, Must
 

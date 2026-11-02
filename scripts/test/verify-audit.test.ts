@@ -24,6 +24,7 @@ function verdict(decision: "ALLOW" | "BLOCK", key: string) {
     {
       verdictId: crypto.randomUUID(),
       requestId: crypto.randomUUID(),
+      mode: "pay",
       requestHash: "a".repeat(64),
       payee: "acme-sh0p.near",
       chain: "near",

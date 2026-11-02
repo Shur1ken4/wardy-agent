@@ -1,0 +1,189 @@
+// Picks the real or mock service behind each interface, from WARDY_MODE. Offline needs nothing and touches no
+// network. Live refuses to start on anything unsafe, and says which setting is wrong without ever printing one.
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  AuditLog,
+  type ContextAnalyzer,
+  type CustodyProvider,
+  generateSigningKey,
+  Ledger,
+  type NetworkReport,
+  OFFLINE_TEST_SIGNING_KEY,
+  type OwnerPolicy,
+  OwnerPolicySchema,
+  PaymentService,
+  SEED_PAYEES,
+  type ReportRules,
+  type AccountFactsSource,
+} from "@wardy-agent/core";
+import {
+  AgentConnectCustody,
+  MockChainData,
+  MockContextAnalyzer,
+  MockCustody,
+  NearAiContextAnalyzer,
+  NearChainData,
+  OFFLINE_ACCOUNTS,
+  OutLayerCustody,
+} from "@wardy-agent/providers";
+import type { ReportSource } from "./app.js";
+
+export type Mode = "offline" | "testnet" | "live";
+
+export const OFFLINE_AGENT_TOKEN = "offline-agent-token";
+export const OFFLINE_OWNER_TOKEN = "offline-owner-token";
+const DEFAULT_OWNER = "demo-owner.near";
+const MAX_LIVE_BALANCE_NEAR = 10;
+const POLICY_FILE = new URL("../../../config/policy.json", import.meta.url);
+const OUTLAYER_WALLET_FILE = ".data/outlayer-testnet.json";
+const OFFLINE_FUNDS = { "nep141:wrap.near": "100", "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "100" };
+
+export interface Wiring {
+  mode: Mode;
+  service: PaymentService;
+  reports: ReportSource;
+  custody: CustodyProvider;
+  agentToken: string;
+  ownerToken: string;
+  webUrl: string;
+  dataDir: string;
+}
+
+type Env = Record<string, string | undefined>;
+
+function required(env: Env, name: string, hint: string): string {
+  const value = env[name];
+  if (!value) throw new Error(`${name} is empty, and ${hint}. See docs/SETUP_FOR_SHURIK.md.`);
+  return value;
+}
+
+export function loadPolicy(): OwnerPolicy {
+  return OwnerPolicySchema.parse(JSON.parse(readFileSync(POLICY_FILE, "utf8")));
+}
+
+/** Throw-away secrets for testnet, kept in the git-ignored data folder, so it needs no setup. */
+function localSecrets(dataDir: string) {
+  const path = join(dataDir, "secrets.json");
+  if (existsSync(path)) return JSON.parse(readFileSync(path, "utf8")) as { signingKey: string; agentToken: string; ownerToken: string };
+  const secrets = {
+    signingKey: generateSigningKey(),
+    agentToken: randomBytes(24).toString("hex"),
+    ownerToken: randomBytes(24).toString("hex"),
+  };
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(path, `${JSON.stringify(secrets, null, 2)}\n`, { mode: 0o600 });
+  return secrets;
+}
+
+/** Live mode refuses to start with more at stake than this project should ever hold. Fails closed. */
+export async function assertBalanceIsSafe(custody: CustodyProvider, understood: boolean): Promise<void> {
+  if (understood || !custody.balanceNearEquivalent) return;
+  let balance: number;
+  try {
+    balance = await custody.balanceNearEquivalent();
+  } catch (error) {
+    throw new Error(`Couldn't check the custody balance, so live mode won't start: ${(error as Error).message}`);
+  }
+  if (balance > MAX_LIVE_BALANCE_NEAR) {
+    throw new Error(
+      `Custody holds about ${balance.toFixed(2)} NEAR, above the ${MAX_LIVE_BALANCE_NEAR} NEAR safety limit. ` +
+        "Move funds out, or set WARDY_I_UNDERSTAND_RISK=1 if you really mean it.",
+    );
+  }
+}
+
+/** Real attestation when a key is set. Without one, only the deterministic checks read the text. */
+function nearAi(env: Env): ContextAnalyzer | undefined {
+  const apiKey = env.NEAR_AI_CLOUD_API_KEY;
+  if (!apiKey) return undefined;
+  return new NearAiContextAnalyzer({
+    apiKey,
+    model: env.NEAR_AI_MODEL || "z-ai/glm-5.3-flash",
+    ...(env.NEAR_AI_CLOUD_BASE_URL ? { baseUrl: env.NEAR_AI_CLOUD_BASE_URL } : {}),
+  });
+}
+
+export async function wire(env: Env, overrides: { dataDir?: string; custody?: CustodyProvider } = {}): Promise<Wiring> {
+  const mode = (env.WARDY_MODE || "offline") as Mode;
+  if (!["offline", "testnet", "live"].includes(mode)) throw new Error(`WARDY_MODE must be offline, testnet or live, not "${mode}".`);
+
+  const dataDir = overrides.dataDir ?? env.WARDY_DATA_DIR ?? join(".data", mode);
+  mkdirSync(dataDir, { recursive: true });
+  const policy = loadPolicy();
+
+  let custody: CustodyProvider;
+  let chainData: AccountFactsSource;
+  let analyzer: ContextAnalyzer | undefined;
+  let signingKey: string;
+  let agentToken: string;
+  let ownerToken: string;
+  let seedPayees: readonly string[] = SEED_PAYEES;
+
+  if (mode === "offline") {
+    custody = overrides.custody ?? new MockCustody(OFFLINE_FUNDS);
+    chainData = new MockChainData(OFFLINE_ACCOUNTS);
+    analyzer = new MockContextAnalyzer();
+    signingKey = OFFLINE_TEST_SIGNING_KEY;
+    agentToken = OFFLINE_AGENT_TOKEN;
+    ownerToken = OFFLINE_OWNER_TOKEN;
+  } else if (mode === "testnet") {
+    const walletFile = existsSync(OUTLAYER_WALLET_FILE) ? (JSON.parse(readFileSync(OUTLAYER_WALLET_FILE, "utf8")) as { apiKey: string }) : null;
+    const apiKey = env.OUTLAYER_API_KEY || walletFile?.apiKey;
+    if (!apiKey && !overrides.custody) throw new Error("No OutLayer testnet wallet yet. Run: npm run setup:testnet");
+    custody = overrides.custody ?? new OutLayerCustody({ apiUrl: env.OUTLAYER_API_URL || "https://testnet-api.outlayer.ai", apiKey: apiKey as string });
+    // No NearBlocks here: its testnet index is weeks behind, so its age data would be wrong.
+    chainData = new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" });
+    analyzer = nearAi(env);
+    const secrets = localSecrets(dataDir);
+    signingKey = env.WARDY_SIGNING_KEY || secrets.signingKey;
+    agentToken = env.WARDY_AGENT_TOKEN || secrets.agentToken;
+    ownerToken = env.WARDY_OWNER_TOKEN || secrets.ownerToken;
+    seedPayees = []; // The seed list is mainnet names; wrap.testnet isn't a lookalike of wrap.near.
+  } else {
+    custody =
+      overrides.custody ??
+      new AgentConnectCustody({
+        apiUrl: env.NEAR_INTENTS_AGENT_API_URL || "https://api.agentsonintents.com",
+        apiKey: required(env, "NEAR_INTENTS_AGENT_API_KEY", "live mode needs it"),
+        agentId: required(env, "WARDY_AGENT_ID", "live mode needs the agent created by hello:custody"),
+        grantToken: required(env, "WARDY_GRANT_TOKEN", "live mode needs the grant issued by hello:custody"),
+      });
+    chainData = new NearChainData({
+      rpcUrl: env.NEAR_RPC_URL || "https://free.rpc.fastnear.com",
+      nearblocksUrl: env.NEARBLOCKS_API_URL || "https://api.nearblocks.io",
+      ...(env.NEARBLOCKS_API_KEY ? { nearblocksApiKey: env.NEARBLOCKS_API_KEY } : {}),
+    });
+    analyzer = nearAi(env);
+    signingKey = required(env, "WARDY_SIGNING_KEY", "live mode won't use a test key");
+    agentToken = required(env, "WARDY_AGENT_TOKEN", "live mode won't use a default credential");
+    ownerToken = required(env, "WARDY_OWNER_TOKEN", "live mode won't use a default credential");
+    await assertBalanceIsSafe(custody, env.WARDY_I_UNDERSTAND_RISK === "1");
+  }
+
+  // The Wardy Network arrives in Phase 5. Until then there are honestly no reports.
+  const stored: NetworkReport[] = [];
+  const reports: ReportSource = {
+    reportsFor: (payee, chain) => stored.filter((report) => report.payee === payee && report.chain === chain),
+    recent: (limit) => stored.slice(-limit).reverse(),
+  };
+  const reportRules: ReportRules = { trustedReporters: new Set(), verifyEvidence: () => false, allowSeedReports: mode === "offline" };
+
+  const webUrl = env.WARDY_WEB_URL || "http://localhost:5173";
+  const service = new PaymentService({
+    ledger: new Ledger(join(dataDir, "ledger.jsonl")),
+    audit: new AuditLog(join(dataDir, "audit.jsonl")),
+    seedPayees,
+    chainData,
+    ...(analyzer ? { analyzer } : {}),
+    reportsFor: reports.reportsFor,
+    reportRules,
+    signingKey,
+    custody,
+    fleetOwnerId: env.WARDY_OWNER_ID || env.AGENT_OWNER_ACCOUNT_ID || DEFAULT_OWNER,
+    policy,
+    approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}?token=${token}`,
+  });
+  return { mode, service, reports, custody, agentToken, ownerToken, webUrl, dataDir };
+}
