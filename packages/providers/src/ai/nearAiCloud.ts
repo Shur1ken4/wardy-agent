@@ -2,7 +2,10 @@
 // when every check passes. A failure lowers the level; it never throws away the answer or fakes a pass.
 // Flow follows https://docs.near.ai/cloud/verification; reference code: nearai/nearai-cloud-verifier.
 import { createHash, randomBytes } from "node:crypto";
+import type { AttestationLevel, SignatureKind } from "@wardy-agent/core";
 import { recoverMessageAddress } from "viem";
+
+export type { AttestationLevel, SignatureKind };
 
 const NRAS_URL = "https://nras.attestation.nvidia.com/v3/attest/gpu";
 /** Same statuses the official verifier accepts: OutOfDate means valid crypto on an older TCB baseline. */
@@ -23,9 +26,6 @@ export interface ChatMessage {
   role: "system" | "user";
   content: string;
 }
-
-export type SignatureKind = "provider_tee" | "gateway" | "none";
-export type AttestationLevel = "full" | "partial" | "none";
 
 export interface AttestationChecks {
   /** The signature recovers to the address the service named. */

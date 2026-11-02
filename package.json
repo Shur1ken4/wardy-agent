@@ -17,6 +17,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check:secrets": "node scripts/check-secrets.mjs",
+    "check:fixtures": "tsx scripts/check-fixture-names.ts",
     "setup:keys": "tsx scripts/setup-keys.ts",
     "setup:check": "tsx scripts/setup-check.ts",
     "hello:indexer": "tsx scripts/hello-indexer.ts",
@@ -29,7 +30,7 @@
     "attack-lab": "node scripts/not-built-yet.mjs attack-lab 4",
     "agent": "node scripts/not-built-yet.mjs agent 4",
     "dev": "node scripts/not-built-yet.mjs dev 3",
-    "verify-audit": "node scripts/not-built-yet.mjs verify-audit 2",
+    "verify-audit": "tsx scripts/verify-audit.ts",
     "network:seed": "node scripts/not-built-yet.mjs network:seed 5",
     "network:anchor": "node scripts/not-built-yet.mjs network:anchor 5"
   },

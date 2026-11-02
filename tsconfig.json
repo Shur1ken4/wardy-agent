@@ -1,17 +1,30 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "allowJs": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true
   },
-  "include": ["packages/**/*.ts", "apps/**/*.ts", "scripts/**/*.ts", "scripts/**/*.mjs"],
-  "exclude": ["**/node_modules", "**/dist"]
+  "include": [
+    "packages/**/*.ts",
+    "apps/**/*.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mjs"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist"
+  ]
 }

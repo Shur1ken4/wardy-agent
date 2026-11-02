@@ -1,18 +1,9 @@
 // Account facts for the new-account detector. RPC says whether an account exists; NearBlocks adds its
 // age and transaction count. Nothing here throws: when a source is down, the facts say so, and the
 // detector reports ACCOUNT_DATA_UNAVAILABLE instead of crashing.
+import { type AccountFacts, type AccountFactsSource, isImplicitAccount } from "@wardy-agent/core";
 
-export interface AccountFacts {
-  accountId: string;
-  /** False when RPC couldn't answer, so existence is unknown. */
-  available: boolean;
-  exists: boolean;
-  /** 64 hex characters: valid before it exists on-chain. */
-  implicit: boolean;
-  /** ISO time, or null when the indexer has no answer. */
-  createdAt: string | null;
-  txCount: number | null;
-}
+export type { AccountFacts };
 
 export interface ChainDataOptions {
   rpcUrl: string;
@@ -21,8 +12,6 @@ export interface ChainDataOptions {
   fetchFn?: typeof fetch;
   timeoutMs?: number;
 }
-
-const IMPLICIT_ACCOUNT = /^[0-9a-f]{64}$/;
 
 async function fetchJson(
   url: string,
@@ -82,7 +71,7 @@ async function indexerFacts(
 }
 
 export async function getAccountFacts(accountId: string, options: ChainDataOptions): Promise<AccountFacts> {
-  const implicit = IMPLICIT_ACCOUNT.test(accountId);
+  const implicit = isImplicitAccount(accountId);
   const exists = await accountExists(accountId, options);
   if (exists === null) {
     return { accountId, available: false, exists: false, implicit, createdAt: null, txCount: null };
@@ -90,4 +79,25 @@ export async function getAccountFacts(accountId: string, options: ChainDataOptio
   // No need to spend indexer calls (about 6 a minute on the free tier) on an absent account.
   if (!exists) return { accountId, available: true, exists: false, implicit, createdAt: null, txCount: null };
   return { accountId, available: true, exists: true, implicit, ...(await indexerFacts(accountId, options)) };
+}
+
+/** RPC and NearBlocks answers are cached, because the free tier allows about 6 calls a minute. */
+export class NearChainData implements AccountFactsSource {
+  private readonly cache = new Map<string, { facts: AccountFacts; expires: number }>();
+
+  constructor(
+    private readonly options: ChainDataOptions,
+    private readonly cacheMs = 10 * 60_000,
+  ) {}
+
+  async getAccountFacts(accountId: string): Promise<AccountFacts> {
+    const cached = this.cache.get(accountId);
+    if (cached && cached.expires > Date.now()) return cached.facts;
+    const facts = await getAccountFacts(accountId, this.options);
+    // A failed lookup isn't remembered, so the next request tries again.
+    if (facts.available && (!facts.exists || facts.createdAt !== null)) {
+      this.cache.set(accountId, { facts, expires: Date.now() + this.cacheMs });
+    }
+    return facts;
+  }
 }

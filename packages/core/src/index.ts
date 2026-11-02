@@ -1,2 +1,19 @@
-// Built in a later phase. See docs/DECISIONS.md for the plan.
-export const WORKSPACE = "@wardy-agent/core";
+export * from "./accounts.js";
+export * from "./assets.js";
+export * from "./audit.js";
+export * from "./canonical.js";
+export * from "./checker.js";
+export * from "./config.js";
+export * from "./decimal.js";
+export * from "./decision.js";
+export * from "./detectors/contextTamper.js";
+export * from "./detectors/crossChain.js";
+export * from "./detectors/duplicate.js";
+export * from "./detectors/lookalike.js";
+export * from "./detectors/newAccount.js";
+export * from "./hash.js";
+export * from "./ledger.js";
+export * from "./network/lookup.js";
+export * from "./policy.js";
+export * from "./sign.js";
+export * from "./types.js";
