@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -139,6 +140,23 @@ describe("what the agent is told", () => {
   it("failed: no money moved", () => {
     expect(summarize({ ...base, decision: "ALLOW", execution: { status: "failed", failureCode: "broke" } })).toMatch(/failed \(broke\).*No money moved/);
   });
+});
+
+describe("the command npm run mcp:config prints", () => {
+  it("starts from any folder, as Claude launches it, even with a space in the repo's path", async () => {
+    const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const client = new Client({ name: "launch-test", version: "1" });
+    await client.connect(
+      new StdioClientTransport({
+        command: join(repo, "node_modules", ".bin", "tsx"),
+        args: [join(repo, "apps", "mcp", "src", "index.ts")],
+        cwd: tmpdir(),
+        env: { PATH: process.env.PATH ?? "" },
+      }),
+    );
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain("wardy_pay");
+    await client.close();
+  }, 30_000);
 });
 
 // The real thing: a real MCP client, a real stdio process, a real API, offline wiring.
