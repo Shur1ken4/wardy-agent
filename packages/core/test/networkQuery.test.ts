@@ -6,7 +6,7 @@ import { AnchorRecordSchema, type AnchorRecord } from "../src/network/anchor.js"
 import type { ReportRules } from "../src/network/lookup.js";
 import { merkleRoot, verifyMerkleProof } from "../src/network/merkle.js";
 import { NetworkQuery } from "../src/network/query.js";
-import { createNetworkReport, revocationLeaf, verifyReportEvidence, verifyRevocation } from "../src/network/report.js";
+import { createNetworkReport, revocationLeaf, verifyReportEvidence, verifyRevocation, whyOwnerCantReport } from "../src/network/report.js";
 import { appendToFeed, feedLineLeaf, parseFeed, ReportStore, serializeFeed } from "../src/network/store.js";
 import { generateSigningKey, publicKeyOf, publicVerdictOf, signText, signVerdict, verifyPublicVerdict, verifyVerdict } from "../src/sign.js";
 import type { NetworkReport, Verdict } from "../src/types.js";
@@ -123,6 +123,63 @@ describe("rules anyone can check on a report, even one signed by a real reporter
     const claims = { ...fields, codes: ["NETWORK_REPORTED_SCAM", "CONTEXT_BYPASS_ATTEMPT", "LOOKALIKE_HOMOGLYPH"] };
     const merkleLeaf = reportLeaf(claims);
     expect(await verifyReportEvidence({ ...claims, merkleLeaf, reportSignature: await signText(merkleLeaf, KEY) })).toBe(false);
+  });
+});
+
+describe("a report the owner confirmed", () => {
+  const confirmed = (verdict: Verdict) => createNetworkReport(verdict, { signingKey: KEY, createdAt: AT, ownerConfirmed: true });
+
+  it("can rest on one kind of evidence, or on a held payment, and it says so", async () => {
+    const one = await confirmed(await blocked({}, KEY, ["LOOKALIKE_HOMOGLYPH"]));
+    expect(one.ownerConfirmed).toBe(true);
+    expect(await verifyReportEvidence(one)).toBe(true);
+    expect(await verifyReportEvidence(await confirmed(await blocked({ decision: "HOLD" }, KEY, ["ACCOUNT_VERY_NEW"])))).toBe(true);
+  });
+
+  it("still needs some evidence about the payee", async () => {
+    expect(await verifyReportEvidence(await confirmed(await blocked({}, KEY, ["POLICY_OVER_PER_PAYMENT_LIMIT"])))).toBe(false);
+  });
+
+  it("still can't be about a payee the owner has really paid", async () => {
+    expect(await verifyReportEvidence(await confirmed(await blocked({}, KEY, ["ACCOUNT_VERY_NEW", "KNOWN_PAYEE"])))).toBe(false);
+  });
+
+  it("still can't come from an ALLOW or a check", async () => {
+    expect(await verifyReportEvidence(await confirmed(await blocked({ decision: "ALLOW" }, KEY, ["ACCOUNT_VERY_NEW"])))).toBe(false);
+    expect(await verifyReportEvidence(await confirmed(await blocked({ mode: "check" }, KEY, ["ACCOUNT_VERY_NEW"])))).toBe(false);
+  });
+
+  it("the label can't be added later: a thin report can't claim the owner's word", async () => {
+    const thin = await createNetworkReport(await blocked({}, KEY, ["LOOKALIKE_HOMOGLYPH"]), { signingKey: KEY, createdAt: AT });
+    expect(await verifyReportEvidence(thin)).toBe(false);
+    expect(await verifyReportEvidence({ ...thin, ownerConfirmed: true })).toBe(false);
+  });
+
+  it("the label can't be stripped either", async () => {
+    const { ownerConfirmed: _gone, ...stripped } = await confirmed(await blocked());
+    expect(await verifyReportEvidence(stripped)).toBe(false);
+  });
+
+  it("a normal report's leaf doesn't change, so what's already anchored stays valid", async () => {
+    const plain = await reportFrom();
+    expect(plain).not.toHaveProperty("ownerConfirmed");
+    expect(await verifyReportEvidence(plain)).toBe(true);
+  });
+});
+
+describe("whyOwnerCantReport", () => {
+  it.each<[string, Partial<Verdict>, SignalCode[], string | null]>([
+    ["a BLOCK with evidence", {}, ["ACCOUNT_VERY_NEW"], null],
+    ["a rejected HOLD", { decision: "HOLD", execution: { status: "refused", provider: "mock" } }, ["ACCOUNT_VERY_NEW"], null],
+    ["a HOLD still waiting", { decision: "HOLD", execution: { status: "pending_owner", provider: "mock" } }, ["ACCOUNT_VERY_NEW"], "rejected"],
+    ["an ALLOW", { decision: "ALLOW" }, ["ACCOUNT_VERY_NEW"], "blocked"],
+    ["a check", { mode: "check" }, ["ACCOUNT_VERY_NEW"], "question"],
+    ["a known payee", {}, ["ACCOUNT_VERY_NEW", "KNOWN_PAYEE"], "really paid"],
+    ["a broken limit alone", {}, ["POLICY_OVER_PER_PAYMENT_LIMIT"], "limits"],
+  ])("%s", async (_name, overrides, codes, expected) => {
+    const reason = whyOwnerCantReport(await blocked(overrides, KEY, codes));
+    if (expected === null) expect(reason).toBeNull();
+    else expect(reason).toContain(expected);
   });
 });
 

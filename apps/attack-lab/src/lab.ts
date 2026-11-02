@@ -21,6 +21,7 @@ import {
   SEED_PAYEES,
   USDC_ASSET,
   type Verdict,
+  type VerdictView,
   verifyReportEvidence,
   WNEAR_ASSET,
 } from "@wardy-agent/core";
@@ -90,6 +91,10 @@ export interface LabContext {
   audit: AuditLog;
   network: ReportStore;
   onEvent?: (scenario: Scenario, world: "with" | "without", event: Parameters<OnEvent>[0]) => void;
+  /** Called with each scenario as it finishes. */
+  onScenario?: (result: ScenarioResult) => void;
+  /** Called with every verdict the "with" world produced. */
+  onVerdict?: (verdict: VerdictView) => void;
 }
 
 /** A predictable id, shaped like a real uuid, so results don't change between runs. */
@@ -243,7 +248,7 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
     if (asked.statusCode !== 200) {
       return { text: `Wardy Agent refused this request: ${asked.json().error}. Nothing was paid.` };
     }
-    let verdict = asked.json() as Verdict;
+    let verdict = asked.json() as VerdictView;
     let ownerDecision: string | null = null;
     if (!otherOwner && verdict.execution?.status === "pending_owner") {
       ownerDecision = scenario.ownerDecision ?? "reject";
@@ -254,12 +259,13 @@ async function runWith(scenario: Scenario, ctx: LabContext) {
         url: `/v1/approve/${verdict.verdictId}`,
         payload: { action: ownerDecision, ownerToken: token },
       });
-      verdict = decided.json() as Verdict;
+      verdict = decided.json() as VerdictView;
     }
     if (otherOwner && verdict.decision === "ALLOW") {
       otherPayments.push({ payee: verdict.payee, asset: verdict.asset, amount: verdict.amount });
     }
     steps.push(toStepResult(verdict, ownerDecision));
+    ctx.onVerdict?.(verdict);
     return { text: `${verdict.decision}: ${verdict.reasons.join(" ")}` };
   };
 
@@ -341,7 +347,11 @@ export function totalsOf(scenarios: ScenarioResult[]): LabTotals {
 /** Runs scenarios in order against one network, so a later agent is protected by an earlier attack. */
 export async function runLab(scenarios: Scenario[], ctx: LabContext): Promise<LabRun> {
   const results: ScenarioResult[] = [];
-  for (const scenario of scenarios) results.push(await runScenario(scenario, ctx));
+  for (const scenario of scenarios) {
+    const result = await runScenario(scenario, ctx);
+    results.push(result);
+    ctx.onScenario?.(result);
+  }
   return { scenarios: results, totals: totalsOf(results) };
 }
 

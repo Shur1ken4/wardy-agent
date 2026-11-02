@@ -37,6 +37,16 @@ export function evidenceFamilies(verdict: Verdict): string[] {
   return familiesOf(verdict.signals.map((signal) => signal.code));
 }
 
+/** Why the owner can't report this payee, if there's a reason. The owner's word replaces the second kind of evidence, not the first. */
+export function whyOwnerCantReport(verdict: Verdict): string | null {
+  if (verdict.mode !== "pay") return "A check is only a question, and anyone can send one, so it can't become a report.";
+  const rejected = verdict.decision === "HOLD" && verdict.execution?.status === "refused";
+  if (verdict.decision !== "BLOCK" && !rejected) return "Only a blocked payment, or a held one you rejected, can become a report.";
+  if (verdict.signals.some((signal) => signal.code === "KNOWN_PAYEE")) return "You've really paid this payee before. A tampered invoice attacks them too, so it won't be reported.";
+  if (evidenceFamilies(verdict).length === 0) return "Nothing here is evidence about the payee. It only broke one of your own limits.";
+  return null;
+}
+
 export function shouldPublishReport(verdict: Verdict): boolean {
   if (verdict.mode !== "pay" || verdict.decision !== "BLOCK") return false;
   if (verdict.signals.some((signal) => signal.code === "KNOWN_PAYEE")) return false;
@@ -46,10 +56,10 @@ export function shouldPublishReport(verdict: Verdict): boolean {
 /** What goes into the Merkle tree. A revocation isn't in it: that's a later event with its own leaf, not a rewrite. */
 export function reportLeaf(report: Omit<NetworkReport, "merkleLeaf" | "reportSignature" | "revokedAt" | "revocationSignature">): string {
   const { reportId, payee, chain, codes, reporter, createdAt, evidence } = report;
-  return sha256Hex(canonicalJson({ reportId, payee, chain, codes, reporter, createdAt, evidence, seed: report.seed ?? false }));
+  return sha256Hex(canonicalJson({ reportId, payee, chain, codes, reporter, createdAt, evidence, seed: report.seed ?? false, ...(report.ownerConfirmed ? { ownerConfirmed: true } : {}) }));
 }
 
-export async function createNetworkReport(verdict: Verdict, options: { signingKey: string; reportId?: string; createdAt: string; seed?: boolean }): Promise<NetworkReport> {
+export async function createNetworkReport(verdict: Verdict, options: { signingKey: string; reportId?: string; createdAt: string; seed?: boolean; ownerConfirmed?: boolean }): Promise<NetworkReport> {
   const publicVerdict = publicVerdictOf(verdict);
   const unleafed = {
     reportId: options.reportId ?? randomUUID(),
@@ -67,6 +77,7 @@ export async function createNetworkReport(verdict: Verdict, options: { signingKe
     reporter: verdict.wardyPublicKey,
     createdAt: options.createdAt,
     ...(options.seed ? { seed: true } : {}),
+    ...(options.ownerConfirmed ? { ownerConfirmed: true } : {}),
   };
   const merkleLeaf = reportLeaf(unleafed);
   return { ...unleafed, merkleLeaf, reportSignature: await signText(merkleLeaf, options.signingKey) };
@@ -77,7 +88,8 @@ export async function createNetworkReport(verdict: Verdict, options: { signingKe
  * field was changed in transit, and the signed verdict inside really backs up what the report claims. The second
  * stops a reporter, or a bug, from attaching real evidence about one payee to a report about another, or from
  * publishing what the rules wouldn't: a report needs a real BLOCK from a real payment, two independent kinds of
- * evidence, and a payee the owner has never paid.
+ * evidence, and a payee the owner has never paid. A report the owner confirmed can rest on a held payment and one kind
+ * of evidence, and it says so: `ownerConfirmed` is signed, so a reader can weigh it differently.
  */
 export async function verifyReportEvidence(report: NetworkReport): Promise<boolean> {
   const { merkleLeaf, reportSignature, revokedAt: _revokedAt, revocationSignature: _revocationSignature, ...fields } = report;
@@ -86,12 +98,14 @@ export async function verifyReportEvidence(report: NetworkReport): Promise<boole
 
   const { publicVerdict, verdictId, verdictSignature, requestHash, lookalikeOf, attestationRef } = report.evidence;
   if (!publicVerdict) return false;
-  if (publicVerdict.mode !== "pay" || publicVerdict.decision !== "BLOCK") return false;
+  const confirmed = report.ownerConfirmed === true;
+  if (publicVerdict.mode !== "pay") return false;
+  if (publicVerdict.decision !== "BLOCK" && !(confirmed && publicVerdict.decision === "HOLD")) return false;
   if (publicVerdict.verdictId !== verdictId || publicVerdict.signature !== verdictSignature || publicVerdict.requestHash !== requestHash) return false;
   if (publicVerdict.payee !== report.payee || publicVerdict.chain !== report.chain) return false;
   if (publicVerdict.lookalikeOf !== lookalikeOf || publicVerdict.attestationRef !== attestationRef) return false;
   if (canonicalJson(publicVerdict.codes) !== canonicalJson(report.codes)) return false;
-  if (publicVerdict.codes.includes("KNOWN_PAYEE") || familiesOf(publicVerdict.codes).length < MIN_FAMILIES) return false;
+  if (publicVerdict.codes.includes("KNOWN_PAYEE") || familiesOf(publicVerdict.codes).length < (confirmed ? 1 : MIN_FAMILIES)) return false;
   return verifyPublicVerdict(publicVerdict, report.reporter);
 }
 

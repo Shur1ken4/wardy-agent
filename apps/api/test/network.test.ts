@@ -2,7 +2,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AnchorRecord, createNetworkReport, feedLineLeaf, generateSigningKey, makeSignal, merkleProof, merkleRoot, type NetworkReport, OFFLINE_TEST_SIGNING_KEY, signVerdict, verifyMerkleProof } from "@wardy-agent/core";
+import { type AnchorRecord, createNetworkReport, feedLineLeaf, generateSigningKey, makeSignal, merkleProof, merkleRoot, type NetworkReport, OFFLINE_TEST_SIGNING_KEY, signVerdict, verifyMerkleProof, verifyReportEvidence } from "@wardy-agent/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { wire, type WireOverrides } from "../src/wiring.js";
@@ -31,6 +31,7 @@ async function harness(overrides: WireOverrides = {}, env: Record<string, string
   const app = await buildApp({
     service: wiring.service,
     network: wiring.network,
+    reporting: wiring.reporting,
     agentToken: wiring.agentToken,
     ownerToken: wiring.ownerToken,
     mode: wiring.mode,
@@ -101,6 +102,83 @@ describe("from a real BLOCK to a proof", () => {
     expect(await wiring.reports.revoke(report.reportId, "2026-11-05T13:00:00.000Z", generateSigningKey())).toBe(false);
     expect(await wiring.reports.revoke(report.reportId, "2026-11-05T13:00:00.000Z", OFFLINE_TEST_SIGNING_KEY)).toBe(true);
     expect(await lookup(LOOKALIKE)).toMatchObject({ reported: false, reports: [], withdrawn: [{ reportId: report.reportId }], merkleProof: null });
+  });
+});
+
+describe("the owner can report and withdraw", () => {
+  const OWNER_HEADERS = (token: string) => ({ authorization: `Bearer ${token}` });
+
+  async function withApp() {
+    const parts = await harness();
+    const report = (id: string) => parts.app.inject({ method: "POST", url: `/v1/verdicts/${id}/report`, headers: OWNER_HEADERS(parts.wiring.ownerToken) });
+    const revoke = (id: string) => parts.app.inject({ method: "POST", url: `/v1/network/reports/${id}/revoke`, headers: OWNER_HEADERS(parts.wiring.ownerToken) });
+    return { ...parts, report, revoke };
+  }
+
+  /** A held payment to a brand-new account: one kind of evidence, so it isn't published by itself. */
+  async function heldThenRejected(parts: Awaited<ReturnType<typeof withApp>>) {
+    let link = "";
+    parts.wiring.service.once("hold", ({ approvalUrl }) => {
+      link = approvalUrl;
+    });
+    const verdict = (await parts.pay("quick-settle-desk.near")).json();
+    return { verdict, token: new URLSearchParams(new URL(link || "http://x/#token=none").hash.slice(1)).get("token") as string };
+  }
+
+  it("a payment already reported can't be reported twice", async () => {
+    const parts = await withApp();
+    const blocked = (await parts.pay(LOOKALIKE, { invoiceText: SECRET_LINE })).json();
+    expect(blocked.networkReportId).toBeDefined();
+    const again = await parts.report(blocked.verdictId);
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toBe("already_reported");
+  });
+
+  it("an honest payment can't be reported, and a held one must be rejected first", async () => {
+    const parts = await withApp();
+    const paid = (await parts.pay("acme-shop.near")).json();
+    expect(paid.decision).toBe("ALLOW");
+    expect((await parts.report(paid.verdictId)).json().error).toBe("cannot_report");
+    const { verdict } = await heldThenRejected(parts);
+    expect(verdict.decision).toBe("HOLD");
+    expect((await parts.report(verdict.verdictId)).json().error).toBe("cannot_report");
+  });
+
+  it("a held payment the owner rejected can be reported, says the owner confirmed it, and verifies", async () => {
+    const parts = await withApp();
+    const { verdict, token } = await heldThenRejected(parts);
+    expect(verdict.decision).toBe("HOLD");
+    expect((await parts.app.inject({ method: "POST", url: `/v1/approve/${verdict.verdictId}`, payload: { action: "reject", ownerToken: token } })).statusCode).toBe(200);
+    const reported = await parts.report(verdict.verdictId);
+    expect(reported.statusCode).toBe(200);
+    const { reports } = await parts.lookup("quick-settle-desk.near");
+    expect(reports[0]).toMatchObject({ ownerConfirmed: true, reportId: reported.json().reportId });
+    expect(await verifyReportEvidence(reports[0])).toBe(true);
+    // The verdict now points to its report, and the signature on it still holds.
+    const after = parts.wiring.service.getVerdict(verdict.verdictId);
+    expect(after?.networkReportId).toBe(reported.json().reportId);
+    expect(await parts.wiring.service.verify(after as NonNullable<typeof after>)).toBe(true);
+  });
+
+  it("withdrawing takes the report out of lookups, and only works once, and only on real ids", async () => {
+    const parts = await withApp();
+    const blocked = (await parts.pay(LOOKALIKE, { invoiceText: SECRET_LINE })).json();
+    expect((await parts.revoke(blocked.networkReportId)).statusCode).toBe(200);
+    expect((await parts.lookup(LOOKALIKE)).reported).toBe(false);
+    expect((await parts.revoke(blocked.networkReportId)).statusCode).toBe(404);
+    expect((await parts.revoke("no-such-report")).statusCode).toBe(404);
+  });
+
+  it("can't withdraw a report another key made", async () => {
+    const parts = await withApp();
+    const stranger = generateSigningKey();
+    const verdict = await signVerdict(
+      { verdictId: crypto.randomUUID(), requestId: crypto.randomUUID(), mode: "pay", requestHash: "a".repeat(64), payee: "x.near", chain: "near", asset: "a", amount: "1", decision: "BLOCK", riskScore: 100, signals: [makeSignal("LOOKALIKE_HOMOGLYPH", "x", {}), makeSignal("ACCOUNT_VERY_NEW", "y", {})], reasons: [], createdAt: "2026-11-05T12:00:00.000Z" },
+      stranger,
+    );
+    const theirs = await createNetworkReport(verdict, { signingKey: stranger, createdAt: "2026-11-05T12:00:00.000Z" });
+    parts.wiring.reports.add(theirs);
+    expect((await parts.revoke(theirs.reportId)).statusCode).toBe(404);
   });
 });
 

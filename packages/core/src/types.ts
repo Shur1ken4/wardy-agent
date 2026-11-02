@@ -157,6 +157,8 @@ export interface NetworkReport {
   reportSignature: string;
   /** Produced by the Attack Lab on fixture names. Never counts in live decisions. */
   seed?: boolean;
+  /** The owner looked at this and said it's a scam, which is the other way to earn a public report. */
+  ownerConfirmed?: boolean;
   /** Set when the reporter withdraws the report. A revoked report no longer counts. */
   revokedAt?: string;
   /** The reporter's signature over the revocation. Without a valid one, `revokedAt` is ignored. */

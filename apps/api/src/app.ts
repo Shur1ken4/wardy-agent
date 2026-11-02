@@ -1,16 +1,35 @@
-// The HTTP API. Three rules shape it. An agent can ask to pay but can't approve its own HOLD, because the one-time
-// token never appears in anything an agent can read. Only the owner's credential can freeze or unfreeze. Errors
+// The HTTP API. Four rules shape it. An agent can ask to pay but can't approve its own HOLD, because the one-time
+// token never appears in anything an agent can read. Only the owner's credential can freeze or unfreeze. The owner's
+// payment history, limits and earnings need that credential too: the Wardy Network is the only public data. Errors
 // never repeat what was sent, so untrusted text can't leak back out through them.
 import { createHash, timingSafeEqual } from "node:crypto";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
-import { type NetworkSource, type PaymentService, RequestIdConflictError, ServiceError, type Verdict } from "@wardy-agent/core";
-import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from "fastify";
+import { type NetworkSource, type PaymentService, RequestIdConflictError, ServiceError, type Verdict, type VerdictView } from "@wardy-agent/core";
+import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { z, ZodError } from "zod";
 
 export interface Earnings {
   checksSold: number;
   revenue: { currency: string; amount: string }[];
+}
+
+/** What the owner can do to the Wardy Network, signed with this instance's key. */
+export interface Reporting {
+  /** Publishes a report the owner confirmed. Throws a ServiceError saying why, if it can't. */
+  report(verdict: Verdict): Promise<string>;
+  /** Withdraws one of this instance's reports. False if it isn't one, or it's already withdrawn. */
+  revoke(reportId: string): Promise<boolean>;
+}
+
+/** Offline only, so a visitor can see it work with no agent attached. All of it runs on mock ledgers. */
+export interface DemoTools {
+  /** Sends real requests through this API, with verdicts arriving on the live feed. */
+  playTraffic(): Promise<void>;
+  /** Runs the Attack Lab on its own mock ledgers, reporting each scenario as it finishes. */
+  runLab(send: (event: string, data: unknown) => void): Promise<void>;
+  /** A verdict from the last Attack Lab run, which never touches this instance's ledger. */
+  labVerdict(verdictId: string): VerdictView | undefined;
 }
 
 export interface AppOptions {
@@ -26,12 +45,17 @@ export interface AppOptions {
   networkRateLimitPerMinute?: number;
   logger?: boolean | object;
   earnings?(): Earnings;
+  reporting?: Reporting;
+  demo?: DemoTools;
 }
 
 const VerdictIdParams = z.object({ id: z.uuid() });
 const LimitQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) });
 const PayeeParams = z.object({ chain: z.string().min(1).max(32), payee: z.string().min(1).max(128) });
 const ApproveBody = z.strictObject({ action: z.enum(["approve", "reject"]), ownerToken: z.string().min(1).max(256) });
+const PreviewBody = z.strictObject({ ownerToken: z.string().min(1).max(256) });
+const ReportIdParams = z.object({ id: z.string().min(1).max(128) });
+const AuditQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50), verdictId: z.uuid().optional() });
 
 function sameSecret(a: string, b: string): boolean {
   const hash = (value: string) => createHash("sha256").update(value).digest();
@@ -78,7 +102,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.status(500).send({ error: "internal_error", message: "Something went wrong." });
   });
 
-  app.get("/health", async () => ({ status: "ok", mode: options.mode, provider: service.providerName, frozen: service.isFrozen() }));
+  app.get("/health", async () => ({
+    status: "ok",
+    mode: options.mode,
+    provider: service.providerName,
+    frozen: service.isFrozen(),
+    demoTools: Boolean(options.demo),
+  }));
 
   app.post("/v1/pay", async (request) => {
     requireToken(request, options.agentToken);
@@ -92,21 +122,40 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   );
 
   app.get("/v1/verdicts", async (request) => {
+    requireToken(request, options.ownerToken);
     const { limit } = LimitQuery.parse(request.query);
     return { verdicts: service.recentVerdicts(limit) };
   });
 
-  const verdictOr404 = (id: string): Verdict => {
-    const verdict = service.getVerdict(id);
+  const verdictOr404 = (id: string): VerdictView => {
+    const verdict = service.getVerdict(id) ?? options.demo?.labVerdict(id);
     if (!verdict) throw new ServiceError(404, "not_found", "No such verdict.");
     return verdict;
   };
 
-  app.get("/v1/verdicts/:id", async (request) => verdictOr404(VerdictIdParams.parse(request.params).id));
+  app.get("/v1/verdicts/:id", async (request) => {
+    requireToken(request, options.ownerToken);
+    return verdictOr404(VerdictIdParams.parse(request.params).id);
+  });
 
+  // Open, because checking a signature is for anyone. It says nothing about the payment.
   app.get("/v1/verdicts/:id/verify", async (request) => {
     const verdict = verdictOr404(VerdictIdParams.parse(request.params).id);
     return { valid: await service.verify(verdict), publicKey: await service.publicKey() };
+  });
+
+  app.post("/v1/verdicts/:id/report", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
+    requireToken(request, options.ownerToken);
+    const verdict = service.getVerdict(VerdictIdParams.parse(request.params).id);
+    if (!verdict) throw new ServiceError(404, "not_found", "No such verdict.");
+    if (!options.reporting) throw new ServiceError(409, "cannot_report", "This instance can't publish reports.");
+    return { reportId: await options.reporting.report(verdict) };
+  });
+
+  app.get("/v1/audit", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
+    requireToken(request, options.ownerToken);
+    const { limit, verdictId } = AuditQuery.parse(request.query);
+    return service.auditReport(limit, verdictId);
   });
 
   app.post(
@@ -116,6 +165,16 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       const { id } = VerdictIdParams.parse(request.params);
       const { action, ownerToken } = ApproveBody.parse(request.body);
       return service.view(await service.decideHold(id, action, ownerToken));
+    },
+  );
+
+  // POST, so the token is in the body: bodies don't end up in logs or browser history.
+  app.post(
+    "/v1/approve/:id/preview",
+    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (request) => {
+      const { id } = VerdictIdParams.parse(request.params);
+      return service.previewHold(id, PreviewBody.parse(request.body).ownerToken);
     },
   );
 
@@ -141,12 +200,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return { frozen: false };
   });
 
-  app.get("/v1/policy", async () => ({
-    policy: service.currentPolicy(),
-    provider: service.providerName,
-    whoCanSpend: "Wardy Agent only",
-    ownerId: service.fleetOwnerId,
-  }));
+  app.get("/v1/policy", async (request) => {
+    requireToken(request, options.ownerToken);
+    return {
+      policy: service.currentPolicy(),
+      provider: service.providerName,
+      whoCanSpend: "Wardy Agent only",
+      ownerId: service.fleetOwnerId,
+    };
+  });
 
   // Free so agents use it, but limited: each answer checks signatures.
   const networkLimit = { config: { rateLimit: { max: options.networkRateLimitPerMinute ?? 120, timeWindow: "1 minute" } } };
@@ -158,13 +220,20 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/v1/network/reports", networkLimit, async (request) => network.feed(LimitQuery.parse(request.query).limit));
 
-  app.get("/v1/stats", async () => ({
-    ...service.stats(),
-    earned: options.earnings?.() ?? { checksSold: 0, revenue: [] },
-  }));
+  app.post("/v1/network/reports/:id/revoke", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
+    requireToken(request, options.ownerToken);
+    const { id } = ReportIdParams.parse(request.params);
+    if (!(await options.reporting?.revoke(id))) throw new ServiceError(404, "not_found", "This instance has no live report with that id.");
+    return { revoked: true };
+  });
 
-  // Live feed for the dashboard. Carries verdicts only, never an approval link.
-  app.get("/v1/stream", (request, reply) => {
+  app.get("/v1/stats", async (request) => {
+    requireToken(request, options.ownerToken);
+    return { ...service.stats(), earned: options.earnings?.() ?? { checksSold: 0, revenue: [] } };
+  });
+
+  /** Takes over the response to send events. The caller must have checked the credential first. */
+  const openEventStream = (request: FastifyRequest, reply: FastifyReply) => {
     reply.hijack();
     const raw = reply.raw;
     const origin = request.headers.origin;
@@ -175,7 +244,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       ...(origin && corsOrigins.includes(origin) ? { "access-control-allow-origin": origin } : {}),
     });
     raw.write(": connected\n\n");
-    const send = (event: string, data: unknown) => raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    return { raw, send: (event: string, data: unknown) => raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`) };
+  };
+
+  // Live feed for the dashboard. Carries verdicts only, never an approval link.
+  app.get("/v1/stream", async (request, reply) => {
+    requireToken(request, options.ownerToken);
+    const { raw, send } = openEventStream(request, reply);
     const onVerdict = (verdict: Verdict) => send("verdict", service.view(verdict));
     const onFrozen = (frozen: boolean) => send("frozen", { frozen });
     service.on("verdict", onVerdict);
@@ -187,6 +262,35 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       service.off("frozen", onFrozen);
     });
   });
+
+  const { demo } = options;
+  if (demo) {
+    let trafficRunning = false;
+    app.post("/v1/demo/traffic", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
+      requireToken(request, options.ownerToken);
+      if (trafficRunning) throw new ServiceError(409, "already_running", "Demo traffic is already playing.");
+      trafficRunning = true;
+      demo
+        .playTraffic()
+        .catch((error: Error) => request.log.error({ errorName: error.name }, "demo traffic failed"))
+        .finally(() => {
+          trafficRunning = false;
+        });
+      return reply.status(202).send({ started: true });
+    });
+
+    app.post("/v1/lab/run", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
+      requireToken(request, options.ownerToken);
+      const { raw, send } = openEventStream(request, reply);
+      try {
+        await demo.runLab(send);
+      } catch (error) {
+        request.log.error({ errorName: (error as Error).name }, "attack lab failed");
+        send("error", { message: "The Attack Lab couldn't finish." });
+      }
+      raw.end();
+    });
+  }
 
   return app;
 }

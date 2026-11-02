@@ -66,7 +66,7 @@ function payment(overrides: Record<string, unknown> = {}) {
 }
 
 function ownerTokenFrom(url: string) {
-  return new URL(url).searchParams.get("token") as string;
+  return new URLSearchParams(new URL(url).hash.slice(1)).get("token") as string;
 }
 
 try {
@@ -136,7 +136,7 @@ try {
   console.log(`     audit chain valid, ${audit.entries} entries, ${audit.signaturesChecked} signatures valid`);
   expectThat("the audit chain verifies", audit.valid);
 
-  const stats = (await (await fetch(`${api}/v1/stats`)).json()) as { checkedToday: number; blockedToday: number; paidToday: number };
+  const stats = (await (await fetch(`${api}/v1/stats`, { headers: { authorization: `Bearer ${ownerToken}` } })).json()) as { checkedToday: number; blockedToday: number; paidToday: number };
   console.log(`\n${stats.checkedToday} payments checked: ${stats.paidToday} paid, ${stats.blockedToday} blocked.`);
 
   if (testnet) {

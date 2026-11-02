@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   AuditLog,
   type ContextAnalyzer,
+  createNetworkReport,
   type CustodyProvider,
   generateSigningKey,
   Ledger,
@@ -21,8 +22,10 @@ import {
   type ReportRules,
   ReportStore,
   SEED_PAYEES,
+  ServiceError,
   type AccountFactsSource,
   verifyReportEvidence,
+  whyOwnerCantReport,
 } from "@wardy-agent/core";
 import {
   AgentConnectCustody,
@@ -36,6 +39,8 @@ import {
   RECORDED_AI_FINDINGS,
   seedOfflineHistory,
 } from "@wardy-agent/providers";
+
+import type { Reporting } from "./app.js";
 
 export type Mode = "offline" | "testnet" | "live";
 
@@ -53,6 +58,7 @@ export interface Wiring {
   service: PaymentService;
   reports: ReportStore;
   network: NetworkQuery;
+  reporting: Reporting;
   custody: CustodyProvider;
   agentToken: string;
   ownerToken: string;
@@ -210,7 +216,23 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     custody,
     fleetOwnerId,
     policy,
-    approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}?token=${token}`,
+    // After the #, because browsers never send that part to a server, so the token stays out of every request log.
+    approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}#token=${token}`,
   });
-  return { mode, service, reports, network, custody, agentToken, ownerToken, webUrl, dataDir };
+  const reporting: Reporting = {
+    report: async (verdict) => {
+      const refused = whyOwnerCantReport(verdict);
+      if (refused) throw new ServiceError(409, "cannot_report", refused);
+      const reporter = await publicKeyOf(signingKey);
+      if (reports.reportsFor(verdict.payee, verdict.chain).some((report) => report.reporter === reporter && !report.revokedAt)) {
+        throw new ServiceError(409, "already_reported", "This payee already has a live report from you.");
+      }
+      const report = await createNetworkReport(verdict, { signingKey, createdAt: new Date().toISOString(), ownerConfirmed: true });
+      reports.add(report);
+      service.markReported(verdict.verdictId, report.reportId);
+      return report.reportId;
+    },
+    revoke: (reportId) => reports.revoke(reportId, new Date().toISOString(), signingKey),
+  };
+  return { mode, service, reports, network, reporting, custody, agentToken, ownerToken, webUrl, dataDir };
 }

@@ -1,10 +1,10 @@
 // The offline run: scripted agent, recorded AI answers if there are any, one audit chain. Same bytes every time.
 import { rmSync, writeFileSync } from "node:fs";
-import { type AnchorRecord, AuditLog, feedLineLeaf, ReportStore, serializeFeed } from "@wardy-agent/core";
+import { type AnchorRecord, AuditLog, feedLineLeaf, ReportStore, serializeFeed, type VerdictView } from "@wardy-agent/core";
 import { loadScenarios } from "@wardy-agent/demo-agent";
 import { MockContextAnalyzer, RECORDED_AI_FINDINGS } from "@wardy-agent/providers";
 import { fileURLToPath } from "node:url";
-import { formatAmounts, type LabRun, runLab } from "./lab.js";
+import { formatAmounts, type LabRun, runLab, type ScenarioResult, summaryLine } from "./lab.js";
 import { RESULTS_DIR, type ResultsMeta, writeResults } from "./results.js";
 
 export const HOLDOUT_DIR = fileURLToPath(new URL("../holdout/", import.meta.url));
@@ -45,7 +45,14 @@ export function networkLines(network: ReportStore, anchor: AnchorRecord | null):
 }
 
 /** Writes nothing unless `auditPath` is given. */
-export async function runOffline(options: { auditPath?: string; holdoutDir?: string } = {}): Promise<OfflineRun> {
+export async function runOffline(
+  options: {
+    auditPath?: string;
+    holdoutDir?: string;
+    onScenario?: (set: "main" | "holdout", result: ScenarioResult) => void;
+    onVerdict?: (verdict: VerdictView) => void;
+  } = {},
+): Promise<OfflineRun> {
   if (options.auditPath) rmSync(options.auditPath, { force: true });
   const audit = new AuditLog(options.auditPath);
   const aiRecorded = Object.keys(RECORDED_AI_FINDINGS).length > 0;
@@ -55,11 +62,49 @@ export async function runOffline(options: { auditPath?: string; holdoutDir?: str
     analyzer: new MockContextAnalyzer(RECORDED_AI_FINDINGS),
     audit,
     network: new ReportStore(),
+    ...(options.onVerdict ? { onVerdict: options.onVerdict } : {}),
   };
-  const run = await runLab(loadScenarios(), shared);
+  const run = await runLab(loadScenarios(), { ...shared, onScenario: (result) => options.onScenario?.("main", result) });
   // Its own network: a holdout attack shouldn't get help from reports the main set produced.
-  const holdout = await runLab(loadScenarios(options.holdoutDir ?? HOLDOUT_DIR), { ...shared, network: new ReportStore() });
+  const holdout = await runLab(loadScenarios(options.holdoutDir ?? HOLDOUT_DIR), { ...shared, network: new ReportStore(), onScenario: (result) => options.onScenario?.("holdout", result) });
   return { run, holdout, meta: { agent: "scripted", aiSource: aiSource(aiRecorded) }, network: shared.network };
+}
+
+export interface LabStreamDone {
+  summary: string;
+  holdout: string;
+  aiSource: string;
+  totals: LabRun["totals"];
+  holdoutTotals: LabRun["totals"];
+  lostWithoutText: string;
+  lostWithText: string;
+}
+
+/** The same run as `npm run attack-lab -- --offline`, told as it happens. Writes nothing. */
+export async function streamOffline(
+  send: (event: string, data: unknown) => void,
+  onVerdict?: (verdict: VerdictView) => void,
+): Promise<void> {
+  const total = loadScenarios().length + loadScenarios(HOLDOUT_DIR).length;
+  send("start", { total });
+  let index = 0;
+  const { run, holdout, meta } = await runOffline({
+    onScenario: (set, result) => {
+      index += 1;
+      send("scenario", { set, index, total, result });
+    },
+    ...(onVerdict ? { onVerdict } : {}),
+  });
+  const done: LabStreamDone = {
+    summary: summaryLine(run.totals),
+    holdout: holdoutLine(holdout),
+    aiSource: meta.aiSource,
+    totals: run.totals,
+    holdoutTotals: holdout.totals,
+    lostWithoutText: formatAmounts(run.totals.lostWithout),
+    lostWithText: formatAmounts(run.totals.lostWith),
+  };
+  send("done", done);
 }
 
 export async function runAndWriteOffline(dir: string = RESULTS_DIR): Promise<OfflineRun> {

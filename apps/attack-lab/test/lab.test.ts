@@ -8,7 +8,7 @@ import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
 import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines, totalsOf } from "../src/lab.js";
-import { HOLDOUT_DIR, holdoutLine, networkLines, runAndWriteOffline, runOffline, SEED_FEED_FILE } from "../src/offline.js";
+import { HOLDOUT_DIR, holdoutLine, networkLines, runAndWriteOffline, runOffline, SEED_FEED_FILE, streamOffline } from "../src/offline.js";
 import { RESULTS_DIR, toJson, toMarkdown } from "../src/results.js";
 
 const scenarios = loadScenarios();
@@ -274,6 +274,23 @@ describe("the results", () => {
     for (const name of ["latest.md", "latest.json", "audit.jsonl", "network-seed.jsonl"]) {
       expect(readFileSync(join(dir, name), "utf8"), name).toBe(readFileSync(join(RESULTS_DIR, name), "utf8"));
     }
+  });
+
+  it("the streamed run tells the same story as the written results, one scenario at a time", async () => {
+    const events: { event: string; data: { index?: number; total?: number; set?: string; result?: ScenarioResult; summary?: string; holdout?: string } }[] = [];
+    const verdicts = new Map<string, { verdictId: string; decision: string }>();
+    await streamOffline((event, data) => events.push({ event, data: data as (typeof events)[number]["data"] }), (verdict) => verdicts.set(verdict.verdictId, verdict));
+    expect(events[0]?.event).toBe("start");
+    expect(events.at(-1)?.event).toBe("done");
+    const rows = events.filter(({ event }) => event === "scenario");
+    expect(rows.map(({ data }) => data.index)).toEqual(rows.map((_row, index) => index + 1));
+    expect(rows.every(({ data }) => data.total === rows.length)).toBe(true);
+    expect(rows.filter(({ data }) => data.set === "main").map(({ data }) => data.result)).toEqual(offline.run.scenarios);
+    expect(rows.filter(({ data }) => data.set === "holdout").map(({ data }) => data.result)).toEqual(offline.holdout.scenarios);
+    expect(events.at(-1)?.data.summary).toBe(summaryLine(offline.run.totals));
+    expect(events.at(-1)?.data.holdout).toBe(holdoutLine(offline.holdout));
+    // Every verdict a row links to can be opened.
+    for (const { data } of rows) for (const step of data.result?.with.steps ?? []) expect(verdicts.get(step.verdictId)?.decision, step.verdictId).toBe(step.decision);
   });
 
   it("only claims an anchor for reports the anchor really covers", () => {

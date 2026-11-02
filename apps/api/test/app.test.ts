@@ -2,7 +2,7 @@ import { AuditLog, DEFAULT_POLICY, generateSigningKey, type HoldNotice, Ledger, 
 import { MockChainData, MockCustody, OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
-import { type AppOptions, buildApp } from "../src/app.js";
+import { type AppOptions, buildApp, type DemoTools } from "../src/app.js";
 
 const OWNER = "demo-owner.near";
 const AGENT_TOKEN = "agent-secret-token";
@@ -244,8 +244,10 @@ describe("POST /v1/approve/:id", () => {
     const { app, pay, holds, tokenOf } = await harness();
     const { verdictId } = (await pay()).json();
     const token = tokenOf(holds[0]);
-    for (const url of [`/v1/verdicts/${verdictId}`, "/v1/verdicts", "/v1/stats", "/v1/policy", "/health"]) {
-      expect((await app.inject({ method: "GET", url })).body, url).not.toContain(token);
+    for (const url of [`/v1/verdicts/${verdictId}`, "/v1/verdicts", "/v1/stats", "/v1/policy", "/v1/audit", "/health"]) {
+      const response = await app.inject({ method: "GET", url, headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
+      expect(response.statusCode, url).toBe(200);
+      expect(response.body, url).not.toContain(token);
     }
   });
 
@@ -316,7 +318,7 @@ describe("owner views", () => {
     await pay();
     expect((await app.inject({ method: "GET", url: "/v1/approvals" })).statusCode).toBe(401);
     expect((await app.inject({ method: "GET", url: "/v1/approvals", headers: agent })).statusCode).toBe(401);
-    const response = await app.inject({ method: "GET", url: "/v1/approvals", headers: owner });
+    const response = await app.inject({ method: "GET", url: "/v1/approvals", headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
     expect(response.json().approvals).toHaveLength(1);
     expect(response.body).not.toContain(tokenOf(holds[0]));
   });
@@ -325,7 +327,7 @@ describe("owner views", () => {
     const { app, pay, owner, agent } = await harness();
     const { verdictId } = (await pay()).json();
     expect((await app.inject({ method: "POST", url: `/v1/approvals/${verdictId}/link`, headers: agent })).statusCode).toBe(401);
-    const response = await app.inject({ method: "POST", url: `/v1/approvals/${verdictId}/link`, headers: owner });
+    const response = await app.inject({ method: "POST", url: `/v1/approvals/${verdictId}/link`, headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
     expect(response.json().approvalUrl).toContain(`/approve/${verdictId}?token=`);
   });
 });
@@ -335,22 +337,22 @@ describe("reads", () => {
     const { app, pay, body } = await harness();
     const first = (await pay(body({ payee: "first-payee.near" }))).json();
     const second = (await pay(body({ payee: "second-payee.near" }))).json();
-    const all = (await app.inject({ method: "GET", url: "/v1/verdicts" })).json().verdicts;
+    const all = (await app.inject({ method: "GET", url: "/v1/verdicts", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).json().verdicts;
     expect(all.map((verdict: { verdictId: string }) => verdict.verdictId)).toEqual([second.verdictId, first.verdictId]);
-    expect((await app.inject({ method: "GET", url: "/v1/verdicts?limit=1" })).json().verdicts).toHaveLength(1);
+    expect((await app.inject({ method: "GET", url: "/v1/verdicts?limit=1", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).json().verdicts).toHaveLength(1);
   });
 
   it.each(["0", "-1", "9999", "abc"])("refuses limit=%s", async (limit) => {
     const { app } = await harness();
-    expect((await app.inject({ method: "GET", url: `/v1/verdicts?limit=${limit}` })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts?limit=${limit}`, headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).statusCode).toBe(400);
   });
 
   it("gets one verdict, 404s an unknown one, and 400s a bad id", async () => {
     const { app, pay } = await harness();
     const { verdictId } = (await pay()).json();
-    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${verdictId}` })).json().verdictId).toBe(verdictId);
-    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${crypto.randomUUID()}` })).statusCode).toBe(404);
-    expect((await app.inject({ method: "GET", url: "/v1/verdicts/nope" })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${verdictId}`, headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).json().verdictId).toBe(verdictId);
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${crypto.randomUUID()}`, headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).statusCode).toBe(404);
+    expect((await app.inject({ method: "GET", url: "/v1/verdicts/nope", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).statusCode).toBe(400);
   });
 
   it("verifies a signature, before and after execution", async () => {
@@ -392,7 +394,7 @@ describe("reads", () => {
 
   it("reports the policy and who can spend, with native transfers off", async () => {
     const { app } = await harness();
-    const { policy, whoCanSpend, provider } = (await app.inject({ method: "GET", url: "/v1/policy" })).json();
+    const { policy, whoCanSpend, provider } = (await app.inject({ method: "GET", url: "/v1/policy", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).json();
     expect(whoCanSpend).toBe("Wardy Agent only");
     expect(provider).toBe("mock");
     expect(policy.nativeNearTransfers).toBe(false);
@@ -409,7 +411,7 @@ describe("reads", () => {
     makeKnown();
     await pay();
     await pay(body({ payee: "acme-sh0p.near" }));
-    expect((await app.inject({ method: "GET", url: "/v1/stats" })).json()).toMatchObject({
+    expect((await app.inject({ method: "GET", url: "/v1/stats", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).json()).toMatchObject({
       checkedToday: 2,
       blockedToday: 1,
       paidToday: 1,
@@ -420,7 +422,189 @@ describe("reads", () => {
 
   it("health answers", async () => {
     const { app } = await harness();
-    expect((await app.inject({ method: "GET", url: "/health" })).json()).toEqual({ status: "ok", mode: "offline", provider: "mock", frozen: false });
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toEqual({ status: "ok", mode: "offline", provider: "mock", frozen: false, demoTools: false });
+  });
+});
+
+describe("who can read what", () => {
+  const PRIVATE = ["/v1/verdicts", "/v1/stats", "/v1/policy", "/v1/stream", "/v1/audit", "/v1/approvals"];
+
+  it.each(PRIVATE)("%s needs the owner's credential: nothing else gets the owner's history or limits", async (url) => {
+    const { app } = await harness();
+    expect((await app.inject({ method: "GET", url })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url, headers: { authorization: `Bearer ${AGENT_TOKEN}` } })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url, headers: { authorization: "Bearer wrong" } })).statusCode).toBe(401);
+  });
+
+  it("a single verdict needs it too, but checking its signature doesn't, and says nothing about the payment", async () => {
+    const { app, pay } = await harness();
+    const { verdictId } = (await pay()).json();
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${verdictId}` })).statusCode).toBe(401);
+    const verify = await app.inject({ method: "GET", url: `/v1/verdicts/${verdictId}/verify` });
+    expect(verify.statusCode).toBe(200);
+    expect(Object.keys(verify.json()).sort()).toEqual(["publicKey", "valid"]);
+  });
+
+  it("the Wardy Network and health stay public", async () => {
+    const { app } = await harness();
+    for (const url of ["/v1/network/reports", "/v1/network/payee/near/x.near", "/health"]) {
+      expect((await app.inject({ method: "GET", url })).statusCode, url).toBe(200);
+    }
+  });
+
+  it("the agent's credential can't publish or withdraw a report", async () => {
+    const { app, pay } = await harness();
+    const { verdictId } = (await pay()).json();
+    const headers = { authorization: `Bearer ${AGENT_TOKEN}` };
+    expect((await app.inject({ method: "POST", url: `/v1/verdicts/${verdictId}/report`, headers })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/v1/network/reports/x/revoke", headers })).statusCode).toBe(401);
+  });
+});
+
+describe("the owner's phone: POST /v1/approve/:id/preview", () => {
+  const preview = (app: FastifyInstance, id: string, ownerToken: string) => app.inject({ method: "POST", url: `/v1/approve/${id}/preview`, payload: { ownerToken } });
+  const approve = (app: FastifyInstance, id: string, payload: Record<string, unknown>) => app.inject({ method: "POST", url: `/v1/approve/${id}`, payload });
+
+  it("shows what's waiting, using only the link's token, and doesn't spend it", async () => {
+    const { app, pay, holds, tokenOf, custody } = await harness();
+    const { verdictId } = (await pay()).json();
+    const token = tokenOf(holds[0]);
+    const first = (await preview(app, verdictId, token)).json();
+    expect(first).toMatchObject({ open: true, verdict: { verdictId, decision: "HOLD", execution: { status: "pending_owner" } } });
+    expect(first.expiresAt).toBeTruthy();
+    expect(custody.transfers).toEqual([]);
+    expect((await approve(app, verdictId, { action: "reject", ownerToken: token })).statusCode).toBe(200);
+  });
+
+  it("after deciding, a reload shows the result and isn't open any more", async () => {
+    const { app, pay, holds, tokenOf } = await harness();
+    const { verdictId } = (await pay()).json();
+    const token = tokenOf(holds[0]);
+    await approve(app, verdictId, { action: "reject", ownerToken: token });
+    expect((await preview(app, verdictId, token)).json()).toMatchObject({ open: false, verdict: { execution: { status: "refused" } } });
+  });
+
+  it.each<[string, string]>([["a wrong token", "not-the-token"], ["the owner's own credential", OWNER_TOKEN], ["the agent's credential", AGENT_TOKEN]])("refuses %s", async (_name, ownerToken) => {
+    const { app, pay } = await harness();
+    const { verdictId } = (await pay()).json();
+    const response = await preview(app, verdictId, ownerToken);
+    expect(response.statusCode).toBe(401);
+    expect(response.body).not.toContain("amount");
+  });
+
+  it("a token for one payment can't read another", async () => {
+    const { app, pay, body, holds, tokenOf } = await harness();
+    await pay();
+    const other = (await pay(body({ amount: "1.5" }))).json();
+    expect(other.decision).toBe("HOLD");
+    expect((await preview(app, other.verdictId, tokenOf(holds[0]))).statusCode).toBe(401);
+  });
+
+  it("an unknown payment looks the same as a wrong token, so ids can't be probed", async () => {
+    const { app } = await harness();
+    const response = await preview(app, crypto.randomUUID(), "anything");
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("an old link stops working once a fresh one is made", async () => {
+    const { app, pay, holds, tokenOf } = await harness();
+    const { verdictId } = (await pay()).json();
+    const old = tokenOf(holds[0]);
+    const renewed = await app.inject({ method: "POST", url: `/v1/approvals/${verdictId}/link`, headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
+    expect(renewed.statusCode).toBe(200);
+    expect((await preview(app, verdictId, old)).statusCode).toBe(401);
+  });
+
+  it("refuses an extra field", async () => {
+    const { app, pay, holds, tokenOf } = await harness();
+    const { verdictId } = (await pay()).json();
+    const response = await app.inject({ method: "POST", url: `/v1/approve/${verdictId}/preview`, payload: { ownerToken: tokenOf(holds[0]), force: true } });
+    expect(response.statusCode).toBe(400);
+  });
+});
+
+describe("GET /v1/audit", () => {
+  it("checks the chain, and can narrow to one verdict", async () => {
+    const { app, pay, body, makeKnown } = await harness();
+    makeKnown();
+    const { verdictId } = (await pay()).json();
+    await pay(body({ payee: "acme-sh0p.near" }));
+    const headers = { authorization: `Bearer ${OWNER_TOKEN}` };
+    const all = (await app.inject({ method: "GET", url: "/v1/audit", headers })).json();
+    expect(all.valid).toBe(true);
+    expect(all.signaturesChecked).toBeGreaterThan(0);
+    expect(all.records.length).toBeGreaterThan(2);
+    const one = (await app.inject({ method: "GET", url: `/v1/audit?verdictId=${verdictId}`, headers })).json();
+    expect(one.valid).toBe(true);
+    expect(one.records.length).toBeGreaterThan(0);
+    for (const { entry } of one.records) expect(entry.verdictId ?? entry.verdict.verdictId).toBe(verdictId);
+  });
+
+  it("refuses a bad id", async () => {
+    const { app } = await harness();
+    expect((await app.inject({ method: "GET", url: "/v1/audit?verdictId=nope", headers: { authorization: `Bearer ${OWNER_TOKEN}` } })).statusCode).toBe(400);
+  });
+});
+
+describe("demo tools", () => {
+  const OWNER_HEADERS = { authorization: `Bearer ${OWNER_TOKEN}` };
+
+  it("don't exist unless they're switched on", async () => {
+    const { app } = await harness();
+    expect((await app.inject({ method: "POST", url: "/v1/demo/traffic", headers: OWNER_HEADERS })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/v1/lab/run", headers: OWNER_HEADERS })).statusCode).toBe(404);
+  });
+
+  function tools(overrides: Partial<DemoTools> = {}): DemoTools {
+    return { playTraffic: async () => {}, runLab: async () => {}, labVerdict: () => undefined, ...overrides };
+  }
+
+  it("need the owner's credential, and health says they're there", async () => {
+    const { app } = await harness({ demo: tools() });
+    expect((await app.inject({ method: "GET", url: "/health" })).json().demoTools).toBe(true);
+    for (const url of ["/v1/demo/traffic", "/v1/lab/run"]) {
+      expect((await app.inject({ method: "POST", url })).statusCode, url).toBe(401);
+      expect((await app.inject({ method: "POST", url, headers: { authorization: `Bearer ${AGENT_TOKEN}` } })).statusCode, url).toBe(401);
+    }
+  });
+
+  it("traffic starts once at a time", async () => {
+    let finish = () => {};
+    const { app } = await harness({ demo: tools({ playTraffic: () => new Promise<void>((resolve) => { finish = resolve; }) }) });
+    expect((await app.inject({ method: "POST", url: "/v1/demo/traffic", headers: OWNER_HEADERS })).statusCode).toBe(202);
+    expect((await app.inject({ method: "POST", url: "/v1/demo/traffic", headers: OWNER_HEADERS })).statusCode).toBe(409);
+    finish();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect((await app.inject({ method: "POST", url: "/v1/demo/traffic", headers: OWNER_HEADERS })).statusCode).toBe(202);
+  });
+
+  it("the lab streams each event as it happens", async () => {
+    const { app } = await harness({
+      demo: tools({ runLab: async (send) => { send("scenario", { id: "A1" }); send("done", { ok: true }); } }),
+    });
+    const url = await app.listen({ host: "127.0.0.1", port: 0 });
+    const text = await (await fetch(`${url}/v1/lab/run`, { method: "POST", headers: OWNER_HEADERS })).text();
+    expect(text).toContain('event: scenario\ndata: {"id":"A1"}');
+    expect(text).toContain("event: done");
+  });
+
+  it("a lab failure says so, in plain words, without details", async () => {
+    const { app } = await harness({ demo: tools({ runLab: async () => { throw new Error("secret detail"); } }) });
+    const url = await app.listen({ host: "127.0.0.1", port: 0 });
+    const text = await (await fetch(`${url}/v1/lab/run`, { method: "POST", headers: OWNER_HEADERS })).text();
+    expect(text).toContain("event: error");
+    expect(text).not.toContain("secret detail");
+  });
+
+  it("a verdict from the lab can be read and verified, but not reported", async () => {
+    const key = generateSigningKey();
+    const signed = await signVerdict(
+      { verdictId: crypto.randomUUID(), requestId: crypto.randomUUID(), mode: "pay", requestHash: "a".repeat(64), payee: "x.near", chain: "near", asset: "a", amount: "1", decision: "BLOCK", riskScore: 100, signals: [], reasons: [], createdAt: new Date().toISOString() },
+      key,
+    );
+    const { app } = await harness({ demo: tools({ labVerdict: (id) => (id === signed.verdictId ? signed : undefined) }) });
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${signed.verdictId}`, headers: OWNER_HEADERS })).json().payee).toBe("x.near");
+    expect((await app.inject({ method: "POST", url: `/v1/verdicts/${signed.verdictId}/report`, headers: OWNER_HEADERS })).statusCode).toBe(404);
   });
 });
 
@@ -450,7 +634,7 @@ describe("GET /v1/stream", () => {
     const { app, pay, holds, service, tokenOf } = await harness();
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
     const controller = new AbortController();
-    const response = await fetch(`${url}/v1/stream`, { signal: controller.signal });
+    const response = await fetch(`${url}/v1/stream`, { signal: controller.signal, headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
     expect(response.headers.get("content-type")).toBe("text/event-stream");
     const reader = (response.body as ReadableStream<Uint8Array>).getReader();
     await readUntil(reader, "connected");

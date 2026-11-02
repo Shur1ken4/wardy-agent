@@ -3,6 +3,7 @@
 // already settled, so two identical requests in parallel would otherwise both pass and both pay.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { type AuditEntry, type AuditRecord, verifyAuditLines } from "./audit.js";
 import { type CheckerDeps, PaymentChecker } from "./checker.js";
 import { SIGNALS, type SignalCode } from "./config.js";
 import { formatDecimal, parseDecimal } from "./decimal.js";
@@ -312,12 +313,46 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
     });
   }
 
+  /**
+   * What the owner sees before deciding. The one-time token is what lets them read it, because a phone opening a link
+   * has no other credential. It stays valid for reading once used, so a reload shows what was decided.
+   */
+  previewHold(verdictId: string, token: string): { verdict: VerdictView; expiresAt: string; open: boolean } {
+    this.expireHolds();
+    const { ledger } = this.deps;
+    const approval = ledger.approvalFor(verdictId);
+    const verdict = ledger.verdictById(verdictId);
+    if (!approval || !verdict || !sameHash(approval.tokenHash, hashToken(token))) {
+      throw new ServiceError(401, "invalid_token", "That approval link isn't valid.");
+    }
+    return { verdict: this.view(verdict), expiresAt: approval.expiresAt, open: verdict.execution?.status === "pending_owner" };
+  }
+
   /** A fresh link for a pending payment, in case the first was lost. The old one stops working. */
   renewApprovalLink(verdictId: string): { approvalUrl: string; expiresAt: string } {
     this.expireHolds();
     const approval = this.deps.ledger.approvalFor(verdictId);
     if (!approval || approval.usedAt) throw new ServiceError(404, "not_found", "No payment is waiting on that id.");
     return { approvalUrl: this.issueApproval(verdictId, approval.expiresAt), expiresAt: approval.expiresAt };
+  }
+
+  /** Records a report published after the verdict was made. It's outside the signature, as `networkReportId` always is. */
+  markReported(verdictId: string, reportId: string): void {
+    const verdict = this.deps.ledger.verdictById(verdictId);
+    if (!verdict) return;
+    const reported: Verdict = { ...verdict, networkReportId: reportId };
+    this.deps.ledger.saveVerdict(reported);
+    this.emit("verdict", reported);
+  }
+
+  /** Checks the whole audit chain and every signature in it, then returns the latest records. */
+  async auditReport(limit: number, verdictId?: string) {
+    const lines = this.deps.audit.lines();
+    const report = await verifyAuditLines(lines, await this.publicKey());
+    const records = lines.map((line) => JSON.parse(line) as AuditRecord);
+    const subject = (entry: AuditEntry) => (entry.type === "verdict" ? entry.verdict.verdictId : "verdictId" in entry ? entry.verdictId : undefined);
+    const about = verdictId ? records.filter(({ entry }) => subject(entry) === verdictId) : records;
+    return { ...report, records: about.slice(-limit).reverse() };
   }
 
   /** Stops all spending at once. Wardy Agent is the only spender, so nothing else can move funds. */

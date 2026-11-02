@@ -110,6 +110,21 @@ describe("offline mode", () => {
   });
 });
 
+describe("the approval link", () => {
+  it("keeps its token after the #, which browsers never send to a server", async () => {
+    const wiring = await wire({ WARDY_MODE: "offline" }, { dataDir: tempDir() });
+    let link = "";
+    wiring.service.once("hold", ({ approvalUrl }) => {
+      link = approvalUrl;
+    });
+    await wiring.service.pay({ requestId: crypto.randomUUID(), agentId: "bot", ownerId: wiring.service.fleetOwnerId, payee: "quick-settle-desk.near", chain: "near", asset: "wNEAR", amount: "1", purpose: "demo", createdAt: new Date().toISOString() });
+    const url = new URL(link);
+    expect(url.search).toBe("");
+    expect(url.pathname).toMatch(/^\/approve\//);
+    expect(new URLSearchParams(url.hash.slice(1)).get("token")).toMatch(/^[0-9a-f]+$/);
+  });
+});
+
 describe("mode selection", () => {
   it("refuses an unknown mode", async () => {
     await expect(wire({ WARDY_MODE: "production" }, { dataDir: tempDir() })).rejects.toThrow(/offline, testnet or live/);
