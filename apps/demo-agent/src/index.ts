@@ -1,2 +1,2 @@
-// Built in a later phase. See docs/DECISIONS.md for the plan.
-export const WORKSPACE = "@wardy-agent/demo-agent";
+export * from "./agent.js";
+export * from "./scenario.js";

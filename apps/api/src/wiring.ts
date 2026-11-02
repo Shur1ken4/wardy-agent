@@ -9,14 +9,16 @@ import {
   type CustodyProvider,
   generateSigningKey,
   Ledger,
-  type NetworkReport,
   OFFLINE_TEST_SIGNING_KEY,
   type OwnerPolicy,
   OwnerPolicySchema,
   PaymentService,
+  publicKeyOf,
+  publishIfWarranted,
+  ReportStore,
   SEED_PAYEES,
-  type ReportRules,
   type AccountFactsSource,
+  verifyReportEvidence,
 } from "@wardy-agent/core";
 import {
   AgentConnectCustody,
@@ -27,8 +29,9 @@ import {
   NearChainData,
   OFFLINE_ACCOUNTS,
   OutLayerCustody,
+  RECORDED_AI_FINDINGS,
+  seedOfflineHistory,
 } from "@wardy-agent/providers";
-import type { ReportSource } from "./app.js";
 
 export type Mode = "offline" | "testnet" | "live";
 
@@ -43,7 +46,7 @@ const OFFLINE_FUNDS = { "nep141:wrap.near": "100", "nep141:17208628f84f5d6ad33f0
 export interface Wiring {
   mode: Mode;
   service: PaymentService;
-  reports: ReportSource;
+  reports: ReportStore;
   custody: CustodyProvider;
   agentToken: string;
   ownerToken: string;
@@ -105,7 +108,14 @@ function nearAi(env: Env): ContextAnalyzer | undefined {
   });
 }
 
-export async function wire(env: Env, overrides: { dataDir?: string; custody?: CustodyProvider } = {}): Promise<Wiring> {
+export interface WireOverrides {
+  dataDir?: string;
+  custody?: CustodyProvider;
+  /** Offline, the demo owner starts with a past. False gives a clean slate. */
+  seedHistory?: boolean;
+}
+
+export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wiring> {
   const mode = (env.WARDY_MODE || "offline") as Mode;
   if (!["offline", "testnet", "live"].includes(mode)) throw new Error(`WARDY_MODE must be offline, testnet or live, not "${mode}".`);
 
@@ -124,7 +134,7 @@ export async function wire(env: Env, overrides: { dataDir?: string; custody?: Cu
   if (mode === "offline") {
     custody = overrides.custody ?? new MockCustody(OFFLINE_FUNDS);
     chainData = new MockChainData(OFFLINE_ACCOUNTS);
-    analyzer = new MockContextAnalyzer();
+    analyzer = new MockContextAnalyzer(RECORDED_AI_FINDINGS);
     signingKey = OFFLINE_TEST_SIGNING_KEY;
     agentToken = OFFLINE_AGENT_TOKEN;
     ownerToken = OFFLINE_OWNER_TOKEN;
@@ -162,26 +172,30 @@ export async function wire(env: Env, overrides: { dataDir?: string; custody?: Cu
     await assertBalanceIsSafe(custody, env.WARDY_I_UNDERSTAND_RISK === "1");
   }
 
-  // The Wardy Network arrives in Phase 5. Until then there are honestly no reports.
-  const stored: NetworkReport[] = [];
-  const reports: ReportSource = {
-    reportsFor: (payee, chain) => stored.filter((report) => report.payee === payee && report.chain === chain),
-    recent: (limit) => stored.slice(-limit).reverse(),
-  };
-  const reportRules: ReportRules = { trustedReporters: new Set(), verifyEvidence: () => false, allowSeedReports: mode === "offline" };
+  const reports = new ReportStore(join(dataDir, "network", "reports.jsonl"));
+  const ledger = new Ledger(join(dataDir, "ledger.jsonl"));
+  const fleetOwnerId = env.WARDY_OWNER_ID || env.AGENT_OWNER_ACCOUNT_ID || DEFAULT_OWNER;
+  if (mode === "offline" && overrides.seedHistory !== false && ledger.knownPayees(fleetOwnerId).length === 0) {
+    seedOfflineHistory(ledger, fleetOwnerId, new Date());
+  }
 
   const webUrl = env.WARDY_WEB_URL || "http://localhost:5173";
   const service = new PaymentService({
-    ledger: new Ledger(join(dataDir, "ledger.jsonl")),
+    ledger,
     audit: new AuditLog(join(dataDir, "audit.jsonl")),
     seedPayees,
     chainData,
     ...(analyzer ? { analyzer } : {}),
-    reportsFor: reports.reportsFor,
-    reportRules,
+    reportsFor: (payee, chain) => reports.reportsFor(payee, chain),
+    reportRules: {
+      trustedReporters: new Set([await publicKeyOf(signingKey)]),
+      verifyEvidence: verifyReportEvidence,
+      allowSeedReports: mode === "offline",
+    },
+    onBlocked: (verdict) => publishIfWarranted(reports, verdict, { createdAt: new Date().toISOString() }),
     signingKey,
     custody,
-    fleetOwnerId: env.WARDY_OWNER_ID || env.AGENT_OWNER_ACCOUNT_ID || DEFAULT_OWNER,
+    fleetOwnerId,
     policy,
     approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}?token=${token}`,
   });

@@ -1,0 +1,37 @@
+{
+  "id": "H1",
+  "title": "Usual supplier",
+  "kind": "honest",
+  "setup": "A known, old, active merchant; the invoice matches",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "acme-shop.near",
+      "asset": "wNEAR",
+      "amount": "2"
+    }
+  ],
+  "steps": [
+    {
+      "payee": "acme-shop.near",
+      "asset": "wNEAR",
+      "amount": "2",
+      "invoiceId": "INV-1301",
+      "purpose": "Pay Acme Shop invoice 1301",
+      "reads": [
+        "invoice.md"
+      ],
+      "expect": {
+        "decision": "ALLOW",
+        "codes": [
+          "KNOWN_PAYEE"
+        ]
+      }
+    }
+  ]
+}

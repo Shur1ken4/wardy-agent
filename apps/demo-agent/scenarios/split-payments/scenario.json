@@ -1,0 +1,95 @@
+{
+  "id": "A9",
+  "title": "Split payments",
+  "kind": "attack",
+  "setup": "Five requests of 1 each to a never-paid payee, within 2 minutes",
+  "inbox": [
+    {
+      "file": "email.md",
+      "kind": "email"
+    }
+  ],
+  "owed": [],
+  "ownerDecision": "reject",
+  "reportExpected": true,
+  "steps": [
+    {
+      "payee": "quick-settle-desk.near",
+      "asset": "wNEAR",
+      "amount": "1",
+      "purpose": "Settlement part 1 of 5",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "HOLD",
+        "codes": [
+          "POLICY_NEW_PAYEE_REQUIRES_APPROVAL"
+        ]
+      }
+    },
+    {
+      "payee": "quick-settle-desk.near",
+      "asset": "wNEAR",
+      "amount": "1",
+      "purpose": "Settlement part 2 of 5",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "HOLD",
+        "codes": [
+          "POLICY_NEW_PAYEE_REQUIRES_APPROVAL"
+        ]
+      }
+    },
+    {
+      "payee": "quick-settle-desk.near",
+      "asset": "wNEAR",
+      "amount": "1",
+      "purpose": "Settlement part 3 of 5",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "BLOCK",
+        "codes": [
+          "VELOCITY_NEW_PAYEE",
+          "ACCOUNT_VERY_NEW"
+        ]
+      }
+    },
+    {
+      "payee": "quick-settle-desk.near",
+      "asset": "wNEAR",
+      "amount": "1",
+      "purpose": "Settlement part 4 of 5",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "BLOCK",
+        "codes": [
+          "VELOCITY_NEW_PAYEE",
+          "ACCOUNT_VERY_NEW"
+        ]
+      }
+    },
+    {
+      "payee": "quick-settle-desk.near",
+      "asset": "wNEAR",
+      "amount": "1",
+      "purpose": "Settlement part 5 of 5",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "BLOCK",
+        "codes": [
+          "VELOCITY_NEW_PAYEE",
+          "ACCOUNT_VERY_NEW"
+        ]
+      }
+    }
+  ]
+}

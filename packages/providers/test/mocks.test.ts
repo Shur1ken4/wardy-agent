@@ -100,6 +100,20 @@ describe("MockContextAnalyzer", () => {
     });
   });
 
+  it("replaying an attested recording still says not attested: no TEE ran for this answer", async () => {
+    const analyzer = new MockContextAnalyzer({
+      [sha256Hex("the text")]: { findings, model: "z-ai/glm-5.3-flash", recordedAt: "2026-11-05", chatId: "chat-9", attested: true, attestationLevel: "full" },
+    });
+    expect(await analyzer.analyze("the text")).toEqual({
+      findings,
+      model: `${OFFLINE_MODEL} (recorded from z-ai/glm-5.3-flash)`,
+      attested: false,
+      signatureKind: "none",
+      attestationLevel: "none",
+      attestationRef: "chat-9",
+    });
+  });
+
   it("treats unknown text as an AI failure, not as all clear", async () => {
     expect((await new MockContextAnalyzer().analyze("unknown")).findings).toBeNull();
   });

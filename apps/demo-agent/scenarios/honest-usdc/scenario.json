@@ -1,0 +1,37 @@
+{
+  "id": "H2",
+  "title": "Another supplier, in USDC",
+  "kind": "honest",
+  "setup": "A known merchant, paid in USDC, with ordinary invoice wording",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "globex-supply.near",
+      "asset": "USDC",
+      "amount": "1.5"
+    }
+  ],
+  "steps": [
+    {
+      "payee": "globex-supply.near",
+      "asset": "USDC",
+      "amount": "1.5",
+      "invoiceId": "G-77",
+      "purpose": "Pay Globex Supply invoice G-77",
+      "reads": [
+        "invoice.md"
+      ],
+      "expect": {
+        "decision": "ALLOW",
+        "codes": [
+          "KNOWN_PAYEE"
+        ]
+      }
+    }
+  ]
+}

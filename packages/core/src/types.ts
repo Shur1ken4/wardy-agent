@@ -124,6 +124,8 @@ export interface NetworkReport {
     requestHash: string;
     attestationRef?: string;
     lookalikeOf?: string;
+    /** The signed verdict itself, so anyone can check this report without asking us. Has no context text. */
+    signedVerdict?: Omit<Verdict, "execution" | "networkReportId">;
   };
   /** Public key of the Wardy Agent instance that reported. */
   reporter: string;

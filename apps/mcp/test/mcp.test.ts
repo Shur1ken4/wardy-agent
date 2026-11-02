@@ -168,7 +168,7 @@ describe("end to end over stdio", () => {
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), "wardy-agent-mcp-"));
-    const wiring = await wire({ WARDY_MODE: "offline" }, { dataDir: dir });
+    const wiring = await wire({ WARDY_MODE: "offline" }, { dataDir: dir, seedHistory: false });
     ownerId = wiring.service.fleetOwnerId;
     const app = await buildApp({ service: wiring.service, reports: wiring.reports, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
     const url = await app.listen({ host: "127.0.0.1", port: 0 });

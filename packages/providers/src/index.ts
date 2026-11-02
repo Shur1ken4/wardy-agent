@@ -1,5 +1,5 @@
 export { toAtomic } from "./amount.js";
-export { MockContextAnalyzer, OFFLINE_MODEL } from "./ai/mock.js";
+export { MockContextAnalyzer, OFFLINE_MODEL, type RecordedFinding } from "./ai/mock.js";
 export { NearAiContextAnalyzer } from "./ai/nearAiAnalyzer.js";
 export {
   type AttestationChecks,
@@ -15,4 +15,4 @@ export { type AccountFacts, type ChainDataOptions, getAccountFacts, NearChainDat
 export { type AgentApiLike, AgentConnectCustody, type AgentConnectOptions, findTxHash } from "./custody/agentConnect.js";
 export { MockCustody } from "./custody/mock.js";
 export { OutLayerCustody, type OutLayerOptions } from "./custody/outlayer.js";
-export { OFFLINE_ACCOUNTS } from "./fixtures.js";
+export { OFFLINE_ACCOUNTS, RECORDED_AI_FINDINGS, seedOfflineHistory } from "./fixtures.js";

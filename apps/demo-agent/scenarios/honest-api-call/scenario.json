@@ -1,0 +1,29 @@
+{
+  "id": "H4",
+  "title": "Small API call",
+  "kind": "honest",
+  "setup": "0.01 USDC to a known API account, with nothing to read",
+  "inbox": [],
+  "owed": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01"
+    }
+  ],
+  "steps": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "expect": {
+        "decision": "ALLOW",
+        "codes": [
+          "KNOWN_PAYEE"
+        ]
+      }
+    }
+  ]
+}

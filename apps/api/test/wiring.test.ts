@@ -40,7 +40,7 @@ describe("offline mode", () => {
   });
 
   it("really checks and pays on the mock ledger", async () => {
-    const wiring = await wire({}, { dataDir: tempDir() });
+    const wiring = await wire({}, { dataDir: tempDir(), seedHistory: false });
     const verdict = await wiring.service.pay({
       requestId: crypto.randomUUID(),
       agentId: "bot",
@@ -52,6 +52,55 @@ describe("offline mode", () => {
       createdAt: new Date().toISOString(),
     });
     expect(verdict.decision).toBe("HOLD");
+  });
+
+  it("gives the demo owner a past, so a lookalike has someone to imitate, and doesn't repeat it on restart", async () => {
+    const dir = tempDir();
+    const pay = (wiring: Awaited<ReturnType<typeof wire>>, payee: string, amount: string) =>
+      wiring.service.pay({
+        requestId: crypto.randomUUID(),
+        agentId: "bot",
+        ownerId: wiring.service.fleetOwnerId,
+        payee,
+        asset: "wNEAR",
+        amount,
+        purpose: "demo",
+        createdAt: new Date().toISOString(),
+      });
+    const wiring = await wire({}, { dataDir: dir });
+    const blocked = await pay(wiring, "acme-sh0p.near", "2");
+    expect(blocked.decision).toBe("BLOCK");
+    expect(blocked.reasons.join(" ")).toContain("3 times");
+    const restarted = await wire({}, { dataDir: dir });
+    expect((await pay(restarted, "acme-sh0p.near", "1")).reasons.join(" ")).toContain("3 times");
+  });
+
+  it("publishes a report when a BLOCK has enough evidence, and the next agent is protected", async () => {
+    const wiring = await wire({}, { dataDir: tempDir() });
+    const blocked = await wiring.service.pay({
+      requestId: crypto.randomUUID(),
+      agentId: "bot",
+      ownerId: wiring.service.fleetOwnerId,
+      payee: "acme-sh0p.near",
+      asset: "wNEAR",
+      amount: "2",
+      purpose: "demo",
+      createdAt: new Date().toISOString(),
+    });
+    expect(blocked.networkReportId).toBeDefined();
+    expect(wiring.reports.reportsFor("acme-sh0p.near", "near")).toHaveLength(1);
+    const other = await wiring.service.check({
+      requestId: crypto.randomUUID(),
+      agentId: "someone-elses-bot",
+      ownerId: "someone-else.near",
+      payee: "acme-sh0p.near",
+      asset: "wNEAR",
+      amount: "2",
+      purpose: "demo",
+      createdAt: new Date().toISOString(),
+    });
+    expect(other.decision).toBe("BLOCK");
+    expect(other.signals.map((signal) => signal.code)).toContain("NETWORK_REPORTED_SCAM");
   });
 
   it("keeps each mode's records apart by default", async () => {

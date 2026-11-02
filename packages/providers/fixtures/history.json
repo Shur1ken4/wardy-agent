@@ -1,0 +1,8 @@
+[
+  { "payee": "acme-shop.near", "asset": "wNEAR", "amount": "2", "daysAgo": 90, "invoiceId": "INV-0921" },
+  { "payee": "acme-shop.near", "asset": "wNEAR", "amount": "1.5", "daysAgo": 60, "invoiceId": "INV-0987" },
+  { "payee": "acme-shop.near", "asset": "wNEAR", "amount": "2.5", "daysAgo": 30, "invoiceId": "INV-1042" },
+  { "payee": "globex-supply.near", "asset": "USDC", "amount": "1", "daysAgo": 45, "invoiceId": "G-61" },
+  { "payee": "initech-cloud.near", "asset": "wNEAR", "amount": "2", "daysAgo": 35, "invoiceId": "IC-4" },
+  { "payee": "umbrella-data-api.near", "asset": "USDC", "amount": "0.01", "daysAgo": 2 }
+]

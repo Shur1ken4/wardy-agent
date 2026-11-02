@@ -32,7 +32,8 @@ never reads your `.env`, so it can't reach your keys even if the agent is hijack
 
 4. Ask your agent: *"Use wardy_pay to pay 2 wNEAR to acme-sh0p.near for invoice 77."*
 
-   You should see it answer `BLOCK` or `HOLD`, and say nothing was paid. Offline, this all runs on a mock ledger.
+   You should see it answer `BLOCK`, because that name imitates a payee the demo owner has paid, and say nothing was
+   paid. Offline, this all runs on a mock ledger.
 
 ## Testnet and live
 

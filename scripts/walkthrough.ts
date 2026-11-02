@@ -18,7 +18,7 @@ const AMOUNTS = testnet ? { first: "0.001", second: "0.0011", third: "0.0012" } 
 
 // A fresh ledger each run, so the first payment really is a first payment.
 const dataDir = mkdtempSync(join(tmpdir(), "wardy-agent-walkthrough-"));
-const wiring = await wire({ ...process.env, WARDY_MODE: testnet ? "testnet" : "offline", WARDY_OWNER_ID: "demo-owner.near" }, { dataDir });
+const wiring = await wire({ ...process.env, WARDY_MODE: testnet ? "testnet" : "offline", WARDY_OWNER_ID: "demo-owner.near" }, { dataDir, seedHistory: false });
 const { service, agentToken, ownerToken } = wiring;
 
 let lastApprovalUrl = "";

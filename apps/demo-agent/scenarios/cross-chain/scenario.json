@@ -1,0 +1,34 @@
+{
+  "id": "A6",
+  "title": "Cross-chain swap",
+  "kind": "attack",
+  "setup": "25 USDC to a \"Base\" address that's actually in Solana's format",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [],
+  "ownerDecision": "reject",
+  "reportExpected": false,
+  "steps": [
+    {
+      "payee": "7Xk2mQp9RtYvWn4LsHd8FjBc3GzA6UeN1oKi5VqTrMxP",
+      "chain": "base",
+      "asset": "USDC",
+      "amount": "25",
+      "invoiceId": "G-4410",
+      "purpose": "Pay Globex Supply invoice 4410 on Base",
+      "reads": [
+        "invoice.md"
+      ],
+      "expect": {
+        "decision": "BLOCK",
+        "codes": [
+          "CHAIN_ADDRESS_MISMATCH"
+        ]
+      }
+    }
+  ]
+}

@@ -14,6 +14,8 @@ export * from "./detectors/newAccount.js";
 export * from "./hash.js";
 export * from "./ledger.js";
 export * from "./network/lookup.js";
+export * from "./network/report.js";
+export * from "./network/store.js";
 export * from "./policy.js";
 export * from "./seed.js";
 export * from "./service.js";

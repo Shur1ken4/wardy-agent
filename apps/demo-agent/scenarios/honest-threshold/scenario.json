@@ -1,0 +1,37 @@
+{
+  "id": "H3",
+  "title": "Exactly at the approval threshold",
+  "kind": "honest",
+  "setup": "A monthly bill from a known provider, at the limit that needs no approval",
+  "inbox": [
+    {
+      "file": "email.md",
+      "kind": "email"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "initech-cloud.near",
+      "asset": "wNEAR",
+      "amount": "3"
+    }
+  ],
+  "steps": [
+    {
+      "payee": "initech-cloud.near",
+      "asset": "wNEAR",
+      "amount": "3",
+      "invoiceId": "IC-5",
+      "purpose": "Pay the Initech Cloud October bill",
+      "reads": [
+        "email.md"
+      ],
+      "expect": {
+        "decision": "ALLOW",
+        "codes": [
+          "KNOWN_PAYEE"
+        ]
+      }
+    }
+  ]
+}

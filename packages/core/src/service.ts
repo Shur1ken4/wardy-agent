@@ -42,8 +42,8 @@ export interface ServiceDeps extends Omit<CheckerDeps, "policyFor"> {
   /** Where the owner goes to decide. The URL carries the one-time token, so it goes only to the owner. */
   approvalUrl(verdictId: string, token: string): string;
   approvalTtlMs?: number;
-  /** Called on every BLOCK of a real payment. The Wardy Network plugs in here. */
-  onBlocked?(verdict: Verdict): void | Promise<void>;
+  /** Called on every BLOCK of a real payment. The Wardy Network plugs in here, and returns a report id if it made one. */
+  onBlocked?(verdict: Verdict): string | undefined | void | Promise<string | undefined | void>;
 }
 
 export interface HoldNotice {
@@ -147,8 +147,12 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
       if (verdict.decision === "ALLOW") return this.execute(verdict);
       if (verdict.decision === "HOLD") return this.hold(verdict);
       const refused = this.setExecution(verdict, { status: "refused", provider: this.providerName });
-      await this.deps.onBlocked?.(refused);
-      return this.deps.ledger.verdictById(refused.verdictId) ?? refused;
+      const networkReportId = await this.deps.onBlocked?.(refused);
+      if (!networkReportId) return refused;
+      const reported: Verdict = { ...refused, networkReportId };
+      this.deps.ledger.saveVerdict(reported);
+      this.emit("verdict", reported);
+      return reported;
     });
   }
 

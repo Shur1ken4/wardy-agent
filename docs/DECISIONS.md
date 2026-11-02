@@ -14,7 +14,7 @@ If this file and the master brief disagree, this file wins, because the brief sa
 |---|---|---|---|
 | 1 | No hackathon entry does the shared registry | **The official Security track starter prompt asks for exactly this**: a counterparty check, allow/warn/block, and "a shared blocklist that other agents can report to, with evidence attached". Leash has already shipped a version. | Stop claiming the registry is unique. Lead with what a blocklist can't do (section 2). |
 | 2 | Demo uses `shop.near` and `sh0p.near` | **Both are real mainnet accounts** (created 2020 and 2022, LIVE). A signed report anchored on NEAR saying `sh0p.near` is a scam would be a false public accusation against a stranger. | **Approved by Shurik, 2026-11-02:** fixtures use `acme-shop.near`, `acme-sh0p.near`, `acme-shop-near.near`: all unregistered today (LIVE). Live and anchored data use accounts we control. Fixture reports are flagged as seed data and never count in live decisions. |
-| 3 | Every BLOCK publishes a report; one valid report BLOCKs everywhere; disputes are stretch | A signed verdict proves Wardy Agent's *opinion*, not that a payee is a scammer. One lookalike false positive would spread to every agent, permanently. | **Approved by Shurik, 2026-11-02:** publish only when two independent detector families agree (for example D1 + D4, or D1 + D2) or the owner confirms. Single-family blocks stay local. The reporter can revoke its own report. Every attack scenario should still produce a report; the Attack Lab assertions check this. |
+| 3 | Every BLOCK publishes a report; one valid report BLOCKs everywhere; disputes are stretch | A signed verdict proves Wardy Agent's *opinion*, not that a payee is a scammer. One lookalike false positive would spread to every agent, permanently. | **Approved by Shurik, 2026-11-02:** publish only when two independent detector families agree (for example D1 + D4, or D1 + D2) or the owner confirms. Single-family blocks stay local. The reporter can revoke its own report. **Corrected in Phase 4:** not every attack should produce a report. A1, A3, A5, A8 and A9 do. A4 doesn't, because the payee is a real merchant whose invoice was tampered with. A6 doesn't, because a wrong format may be an honest mistake. The Attack Lab checks each one. **Known limit:** an attacker can send an invoice naming an innocent brand-new or lookalike account, and it could be reported. A `check` can't publish, and revocation exists, but disputes are stretch work. The threat model must say this. |
 | 4 | Node 20+ | Vitest 5 needs Node 22.12+, near-api-js 22.22+, the Agent Connect SDK 24+. Node 20 reached end of life in April 2026. | `engines` >= 22.22, `.nvmrc` 24, CI on 22 and 24. TODO-VERIFY the SDK on Node 22; if it fails, load it only in live mode. |
 | 5 | SQLite via `better-sqlite3` is fine | It's a native build that needs Node 22+. That's a needless clean-clone risk for judges. | JSONL ledger with an in-memory index, behind a small interface. No native dependencies. |
 | 6 | "Two locks": provider limits plus Wardy Agent's checks | Provider `destinations` in `only` mode needs an owner signature per new payee, has a 10-minute cooldown and a 256-entry cap. That can't serve agents that choose their own payees. | Provider `destinations` is `any`. The README states it plainly: the provider locks limits, assets, budget and freeze; **Wardy Agent alone locks the payee**. That's the gap we fill, and it goes in "What's proven vs what's trusted". |
@@ -72,10 +72,20 @@ Smaller notes to apply later:
 - `X-Idempotency-Key` works on `/wallet/v1/transfer`, though the docs mention it only for other routes. A replay answers HTTP 200 with `error: duplicate_idempotency_key` and the first result nested under `result`. The balance moved once.
 - A transfer to a missing account answers 422 `onchain_tx_failed`, with a real `tx_hash` and no money moved. Too little balance answers 402 `wallet_underfunded`.
 
-**Still open:**
-- Before serving verdicts publicly (Phase 5), review `CONTEXT_PAYEE_MISMATCH`: its evidence holds an account id the AI read from the document.
+**Attack Lab and demo agent, Phase 4:**
 
-**To do in Phase 4:** replace test-only AI findings with fixtures recorded from real NEAR AI Cloud runs. Today's offline findings are written by hand inside tests and labelled `offline-fixture`, never as attested.
+| Choice | Why |
+|---|---|
+| Offline results say the AI "didn't run" until real answers are recorded | Made-up answers in a results table would be fake data. Every decision has to stand without the AI anyway. `npm run attack-lab -- --record` fills this in once a key exists |
+| A replay of a recorded answer always says `attested: false` | No TEE ran for that answer, even if one did when it was recorded |
+| Losses come from money that moved, against what was owed | A hard-coded column could lie. If the owner approves a held attack, the loss shows up |
+| The scripted agent is labelled a worst case | It obeys everything, so "without" shows what's at stake, not how often a real model falls for it. `npm run attack-lab -- --llm` measures a real model once a key exists |
+| A fixed clock and ids make runs byte-for-byte repeatable | CI runs the lab and fails if the committed results differ, so every published number is real |
+| Results live in `apps/attack-lab/results/` | The brief says `attack-lab/results/`; the app sits under `apps/` in the brief's own layout |
+| A report carries its signed verdict | A signature can't be checked without what it signed. It publishes the payee, amount and signal codes of a blocked payment. It holds no invoice text. It can hold an account id the AI read from a document, in `CONTEXT_PAYEE_MISMATCH` |
+| Another owner's agent can only ask | Wardy Agent doesn't spend for it. If told ALLOW, it pays by its own means, and the lab counts that against Wardy Agent if the payee was bad |
+
+**Still open:** record real AI answers, and measure a real model, once a NEAR AI Cloud key is in `.env`.
 
 ## 2. Uniqueness and the gap
 

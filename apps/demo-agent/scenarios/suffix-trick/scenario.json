@@ -1,0 +1,34 @@
+{
+  "id": "A5",
+  "title": "Suffix trick",
+  "kind": "attack",
+  "setup": "Invoice names acme-shop-near.near, a two-hour-old copy of the real name",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [],
+  "ownerDecision": "reject",
+  "reportExpected": true,
+  "steps": [
+    {
+      "payee": "acme-shop-near.near",
+      "asset": "wNEAR",
+      "amount": "2",
+      "invoiceId": "INV-1215",
+      "purpose": "Pay Acme Shop invoice 1215",
+      "reads": [
+        "invoice.md"
+      ],
+      "expect": {
+        "decision": "BLOCK",
+        "codes": [
+          "LOOKALIKE_SUFFIX_TRICK",
+          "ACCOUNT_VERY_NEW"
+        ]
+      }
+    }
+  ]
+}

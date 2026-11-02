@@ -21,8 +21,17 @@ jobs:
       - run: npm run check:secrets
       - run: npm run typecheck
       - run: npm test
-      # Phase 4 adds: npm run attack-lab -- --offline, npm run demo -- --offline,
-      # and a check that the expected summary line is printed.
+      - run: npm run attack-lab -- --offline
+      # The committed results must be exactly what a fresh run produces, so every published number is real.
+      - name: Committed Attack Lab results match this run
+        run: git diff --exit-code -- apps/attack-lab/results
+      - name: Every verdict in the results is signed and chained
+        run: npm run verify-audit -- apps/attack-lab/results/audit.jsonl
+      - name: The demo prints its summary with no keys
+        run: |
+          npm run demo -- --offline | tee demo-output.txt
+          grep -F "Lost with Wardy Agent: 0 · Honest payments passed: 4/4 · False blocks: 0" demo-output.txt
+      - run: npm run walkthrough
 
   contract:
     runs-on: ubuntu-latest
