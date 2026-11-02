@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { withResults } from "../readme-results.js";
 
 const readme = readFileSync("README.md", "utf8");
-const DOCS = ["README.md", ...readdirSync("docs").filter((name) => name.endsWith(".md") && name !== "HACKATHON.md").map((name) => join("docs", name))];
+const DOCS = ["README.md", "AGENTS.md", ...readdirSync("docs").filter((name) => name.endsWith(".md") && name !== "HACKATHON.md").map((name) => join("docs", name))];
 const scripts = (JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Record<string, string> }).scripts;
 const anchor = JSON.parse(readFileSync("config/network-anchor.testnet.json", "utf8")) as { txUrl: string };
 const latest = readFileSync("apps/attack-lab/results/latest.md", "utf8");

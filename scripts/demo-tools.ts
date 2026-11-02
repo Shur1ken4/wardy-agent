@@ -13,6 +13,7 @@ type Inject = (request: { method: "POST"; url: string; headers: Record<string, s
 export function demoTools(wiring: Pick<Wiring, "mode" | "agentToken" | "service">, inject: Inject, options: { paceMs?: number } = {}): DemoTools | undefined {
   if (wiring.mode !== "offline") return undefined;
   const labVerdicts = new Map<string, VerdictView>();
+  let plays = 0;
   return {
     playTraffic: () =>
       playTraffic(
@@ -33,7 +34,7 @@ export function demoTools(wiring: Pick<Wiring, "mode" | "agentToken" | "service"
             },
           });
         },
-        { scenarios: [...loadScenarios(), ...loadScenarios(HOLDOUT_DIR)], ...(options.paceMs === undefined ? {} : { paceMs: options.paceMs }) },
+        { scenarios: [...loadScenarios(), ...loadScenarios(HOLDOUT_DIR)], play: plays++, ...(options.paceMs === undefined ? {} : { paceMs: options.paceMs }) },
       ),
     runLab: (send) => {
       labVerdicts.clear();

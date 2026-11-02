@@ -9,6 +9,7 @@ import { NetworkQuery } from "../src/network/query.js";
 import { createNetworkReport, revocationLeaf, verifyReportEvidence, verifyRevocation, whyOwnerCantReport } from "../src/network/report.js";
 import { appendToFeed, feedLineLeaf, parseFeed, ReportStore, serializeFeed } from "../src/network/store.js";
 import { generateSigningKey, publicKeyOf, publicVerdictOf, signText, signVerdict, verifyPublicVerdict, verifyVerdict } from "../src/sign.js";
+import { nextStepFor } from "../src/nextStep.js";
 import type { NetworkReport, Verdict } from "../src/types.js";
 import { makeUnsignedVerdict, NOW } from "./helpers.js";
 
@@ -168,6 +169,23 @@ describe("a report the owner confirmed", () => {
     const plain = await reportFrom();
     expect(plain).not.toHaveProperty("ownerConfirmed");
     expect(await verifyReportEvidence(plain)).toBe(true);
+  });
+});
+
+describe("nextStepFor: what an agent should do", () => {
+  it.each<[string, Partial<Verdict>, string]>([
+    ["paid", { decision: "ALLOW", execution: { status: "executed", provider: "x" } }, "done"],
+    ["waiting for the owner", { decision: "HOLD", execution: { status: "pending_owner", provider: "x" } }, "wait_for_owner"],
+    ["blocked", { decision: "BLOCK", execution: { status: "refused", provider: "x" } }, "stop"],
+    ["rejected by the owner", { decision: "HOLD", execution: { status: "refused", provider: "x" } }, "stop"],
+    ["custody failed", { decision: "ALLOW", execution: { status: "failed", provider: "x" } }, "tell_owner"],
+    ["custody unsure", { decision: "ALLOW", execution: { status: "uncertain", provider: "x" } }, "tell_owner"],
+    ["no outcome yet: never reads as paid", { decision: "ALLOW" }, "stop"],
+    ["a check that looks fine", { mode: "check", decision: "ALLOW" }, "ok_to_pay"],
+    ["a check with a question", { mode: "check", decision: "HOLD" }, "ask_owner_first"],
+    ["a check that says no", { mode: "check", decision: "BLOCK" }, "do_not_pay"],
+  ])("%s", (_name, overrides, expected) => {
+    expect(nextStepFor({ mode: "pay", decision: "ALLOW", ...overrides })).toBe(expected);
   });
 });
 

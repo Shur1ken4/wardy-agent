@@ -73,7 +73,7 @@ try {
     root: WEB_ROOT,
     configFile: join(WEB_ROOT, "vite.config.ts"),
     logLevel: "warn",
-    server: { port: webPort, strictPort: true, host: lan ? "0.0.0.0" : "localhost", proxy: { "/v1": `http://${host}:${port}`, "/health": `http://${host}:${port}` } },
+    server: { port: webPort, strictPort: true, host: lan ? "0.0.0.0" : "localhost", proxy: { "/v1": `http://${host}:${port}`, "/health": `http://${host}:${port}`, "/llms.txt": `http://${host}:${port}` } },
   });
   await web.listen();
 
@@ -90,6 +90,7 @@ try {
   console.log(`\nWardy Agent is running (${wiring.mode}, custody: ${service.providerName}).`);
   console.log(`  Dashboard: ${webUrl}`);
   console.log(`  API:       http://${host}:${port}`);
+  console.log(`  For agents: http://${host}:${port}/llms.txt, or docs/MCP_SETUP.md`);
   if (lan) console.log("  On your Wi-Fi: anyone on this network can open the dashboard. Stop it when you're done.");
   if (wiring.mode === "offline") {
     console.log("\nDemo data. No keys, no funds, no network. Credentials are the public offline ones.");

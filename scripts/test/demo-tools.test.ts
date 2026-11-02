@@ -53,6 +53,19 @@ describe("demo traffic", () => {
     await app.close();
   });
 
+  it("pressing it again tells the same story, instead of piling up fake duplicates", async () => {
+    const { wiring, tools, app } = await setUp();
+    await tools.playTraffic();
+    const first = wiring.service.recentVerdicts(100).length;
+    await tools.playTraffic();
+    const again = wiring.service.recentVerdicts(100).slice(0, wiring.service.recentVerdicts(100).length - first).reverse();
+    const honest = again.filter((verdict) => ["globex-supply.near", "initech-cloud.near", "umbrella-data-api.near"].includes(verdict.payee));
+    expect(honest.map((verdict) => verdict.decision)).toEqual(["ALLOW", "ALLOW", "ALLOW"]);
+    // The story's own repeat is still caught.
+    expect(again.filter((verdict) => verdict.payee === "acme-shop.near").map((verdict) => verdict.decision).slice(0, 2)).toEqual(["ALLOW", "HOLD"]);
+    await app.close();
+  });
+
   it("moves money only on the mock ledger", async () => {
     const { wiring, tools, app } = await setUp();
     await tools.playTraffic();

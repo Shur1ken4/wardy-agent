@@ -19,6 +19,7 @@ export * from "./network/merkle.js";
 export * from "./network/query.js";
 export * from "./network/report.js";
 export * from "./network/store.js";
+export * from "./nextStep.js";
 export * from "./policy.js";
 export * from "./seed.js";
 export * from "./service.js";

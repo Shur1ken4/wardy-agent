@@ -7,7 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../api/src/app.js";
-import { OFFLINE_AGENT_TOKEN, wire } from "../../api/src/wiring.js";
+import { OFFLINE_AGENT_TOKEN, OFFLINE_OWNER_TOKEN, wire } from "../../api/src/wiring.js";
 import { createMcpServer, summarize } from "../src/tools.js";
 
 type ToolResult = { content: { type: string; text: string }[]; isError?: boolean };
@@ -35,7 +35,7 @@ describe("tools", () => {
   it("offers exactly the three tools, and nothing that could approve or unfreeze", async () => {
     const client = await connect(recording(200, {}).fetchFn);
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual(["wardy_check", "wardy_network_lookup", "wardy_pay"]);
+    expect(tools.map((tool) => tool.name).sort()).toEqual(["wardy_check", "wardy_network_lookup", "wardy_pay", "wardy_status"]);
   });
 
   it("wardy_pay's description says it's the only way to send money", async () => {
@@ -100,6 +100,81 @@ describe("tools", () => {
     const client = await connect(recording(200, { reported: true, reports: [{}], merkleProof: null, anchorTx: "TX123" }).fetchFn);
     const result = (await client.callTool({ name: "wardy_network_lookup", arguments: { payee: "x.near" } })) as ToolResult;
     expect(result.content[0]?.text).not.toContain("anchored");
+  });
+
+  it("a HOLD says how to find out what the owner decided, so the agent doesn't retry", async () => {
+    const verdict = { verdictId: "v-1", decision: "HOLD", payee: "x.near", amount: "2", reasons: ["New payee."], nextStep: "wait_for_owner", execution: { status: "pending_owner" } };
+    const client = await connect(recording(200, verdict).fetchFn);
+    const result = (await client.callTool({ name: "wardy_pay", arguments: PAY_ARGS })) as ToolResult & { structuredContent?: Record<string, unknown> };
+    expect(result.content[0]?.text).toContain("wardy_status");
+    expect(result.content[0]?.text).toContain("v-1");
+    expect(result.structuredContent).toMatchObject({ decision: "HOLD", nextStep: "wait_for_owner", verdictId: "v-1", paid: false });
+  });
+
+  it("gives a program something to act on, without parsing words", async () => {
+    const verdict = { verdictId: "v-2", decision: "ALLOW", payee: "x.near", amount: "2", asset: "nep141:wrap.near", riskScore: 3, reasons: [], nextStep: "done", execution: { status: "executed", txHash: "TX" } };
+    const client = await connect(recording(200, verdict).fetchFn);
+    const result = (await client.callTool({ name: "wardy_pay", arguments: PAY_ARGS })) as ToolResult & { structuredContent?: Record<string, unknown> };
+    expect(result.structuredContent).toEqual({ decision: "ALLOW", paid: true, nextStep: "done", verdictId: "v-2", payee: "x.near", amount: "2", asset: "nep141:wrap.near", riskScore: 3, txHash: "TX" });
+  });
+
+  it("asking for plain NEAR says how to fix it, because it's an easy mistake", async () => {
+    const verdict = { decision: "BLOCK", payee: "x.near", asset: "NEAR", amount: "2", reasons: ["Your rules don't allow paying with this asset."] };
+    const client = await connect(recording(200, verdict).fetchFn);
+    const result = (await client.callTool({ name: "wardy_pay", arguments: PAY_ARGS })) as ToolResult;
+    expect(result.content[0]?.text).toContain('asset "wNEAR"');
+    const other = (await (await connect(recording(200, { ...verdict, asset: "DOGE" }).fetchFn)).callTool({ name: "wardy_pay", arguments: PAY_ARGS })) as ToolResult;
+    expect(other.content[0]?.text).not.toContain("wNEAR");
+  });
+
+  it("the tools say what to do with each answer", async () => {
+    const client = await connect(recording(200, {}).fetchFn);
+    const { tools } = await client.listTools();
+    const pay = tools.find((tool) => tool.name === "wardy_pay")?.description ?? "";
+    expect(pay).toContain("The only way to send money");
+    expect(pay).toContain("wardy_status");
+    expect(tools.find((tool) => tool.name === "wardy_status")?.description).toContain("instead of asking to pay again");
+  });
+
+  describe("wardy_status", () => {
+    const VERDICT_ID = "11111111-1111-4111-8111-111111111111";
+    const ask = async (status: number, body: unknown) => {
+      const { fetchFn, calls } = recording(status, body);
+      const client = await connect(fetchFn);
+      const result = (await client.callTool({ name: "wardy_status", arguments: { verdictId: VERDICT_ID } })) as ToolResult & { structuredContent?: Record<string, unknown> };
+      return { result, calls };
+    };
+
+    it("asks with the agent's credential", async () => {
+      const { calls } = await ask(200, { verdictId: VERDICT_ID, decision: "HOLD", paid: false, status: "pending_owner", nextStep: "wait_for_owner" });
+      expect(calls[0]?.url).toBe(`http://api.test/v1/pay/${VERDICT_ID}/status`);
+      expect((calls[0]?.init.headers as Record<string, string>).authorization).toMatch(/^Bearer /);
+    });
+
+    it.each<[string, Record<string, unknown>, string, string]>([
+      ["waiting", { decision: "HOLD", paid: false, status: "pending_owner", nextStep: "wait_for_owner", decideBy: "2026-11-05T12:30:00.000Z" }, "Still waiting", "2026-11-05T12:30:00.000Z"],
+      ["approved", { decision: "HOLD", paid: true, status: "executed", nextStep: "done", txHash: "TX9" }, "Paid", "TX9"],
+      ["rejected", { decision: "HOLD", paid: false, status: "refused", nextStep: "stop" }, "Not paid", "Do not retry"],
+      ["unclear", { decision: "ALLOW", paid: false, status: "uncertain", nextStep: "tell_owner" }, "may have gone through", "Tell the owner"],
+    ])("%s", async (_name, status, first, second) => {
+      const { result } = await ask(200, { verdictId: VERDICT_ID, ...status });
+      expect(result.content[0]?.text).toContain(first);
+      expect(result.content[0]?.text).toContain(second);
+      expect(result.structuredContent?.nextStep).toBe(status.nextStep);
+    });
+
+    it("when it can't find out, it still says not to pay again", async () => {
+      const { result } = await ask(404, { error: "not_found", message: "No such payment." });
+      expect(result.isError).toBe(true);
+      expect(result.content[0]?.text).toContain("Do not ask to pay again");
+    });
+
+    it("no answer still says not to pay again", async () => {
+      const client = await connect((async () => { throw new Error("down"); }) as unknown as typeof fetch);
+      const result = (await client.callTool({ name: "wardy_status", arguments: { verdictId: VERDICT_ID } })) as ToolResult;
+      expect(result.isError).toBe(true);
+      expect(result.content[0]?.text).toContain("Do not ask to pay again");
+    });
   });
 
   it("returns a summary and the full verdict", async () => {
@@ -179,6 +254,7 @@ describe("end to end over stdio", () => {
   let close: () => Promise<void>;
   let dir: string;
   let ownerId: string;
+  let apiUrl: string;
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), "wardy-agent-mcp-"));
@@ -186,6 +262,7 @@ describe("end to end over stdio", () => {
     ownerId = wiring.service.fleetOwnerId;
     const app = await buildApp({ service: wiring.service, network: wiring.network, agentToken: wiring.agentToken, ownerToken: wiring.ownerToken, mode: "offline" });
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
+    apiUrl = url;
     client = new Client({ name: "end-to-end", version: "1" });
     await client.connect(
       new StdioClientTransport({
@@ -206,7 +283,7 @@ describe("end to end over stdio", () => {
   });
 
   it("lists the tools", async () => {
-    expect((await client.listTools()).tools).toHaveLength(3);
+    expect((await client.listTools()).tools).toHaveLength(4);
   });
 
   it("a first payment is held for the owner", async () => {
@@ -214,6 +291,29 @@ describe("end to end over stdio", () => {
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toMatch(/^HOLD\. Nothing has been paid/);
     expect(JSON.parse(result.content[1]?.text as string).agentId).toBe("stdio-bot");
+  }, 30_000);
+
+  it("after a HOLD, the agent can find out what the owner decided: the whole loop", async () => {
+    const held = (await client.callTool({ name: "wardy_pay", arguments: { ...PAY_ARGS, amount: "1.25" } })) as ToolResult & { structuredContent: { verdictId: string; nextStep: string } };
+    expect(held.structuredContent.nextStep).toBe("wait_for_owner");
+    const { verdictId } = held.structuredContent;
+    const waiting = (await client.callTool({ name: "wardy_status", arguments: { verdictId } })) as ToolResult & { structuredContent: { nextStep: string; decideBy?: string } };
+    expect(waiting.structuredContent.nextStep).toBe("wait_for_owner");
+    expect(waiting.structuredContent.decideBy).toBeDefined();
+    const ownerLink = await fetch(`${apiUrl}/v1/approvals/${verdictId}/link`, { method: "POST", headers: { authorization: `Bearer ${OFFLINE_OWNER_TOKEN}` } });
+    const { approvalUrl } = (await ownerLink.json()) as { approvalUrl: string };
+    const ownerToken = new URLSearchParams(new URL(approvalUrl).hash.slice(1)).get("token");
+    await fetch(`${apiUrl}/v1/approve/${verdictId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reject", ownerToken }) });
+    const rejected = (await client.callTool({ name: "wardy_status", arguments: { verdictId } })) as ToolResult & { structuredContent: { nextStep: string; paid: boolean } };
+    expect(rejected.structuredContent).toMatchObject({ nextStep: "stop", paid: false });
+    expect(rejected.content[0]?.text).toContain("Do not retry");
+  }, 30_000);
+
+  it("a mistake in the request says what to fix", async () => {
+    const result = (await client.callTool({ name: "wardy_pay", arguments: { ...PAY_ARGS, amount: "lots" } })) as ToolResult;
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("amount");
+    expect(result.content[0]?.text).toContain("decimal");
   }, 30_000);
 
   it("a payee that doesn't exist is blocked", async () => {

@@ -7,6 +7,7 @@ import { type AuditEntry, type AuditRecord, verifyAuditLines } from "./audit.js"
 import { type CheckerDeps, PaymentChecker } from "./checker.js";
 import { SIGNALS, type SignalCode } from "./config.js";
 import { formatDecimal, parseDecimal } from "./decimal.js";
+import { type NextStep, nextStepFor } from "./nextStep.js";
 import { type OwnerPolicy, policySignals } from "./policy.js";
 import { publicKeyOf, verifyVerdict } from "./sign.js";
 import {
@@ -21,7 +22,19 @@ const DEFAULT_APPROVAL_TTL_MS = 30 * 60_000;
 const OWNER_REJECTED_NOTE = "You rejected this payment.";
 
 /** A verdict plus details that aren't part of what's signed. */
-export type VerdictView = Verdict & { agentId?: string };
+export type VerdictView = Verdict & { agentId?: string; nextStep?: NextStep };
+
+/** What a worker agent gets to know about a payment it asked for: the outcome, and nothing about the owner. */
+export interface PaymentStatus {
+  verdictId: string;
+  decision: Verdict["decision"];
+  paid: boolean;
+  status: VerdictExecution["status"] | null;
+  nextStep: NextStep;
+  txHash?: string;
+  /** Only while the owner is deciding. */
+  decideBy?: string;
+}
 
 /** A refusal the caller should see, with the HTTP status that fits it. */
 export class ServiceError extends Error {
@@ -106,7 +119,7 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
 
   view(verdict: Verdict): VerdictView {
     const agentId = this.deps.ledger.requestRecord(verdict.requestId)?.agentId;
-    return agentId ? { ...verdict, agentId } : verdict;
+    return { ...verdict, ...(agentId ? { agentId } : {}), nextStep: nextStepFor(verdict) };
   }
 
   recentVerdicts(limit: number): VerdictView[] {
@@ -311,6 +324,25 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
       const verdict = this.deps.ledger.verdictById(approval.verdictId);
       return verdict ? [{ verdict, expiresAt: approval.expiresAt }] : [];
     });
+  }
+
+  /** So an agent told HOLD can find out what the owner decided, instead of waiting forever or trying again. */
+  paymentStatus(verdictId: string): PaymentStatus | undefined {
+    this.expireHolds();
+    const verdict = this.deps.ledger.verdictById(verdictId);
+    if (!verdict || verdict.mode !== "pay") return undefined;
+    const { decision, execution } = verdict;
+    const pending = execution?.status === "pending_owner";
+    const decideBy = pending ? this.deps.ledger.approvalFor(verdictId)?.expiresAt : undefined;
+    return {
+      verdictId,
+      decision,
+      paid: execution?.status === "executed",
+      status: execution?.status ?? null,
+      nextStep: nextStepFor(verdict),
+      ...(execution?.txHash ? { txHash: execution.txHash } : {}),
+      ...(decideBy ? { decideBy } : {}),
+    };
   }
 
   /**

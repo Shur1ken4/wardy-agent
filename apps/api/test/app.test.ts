@@ -426,6 +426,96 @@ describe("reads", () => {
   });
 });
 
+describe("for an agent", () => {
+  it("given only the address, it can find out what this is", async () => {
+    const { app } = await harness();
+    const index = (await app.inject({ method: "GET", url: "/" })).json();
+    expect(index.forAgents).toBe("/llms.txt");
+    const text = await app.inject({ method: "GET", url: "/llms.txt" });
+    expect(text.statusCode).toBe(200);
+    expect(text.headers["content-type"]).toContain("text/plain");
+    for (const needle of ["/v1/pay", "/v1/check", "nextStep", "wait_for_owner", "wNEAR"]) expect(text.body).toContain(needle);
+  });
+
+  it("every answer carries a next step it can act on", async () => {
+    const { pay, body, makeKnown, app } = await harness();
+    expect((await pay(body({ payee: "first-time-payee.near" }))).json().nextStep).toBe("stop"); // Doesn't exist, so it's blocked.
+    expect((await pay()).json().nextStep).toBe("wait_for_owner");
+    makeKnown();
+    expect((await pay(body({ amount: "1.5" }))).json().nextStep).toBe("done");
+    const check = await app.inject({ method: "POST", url: "/v1/check", payload: body({ requestId: crypto.randomUUID(), payee: "no-such-account.near" }) });
+    expect(check.json().nextStep).toBe("do_not_pay");
+  });
+
+  it("a mistake says what to fix, and doesn't repeat what was sent", async () => {
+    const { pay, body } = await harness();
+    const response = await pay(body({ amount: "SECRET-WORDS" }));
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("amount");
+    expect(response.json().message).toContain("decimal");
+    expect(response.body).not.toContain("SECRET-WORDS");
+  });
+
+  it("too many requests says to wait, instead of a code", async () => {
+    const { app, body } = await harness({ checkRateLimitPerMinute: 1 });
+    await app.inject({ method: "POST", url: "/v1/check", payload: body() });
+    const second = await app.inject({ method: "POST", url: "/v1/check", payload: body({ requestId: crypto.randomUUID() }) });
+    expect(second.statusCode).toBe(429);
+    expect(second.json().message).toContain("Wait a minute");
+  });
+
+  describe("GET /v1/pay/:id/status: what happened to my payment", () => {
+    const status = (app: FastifyInstance, id: string, token = AGENT_TOKEN) => app.inject({ method: "GET", url: `/v1/pay/${id}/status`, headers: { authorization: `Bearer ${token}` } });
+
+    it("while the owner decides, it says wait, and until when", async () => {
+      const { app, pay } = await harness();
+      const { verdictId } = (await pay()).json();
+      expect((await status(app, verdictId)).json()).toMatchObject({ decision: "HOLD", paid: false, status: "pending_owner", nextStep: "wait_for_owner" });
+      expect((await status(app, verdictId)).json().decideBy).toBeTruthy();
+    });
+
+    it("after a rejection, it says stop", async () => {
+      const { app, pay, holds, tokenOf } = await harness();
+      const { verdictId } = (await pay()).json();
+      await app.inject({ method: "POST", url: `/v1/approve/${verdictId}`, payload: { action: "reject", ownerToken: tokenOf(holds[0]) } });
+      expect((await status(app, verdictId)).json()).toMatchObject({ paid: false, status: "refused", nextStep: "stop" });
+    });
+
+    it("after an approval, it says done, with the transaction", async () => {
+      const { app, pay, holds, tokenOf } = await harness();
+      const { verdictId } = (await pay()).json();
+      await app.inject({ method: "POST", url: `/v1/approve/${verdictId}`, payload: { action: "approve", ownerToken: tokenOf(holds[0]) } });
+      const answer = (await status(app, verdictId)).json();
+      expect(answer).toMatchObject({ paid: true, status: "executed", nextStep: "done" });
+      expect(answer.txHash).toBeTruthy();
+    });
+
+    it("says nothing about the owner: no reasons, signals, amount, history or token", async () => {
+      const { app, pay, holds, tokenOf } = await harness();
+      const { verdictId } = (await pay()).json();
+      const response = await status(app, verdictId);
+      expect(Object.keys(response.json()).sort()).toEqual(["decideBy", "decision", "nextStep", "paid", "status", "verdictId"]);
+      expect(response.body).not.toContain(tokenOf(holds[0]));
+    });
+
+    it("needs a credential, and the owner's works too", async () => {
+      const { app, pay } = await harness();
+      const { verdictId } = (await pay()).json();
+      expect((await app.inject({ method: "GET", url: `/v1/pay/${verdictId}/status` })).statusCode).toBe(401);
+      expect((await status(app, verdictId, "wrong")).statusCode).toBe(401);
+      expect((await status(app, verdictId, OWNER_TOKEN)).statusCode).toBe(200);
+    });
+
+    it("an unknown payment is a 404, a bad id a 400, and a check isn't a payment", async () => {
+      const { app, body } = await harness();
+      expect((await status(app, crypto.randomUUID())).statusCode).toBe(404);
+      expect((await status(app, "nope")).statusCode).toBe(400);
+      const check = (await app.inject({ method: "POST", url: "/v1/check", payload: body() })).json();
+      expect((await status(app, check.verdictId)).statusCode).toBe(404);
+    });
+  });
+});
+
 describe("who can read what", () => {
   const PRIVATE = ["/v1/verdicts", "/v1/stats", "/v1/policy", "/v1/stream", "/v1/audit", "/v1/approvals"];
 
