@@ -4,9 +4,9 @@ A payment firewall and shared scam-payee network for AI agents on NEAR.
 
 > Spending limits protect one agent. Wardy Agent protects all of them.
 
-**Status: under construction.** The decision engine, API, MCP server, testnet custody, demo agent, Attack Lab and the
-Wardy Network's on-chain anchor work. The dashboard doesn't exist yet. This README becomes the full guide as it lands,
-and claims nothing beyond what runs today.
+**Status: under construction.** The decision engine, API, MCP server, testnet custody, demo agent, Attack Lab, the Wardy
+Network's on-chain anchor, the dashboard and the phone approval page work. This README becomes the full guide before
+submission, and claims nothing beyond what runs today.
 
 ## What it will do
 
@@ -31,14 +31,21 @@ Requires Node 22.22 or newer (24 recommended).
 6. Run `npm run agent -- --scenario lookalike`. You see what the gullible agent read, what it asked, and the BLOCK.
 7. Run `npm run walkthrough`. You see one payment of each kind go through the real API on a mock ledger: a hold, an
    owner approval, an allow, a block, a fake "payment failed", a freeze. It ends with `Everything was as expected.`
-8. Run `npm run dev`, then, in another terminal, `curl http://127.0.0.1:8787/health`. You see `"status":"ok"`.
+8. Run `npm run dev`, then open <http://localhost:5173>. You see the dashboard, labelled **Demo data**. No keys, no funds,
+   and nothing leaves your machine.
+   - Press **Play demo traffic**. Payments arrive in the feed one by one. A lookalike is blocked, and that creates a report.
+     A moment later another owner's agent asks about the same name, and the report stops it.
+   - Under **Waiting for you**, press **Review**. You see the phone approval page. Press **Reject**: it says nothing was paid.
+   - Open **Attack Lab** and press **Run Attack Lab**. Each attack plays out, then the totals appear, including the holdout's
+     misses.
+   - Open **Network**. You see the anchored root, and the proof for a reported payee checks out in your browser.
+   - To start the demo again from nothing: `npm run dev -- --fresh`.
+   - To try the approval page on a real phone on your Wi-Fi: `npm run dev -- --lan`, then open the link it prints.
 9. Run `npm run network:verify`. It recomputes the Wardy Network's root from the feed in this repo and compares it with
    the contract on NEAR testnet, using no keys. You see a list of `ok` lines, an explorer link, and the answer an agent
    gets for a reported payee, with a proof. It ends with `Everything checked passed.` Add `-- --offline` to skip the chain.
-10. Run `npm run network:seed`, then `npm run dev`, and open
-    <http://127.0.0.1:8787/v1/network/payee/near/acme-sh0p.near>. You see `"reported":true`, the report, and a `merkleProof`.
-    These reports are labelled as seed: they come from the Attack Lab, are about names checked to be unregistered, and only
-    count in offline mode.
+10. Run `npm run test:ui`. It opens the real dashboard in Chrome and uses every screen, at desktop and phone width. It ends
+    with `Everything checked passed.`
 11. To connect an AI agent, follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md).
 
 ## Attack Lab results
