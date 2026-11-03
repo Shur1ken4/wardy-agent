@@ -35,13 +35,19 @@ You don't need to know this key in advance. The website makes it for you, and yo
    dashboard. If it doesn't, tell me what you see.
 3. Create an API key in the dashboard and copy it.
 
+**If the credit shows $0.00:** this happened to us, on both a wallet and a Google sign-in. Ask in the
+[NEAR builders chat](https://t.me/nearbuilderschat), or buy a little under **Add credits**. Wallet accounts can
+only pay with crypto, and a card needs a Google or GitHub account. Create the key on whichever account has the
+credit. At the listed prices, one check costs about $0.0002, so a small amount goes a long way.
+
 You paste it in Step 4.
 
 ## Step 2: Agent Connect key (needed)
 
 This is the service that holds the agent's money under rules you sign.
 
-1. Go to https://partners.near-intents.org/ and sign up or sign in.
+1. Go to https://partners.near-intents.org/ and sign up or sign in. It takes you to a sign-in page at
+   `signin.near-intents.org`, which is expected.
 2. Open **API keys** and create one. It starts with `naa_` and **is shown only once**, so copy it right away.
 
 I couldn't test this sign-up myself. If the portal won't let you in, try the demo portal instead:

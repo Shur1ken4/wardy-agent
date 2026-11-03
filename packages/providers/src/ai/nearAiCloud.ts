@@ -166,6 +166,121 @@ interface ModelReport {
   nvidia_payload?: string;
 }
 
+async function fetchModelReports(
+  model: string,
+  nonce: string,
+  baseUrl: string,
+  headers: Record<string, string>,
+  fetchFn: typeof fetch,
+  signal: () => AbortSignal,
+  notes: string[],
+): Promise<ModelReport[]> {
+  const query = new URLSearchParams({ model, provider: "near", signing_algo: "ecdsa", nonce });
+  let reports: ModelReport[] = [];
+  try {
+    const response = await fetchFn(`${baseUrl}/attestation/report?${query}`, {
+      headers: { ...headers, "x-no-aliasing": "true" },
+      signal: signal(),
+    });
+    if (response.ok) reports = ((await response.json()) as { model_attestations?: ModelReport[] }).model_attestations ?? [];
+    else notes.push(`attestation report answered HTTP ${response.status}`);
+  } catch (error) {
+    notes.push(`attestation report failed: ${(error as Error).name}`);
+  }
+  if (reports.length === 0) notes.push("no model attestation report for this model");
+  return reports;
+}
+
+export interface EvidenceChecks {
+  gpuVerified: boolean;
+  tdxQuoteVerified: boolean;
+  reportBindsSigner: boolean;
+  reportBindsNonce: boolean;
+  tdxStatus: string | null;
+}
+
+/** The hardware half of the checks. It needs no key and no chat, only a report and a nonce we chose. */
+async function checkEvidence(
+  report: ModelReport,
+  signingAddress: string,
+  nonce: string,
+  fetchFn: typeof fetch,
+  signal: () => AbortSignal,
+  notes: string[],
+): Promise<EvidenceChecks> {
+  const result: EvidenceChecks = { gpuVerified: false, tdxQuoteVerified: false, reportBindsSigner: false, reportBindsNonce: false, tdxStatus: null };
+  const nowSecs = Math.floor(Date.now() / 1000);
+
+  if (report.nvidia_payload) {
+    try {
+      const nras = await fetchFn(NRAS_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: report.nvidia_payload,
+        signal: signal(),
+      });
+      const gpu = checkGpuAttestation(await nras.json(), nonce, nowSecs);
+      result.gpuVerified = gpu.passed;
+      if (gpu.reason) notes.push(`GPU check: ${gpu.reason}`);
+    } catch (error) {
+      notes.push(`GPU check failed: ${(error as Error).name}`);
+    }
+  } else {
+    notes.push("report has no GPU evidence");
+  }
+
+  if (report.intel_quote) {
+    const tdx = await verifyTdxQuote(Buffer.from(report.intel_quote, "hex"), nowSecs);
+    result.tdxStatus = tdx.status;
+    result.tdxQuoteVerified = tdx.verified;
+    if (tdx.reason) notes.push(`TDX check: ${tdx.reason}`);
+    // Only a verified quote's report data counts.
+    if (tdx.verified && tdx.reportData) {
+      const bound = checkReportData(tdx.reportData, signingAddress, nonce);
+      result.reportBindsSigner = bound.bindsSigner;
+      result.reportBindsNonce = bound.bindsNonce;
+      if (!bound.bindsSigner) notes.push("TDX report does not bind the signing address");
+      if (!bound.bindsNonce) notes.push("TDX report does not embed our nonce");
+    }
+  } else {
+    notes.push("report has no TDX quote");
+  }
+  return result;
+}
+
+export interface ModelEvidence {
+  /** True only if a report came back and every report passes every check. */
+  verified: boolean;
+  reports: (EvidenceChecks & { signingAddress: string | null })[];
+  notes: string[];
+}
+
+/**
+ * Checks the hardware evidence for a model, with no key and no prompt. It doesn't prove a given chat ran there: only
+ * `privateChat` checks the signature that ties an answer to this evidence, so this alone never marks a verdict attested.
+ */
+export async function checkModelEvidence(
+  model: string,
+  options: { baseUrl?: string; fetchFn?: typeof fetch; timeoutMs?: number } = {},
+): Promise<ModelEvidence> {
+  const { baseUrl = "https://cloud-api.near.ai/v1", fetchFn = fetch, timeoutMs = 60_000 } = options;
+  const signal = () => AbortSignal.timeout(timeoutMs);
+  const notes: string[] = [];
+  const nonce = randomBytes(32).toString("hex");
+  const found = await fetchModelReports(model, nonce, baseUrl, { accept: "application/json" }, fetchFn, signal, notes);
+  const reports: ModelEvidence["reports"] = [];
+  for (const report of found) {
+    const signingAddress = report.signing_address ?? null;
+    if (!signingAddress) notes.push("report names no signing address");
+    const evidence = signingAddress
+      ? await checkEvidence(report, signingAddress, nonce, fetchFn, signal, notes)
+      : { gpuVerified: false, tdxQuoteVerified: false, reportBindsSigner: false, reportBindsNonce: false, tdxStatus: null };
+    reports.push({ ...evidence, signingAddress });
+  }
+  const verified = reports.length > 0 && reports.every((r) => r.gpuVerified && r.tdxQuoteVerified && r.reportBindsSigner && r.reportBindsNonce);
+  return { verified, reports, notes };
+}
+
 export async function privateChat(messages: ChatMessage[], options: NearAiOptions): Promise<VerifiedChat> {
   const { apiKey, model, fetchFn = fetch, timeoutMs = 60_000 } = options;
   const baseUrl = options.baseUrl ?? "https://cloud-api.near.ai/v1";
@@ -185,19 +300,7 @@ export async function privateChat(messages: ChatMessage[], options: NearAiOption
 
   // Attestation first, with a fresh nonce, so the evidence is from before the text is sent.
   const nonce = randomBytes(32).toString("hex");
-  const query = new URLSearchParams({ model, provider: "near", signing_algo: "ecdsa", nonce });
-  let reports: ModelReport[] = [];
-  try {
-    const response = await fetchFn(`${baseUrl}/attestation/report?${query}`, {
-      headers: { ...auth, "x-no-aliasing": "true" },
-      signal: signal(),
-    });
-    if (response.ok) reports = ((await response.json()) as { model_attestations?: ModelReport[] }).model_attestations ?? [];
-    else notes.push(`attestation report answered HTTP ${response.status}`);
-  } catch (error) {
-    notes.push(`attestation report failed: ${(error as Error).name}`);
-  }
-  if (reports.length === 0) notes.push("no model attestation report for this model");
+  const reports = await fetchModelReports(model, nonce, baseUrl, auth, fetchFn, signal, notes);
 
   // Non-streaming with the canonical model id: streaming and aliases fall back to gateway signatures.
   // The hash has to be over the exact bytes sent, so the body is serialised once.
@@ -248,42 +351,12 @@ export async function privateChat(messages: ChatMessage[], options: NearAiOption
   if (signingAddress && !report) notes.push("signer is not in the attestation report");
   if (report && signingAddress) {
     checks.signerInReport = true;
-    const nowSecs = Math.floor(Date.now() / 1000);
-
-    if (report.nvidia_payload) {
-      try {
-        const nras = await fetchFn(NRAS_URL, {
-          method: "POST",
-          headers: { "content-type": "application/json", accept: "application/json" },
-          body: report.nvidia_payload,
-          signal: signal(),
-        });
-        const gpu = checkGpuAttestation(await nras.json(), nonce, nowSecs);
-        checks.gpuVerified = gpu.passed;
-        if (gpu.reason) notes.push(`GPU check: ${gpu.reason}`);
-      } catch (error) {
-        notes.push(`GPU check failed: ${(error as Error).name}`);
-      }
-    } else {
-      notes.push("report has no GPU evidence");
-    }
-
-    if (report.intel_quote) {
-      const tdx = await verifyTdxQuote(Buffer.from(report.intel_quote, "hex"), nowSecs);
-      tdxStatus = tdx.status;
-      checks.tdxQuoteVerified = tdx.verified;
-      if (tdx.reason) notes.push(`TDX check: ${tdx.reason}`);
-      // Only a verified quote's report data counts.
-      if (tdx.verified && tdx.reportData) {
-        const bound = checkReportData(tdx.reportData, signingAddress, nonce);
-        checks.reportBindsSigner = bound.bindsSigner;
-        checks.reportBindsNonce = bound.bindsNonce;
-        if (!bound.bindsSigner) notes.push("TDX report does not bind the signing address");
-        if (!bound.bindsNonce) notes.push("TDX report does not embed our nonce");
-      }
-    } else {
-      notes.push("report has no TDX quote");
-    }
+    const evidence = await checkEvidence(report, signingAddress, nonce, fetchFn, signal, notes);
+    tdxStatus = evidence.tdxStatus;
+    checks.gpuVerified = evidence.gpuVerified;
+    checks.tdxQuoteVerified = evidence.tdxQuoteVerified;
+    checks.reportBindsSigner = evidence.reportBindsSigner;
+    checks.reportBindsNonce = evidence.reportBindsNonce;
   }
 
   const { attested, level } = summarize(checks);

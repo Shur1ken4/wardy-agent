@@ -64,14 +64,15 @@ Everything here is offline, with no keys, unless it says otherwise.
 | `npm run demo -- --offline` | Every attack and honest payment with and without Wardy Agent, then the totals and the holdout's misses |
 | `npm test` | Every unit test pass |
 | `npm run dev`, then open <http://localhost:5173> | The dashboard, labelled **Demo data** |
-| On the dashboard, move your mouse over the sphere, and drag it | It's made of the characters account names use. Letters under the pointer light up, and it turns with you |
-| On the dashboard, press **Play demo traffic** | Payments arrive live. Each sends a wave across the sphere in its verdict's colour, and the payee's name spells out below it. A lookalike is blocked with its odd character marked, and that creates a report. Then another owner's agent asks about the same name, and the report stops it |
+| On the dashboard, scroll to the checkpoint, move your mouse over the flow, and click it | Payments stream through one shield-shaped gate. The dots bend away from your pointer, and a click sends a ripple through them |
+| On the dashboard, press **Play demo traffic** | Payments arrive live. Each one travels to the gate: an ALLOW goes through, a HOLD waits there, and a BLOCK breaks apart in orange. The payee's name spells out below it. A lookalike is blocked with its odd character marked, and that creates a report. Then another owner's agent asks about the same name, and the report stops it |
 | Click a row in the feed | Why it was decided, the two names side by side, and a **Verify** button that checks the signature in your browser |
 | Under **Waiting for you**, press **Review**, then **Reject** | The phone approval page, then "Nothing was paid" |
 | Open **Attack Lab**, press **Run Attack Lab** | Each attack plays out, then the totals, then the holdout's misses in red |
 | Open **Network**, search `acme-sh0p.near` | A report with its evidence, and a proof that checks out in your browser against the anchored root |
 | On **Network**, press **Check the contract** (needs internet) | The root read live from NEAR testnet, matching the one shown |
 | `npm run network:verify` (add `-- --offline` to skip the chain) | The root recomputed from the feed and compared with the contract, ending in `Everything checked passed.` |
+| `npm run hello:attestation` (needs internet, no key, costs nothing) | NEAR AI Cloud's live hardware evidence for our model, checked with NVIDIA and Intel using a nonce you chose: four `PASS` lines. It doesn't send an invoice |
 | `npm run verify-audit -- apps/attack-lab/results/audit.jsonl` | `audit chain valid`, with every verdict's signature checked |
 | `npm run agent -- --scenario lookalike` | What the gullible agent read, what it asked, and the BLOCK. If `npm run dev` is running, it also appears on the feed |
 | `npm run walkthrough` | One payment of every kind through the real API, ending in `Everything was as expected.` |
@@ -170,9 +171,9 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Tech | What for | Where | Status |
 |---|---|---|---|
-| NEAR AI Cloud | Private TEE inference, with attestation checked | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) | Built and tested. Not yet run with a real key |
+| NEAR AI Cloud | Private TEE inference, with attestation checked | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) | Hardware evidence checked live, with no key: `npm run hello:attestation`. No real invoice has been read with a key yet |
 | NEAR Intents Agent Connect | Custody and policy on mainnet | [`agentConnect.ts`](packages/providers/src/custody/agentConnect.ts) | Built and tested. Not yet run with real funds |
-| OutLayer | Custody on testnet | [`outlayer.ts`](packages/providers/src/custody/outlayer.ts) | Real testnet payments: [one](https://testnet.near.rocks/tx/295HobBbcr5Ucf9StCHUAtgF2deRjoWwsRztdbMAiZRf), [two](https://testnet.near.rocks/tx/ERNXmKVodB4rVLJNiJ6NgaetiANsQt2Ras36TAbt1iwR) |
+| OutLayer | Custody on testnet | [`outlayer.ts`](packages/providers/src/custody/outlayer.ts) | Real testnet payments: [one](https://testnet.near.rocks/tx/295HobBbcr5Ucf9StCHUAtgF2deRjoWwsRztdbMAiZRf), [two](https://testnet.near.rocks/tx/ERNXmKVodB4rVLJNiJ6NgaetiANsQt2Ras36TAbt1iwR), [approved on the approval page](https://testnet.near.rocks/tx/3YNBz9xs89Ra8kkJ4gVkYGaohNddk5xaD1wevH75rRWB) |
 | NEAR RPC and indexer | Whether an account exists, and how old it is | [`nearChainData.ts`](packages/providers/src/chain/nearChainData.ts) | Live |
 | NEAR testnet contract | Anchors the Wardy Network's Merkle root | [`contracts/registry`](contracts/registry/src/lib.rs) | [Live on testnet](https://testnet.near.rocks/account/wardy-agent-registry.testnet) |
 
@@ -235,7 +236,7 @@ Read the holdout honestly. Each attack that got through was a payee the owner re
 | Worker agents can't skip the check | **Enforced**, as long as they really hold no key. That's how you set them up, and nothing proves it from outside | [docs/MCP_SETUP.md](docs/MCP_SETUP.md) |
 | Wardy Agent is honest | **Trusted.** Whoever runs it holds the grant and the signing key. A TEE deployment is on the roadmap | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) |
 | The provider enforces limits, assets and budget | **Trusted**: the custody provider. **Wardy Agent alone** checks the payee | [`custody/`](packages/providers/src/custody) |
-| The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. Not yet run with a real key, so no verdict here has one | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
+| The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. The hardware evidence verifies live (`npm run hello:attestation`, no key needed), but that alone doesn't tie an answer to the hardware. No verdict here has the tick yet, because that needs a real read with a key | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
 | It catches every attack | **False.** See the holdout | [Results](#attack-lab-results) |
 
 ## Threat model summary
@@ -250,7 +251,7 @@ Attackers we plan for: a poisoned invoice or email, a lookalike payee, a fake "p
 - [AgentSentinel](https://github.com/Daveboycyber/agent-sentinel): a guardian contract and watcher.
 - Nava and t54 Labs: funded teams working on agent trust, off NEAR.
 - scamgate and Allowance: open-source payee checks.
-- The letter sphere on the dashboard is our own code, and the idea comes from [nearhackathon.com](https://nearhackathon.com). The "for agents" path was inspired by [market.near.ai](https://market.near.ai) and [Browserbase](https://www.browserbase.com).
+- The dashboard's look and motion are our own code and artwork. [near.org](https://www.near.org/developer-hub) and [nearhackathon.com](https://nearhackathon.com) inspired the idea of a glass object behind the page and an animation you can touch; the shield, the checkpoint and the colours are ours. The "for agents" path was inspired by [market.near.ai](https://market.near.ai) and [Browserbase](https://www.browserbase.com).
 
 Scanned on 2026-11-02, and partial. There are surely more.
 

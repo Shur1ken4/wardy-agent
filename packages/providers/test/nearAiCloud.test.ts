@@ -4,6 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import {
   type AttestationChecks,
   checkGpuAttestation,
+  checkModelEvidence,
   checkReportData,
   checkSignedText,
   decodeJwtPayload,
@@ -318,5 +319,55 @@ describe("privateChat", () => {
         ? new Response("no", { status: 500 })
         : Response.json({ model_attestations: [] })) as unknown as typeof fetch;
     await expect(privateChat(messages, { ...options, fetchFn })).rejects.toThrow(/HTTP 500/);
+  });
+});
+
+describe("checkModelEvidence", () => {
+  const answer = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+
+  it("is not verified when the service answers an error", async () => {
+    const result = await checkModelEvidence("m", { fetchFn: (async () => answer({}, 500)) as typeof fetch });
+    expect(result.verified).toBe(false);
+    expect(result.notes.join()).toContain("HTTP 500");
+  });
+
+  it("is not verified when there are no reports", async () => {
+    const result = await checkModelEvidence("m", { fetchFn: (async () => answer({ model_attestations: [] })) as typeof fetch });
+    expect(result.verified).toBe(false);
+    expect(result.reports).toEqual([]);
+  });
+
+  it("sends no credential, and asks for our own fresh nonce", async () => {
+    const seen: { url: string; headers: Record<string, string> }[] = [];
+    const fetchFn = (async (url: string, init: RequestInit) => {
+      seen.push({ url, headers: init.headers as Record<string, string> });
+      return answer({ model_attestations: [] });
+    }) as unknown as typeof fetch;
+    await checkModelEvidence("m", { fetchFn });
+    await checkModelEvidence("m", { fetchFn });
+    expect(seen[0]?.headers.authorization).toBeUndefined();
+    const nonce = (at: number) => new URL(seen[at]!.url).searchParams.get("nonce");
+    expect(nonce(0)).toMatch(/^[0-9a-f]{64}$/);
+    expect(nonce(0)).not.toBe(nonce(1));
+  });
+
+  it("is not verified when one report's evidence is missing, even if the other's is checked", async () => {
+    const fetchFn = (async () => answer({ model_attestations: [{ signing_address: `0x${"11".repeat(20)}` }, {}] })) as typeof fetch;
+    const result = await checkModelEvidence("m", { fetchFn });
+    expect(result.verified).toBe(false);
+    expect(result.reports).toHaveLength(2);
+    expect(result.notes).toContain("report has no GPU evidence");
+    expect(result.notes).toContain("report names no signing address");
+  });
+
+  it("is not verified when NVIDIA disagrees, or the quote is garbage", async () => {
+    const fetchFn = (async (url: string) =>
+      url.includes("nras")
+        ? answer(nras({ ...goodOverall, "x-nvidia-overall-att-result": false }))
+        : answer({ model_attestations: [{ signing_address: `0x${"11".repeat(20)}`, nvidia_payload: "{}", intel_quote: "00" }] })) as unknown as typeof fetch;
+    const result = await checkModelEvidence("m", { fetchFn });
+    expect(result.verified).toBe(false);
+    expect(result.reports[0]?.gpuVerified).toBe(false);
+    expect(result.reports[0]?.tdxQuoteVerified).toBe(false);
   });
 });

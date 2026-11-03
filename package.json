@@ -23,6 +23,7 @@
     "setup:testnet": "tsx scripts/setup-testnet-custody.ts",
     "hello:indexer": "tsx scripts/hello-indexer.ts",
     "hello:ai": "tsx scripts/hello-ai.ts",
+    "hello:attestation": "tsx scripts/hello-attestation.ts",
     "hello:custody": "tsx scripts/hello-custody.ts",
     "hello:contract": "tsx scripts/hello-contract.ts",
     "contract:test": "cargo test --manifest-path contracts/registry/Cargo.toml",

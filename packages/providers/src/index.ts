@@ -5,6 +5,8 @@ export {
   type AttestationChecks,
   type AttestationLevel,
   type ChatMessage,
+  checkModelEvidence,
+  type ModelEvidence,
   type NearAiOptions,
   privateChat,
   type SignatureKind,
