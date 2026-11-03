@@ -10,6 +10,8 @@ const ExpectSchema = z.strictObject({
   codes: z.array(z.string()),
   /** Signals only the private AI can raise, checked only when real recorded answers exist. */
   aiCodes: z.array(z.string()).optional(),
+  /** The decision once the AI has read it too, if that's stricter. Without the AI, `decision` must still hold. */
+  aiDecision: z.enum(["ALLOW", "HOLD", "BLOCK"]).optional(),
 });
 
 const StepSchema = z.strictObject({

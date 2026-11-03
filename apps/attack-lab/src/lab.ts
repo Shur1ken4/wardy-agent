@@ -292,7 +292,8 @@ function findProblems(scenario: Scenario, world: Awaited<ReturnType<typeof runWi
         problems.push(`${label}: never ran`);
         return;
       }
-      if (actual.decision !== planned.expect.decision) problems.push(`${label}: expected ${planned.expect.decision}, got ${actual.decision}`);
+      const decision = (ctx.aiRecorded && planned.expect.aiDecision) || planned.expect.decision;
+      if (actual.decision !== decision) problems.push(`${label}: expected ${decision}, got ${actual.decision}`);
       const wanted = [...planned.expect.codes, ...(ctx.aiRecorded ? (planned.expect.aiCodes ?? []) : [])];
       for (const code of wanted) if (!actual.codes.includes(code)) problems.push(`${label}: expected signal ${code}`);
     });

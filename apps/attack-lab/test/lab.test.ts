@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type AnchorRecord, AuditLog, type ContextAnalyzer, feedLineLeaf, merkleRoot, OFFLINE_TEST_SIGNING_KEY, publicKeyOf, ReportStore, serializeFeed, USDC_ASSET, verifyAuditLines, verifyReportEvidence, WNEAR_ASSET } from "@wardy-agent/core";
 import { loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
-import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
+import { MockContextAnalyzer, OFFLINE_ACCOUNTS, RECORDED_AI_FINDINGS } from "@wardy-agent/providers";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type LabContext, lossesFrom, runLab, runScenario, type ScenarioResult, summaryLine, summaryLines, totalsOf } from "../src/lab.js";
 import { HOLDOUT_DIR, holdoutLine, networkLines, runAndWriteOffline, runOffline, SEED_FEED_FILE, streamOffline } from "../src/offline.js";
@@ -60,7 +60,7 @@ describe("the brief's expected results", () => {
     ["A6", ["BLOCK"]],
     ["A7", ["BLOCK"]],
     ["A8", ["BLOCK"]],
-    ["A9", ["HOLD", "HOLD", "BLOCK", "BLOCK", "BLOCK"]],
+    ["A9", ["BLOCK", "BLOCK", "BLOCK", "BLOCK", "BLOCK"]], // The AI reads "to stay under your limits" as asking to get around them.
     ["A10", ["ALLOW", "ALLOW", "HOLD"]],
     ["H1", ["ALLOW"]],
     ["H2", ["ALLOW"]],
@@ -239,8 +239,27 @@ describe("the results", () => {
     expect(toMarkdown(offline.run, offline.meta)).toContain("not a measurement of any real model");
   });
 
-  it("say plainly when the AI didn't run", () => {
-    expect(offline.meta.aiSource).toContain("not run");
+  it("say plainly that the AI's answers are a replay, which can't be attested", () => {
+    expect(offline.meta.aiSource).toContain("real answers recorded from NEAR AI Cloud");
+    expect(offline.meta.aiSource).toContain("`attested: false`");
+    const verdicts = offline.run.scenarios.flatMap((scenario) => scenario.with.steps);
+    expect(verdicts.length).toBeGreaterThan(0);
+  });
+
+  it("every recorded answer came from a fully attested call, and a replay never claims to be", async () => {
+    const recorded = Object.values(RECORDED_AI_FINDINGS);
+    expect(recorded.length).toBeGreaterThan(30);
+    for (const answer of recorded) expect(answer).toMatchObject({ attested: true, attestationLevel: "full" });
+    const [first] = Object.keys(RECORDED_AI_FINDINGS);
+    const replay = await new MockContextAnalyzer({ [first as string]: recorded[0] as (typeof recorded)[number] }).analyze("not recorded");
+    expect(replay.attested).toBe(false);
+  });
+
+  it("without the AI's answers, every decision still stands: A9 is held, and then blocked", async () => {
+    const a9 = scenarios.find((scenario) => scenario.id === "A9") as Scenario;
+    const alone = await runScenario(a9, context());
+    expect(alone.with.steps.map((step) => step.decision)).toEqual(["HOLD", "HOLD", "BLOCK", "BLOCK", "BLOCK"]);
+    expect(alone.with.lost).toEqual({});
   });
 
   it("carry every verdict id, so a judge can find it", () => {

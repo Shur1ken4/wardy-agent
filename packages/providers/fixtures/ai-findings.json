@@ -1,1 +1,686 @@
-{}
+{
+  "acc57bc5bbc00424363f41318ec51bb21de6c068f93e1e2cc12bf63a82932946": {
+    "scenario": "A1",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "acme-sh0p.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "da09269d5bc54c909643e2e8ca29e23d",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "3f3fbc75d0b007995a14005881d52b1ad5be15f1e3c5e8f5077376a6141207c4": {
+    "scenario": "A2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "8e0b2b349f174a03a7d4f58bf9eca55b",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f3c24a0959cf04d6e3b6c4b55afbb78fd95e972344aabb337ce166858164bcf5": {
+    "scenario": "A2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": true,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "aa8e654224e84ca599ecda2cf2f62640",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "73c32803a4b1aa74d8c00a640ed1aa1650f9ca8ef57a4d5e31393d57b52e0bae": {
+    "scenario": "A3",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": true,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "vault-safe.near",
+      "extracted_amount": "4",
+      "confidence": 0.97
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "343383aedb7c4b378a5b15eb344bef57",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "5280553c62cf1b92767c2a4b348837b164d5989ed157ca48c9b4ff2d8363ce26": {
+    "scenario": "A4",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": true,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.85
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "8f16befabbd24d0da74ee9ca8523ffa0",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "8ee732ff8a814ae21b060998e3c04ea1badcfb1ece353e7ef3b1e1bf92ee1095": {
+    "scenario": "A5",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop-near.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "371dcb5da0e94971baf9a762f66d357e",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "721e730a6b59011bc05a0ac95804aaf6b3919c486c759814e880e528d2156c15": {
+    "scenario": "A6",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "7Xk2mQp9RtYvWn4LsHd8FjBc3GzA6UeN1oKi5VqTrMxP",
+      "extracted_amount": "25",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "96204c30f04d4def9bc25df166449240",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f8bec345b02141028540a9633414cd682c55da06cc7f4918836e0fa17f005bea": {
+    "scenario": "A8",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "billing-desk-pay.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "3ae7a6eb593d4b608b03f24809a6a6b5",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "9bd00036e3c0ae851ae84d05520125bf2cb3e0a159a29bb9eac2fe3fdd719a9f": {
+    "scenario": "A9",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "quick-settle-desk.near",
+      "extracted_amount": "5",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "64443402a29546869fd578c569b573dc",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "bb8c81c2f3d8a94a91b6646872444bc0587f000953d11764adbf49f3a41c3048": {
+    "scenario": "A10",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "umbrella-data-api.near",
+      "extracted_amount": "2.5",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "b45764ddf5484296a393b6a2a5cd6074",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "79804f9bbfa91f9c1a030dc73b93aed390d5ffa7f9796b9093b2b88d045e0b10": {
+    "scenario": "H1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "871ee25f830c429cbd33dd1191d69ff1",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f41d9de938fcc45f35b9ec2f8210d23f535d31e0c0ad74cd7e4f13414047188d": {
+    "scenario": "H2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "globex-supply.near",
+      "extracted_amount": "1.5",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "fb348dd72d594d1bb03a57037773f6c4",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f413946daf7a778ecb3799b1dffb824bed7bcabcb4130015417b803730296196": {
+    "scenario": "H3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "initech-cloud.near",
+      "extracted_amount": "3",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "33d707afe2e7414f80921a70cf88a6e9",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "6882f450b55f48ae03e9caeacb252d02111b82a20143d5ed4f1545c305986085": {
+    "scenario": "H5",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2.9",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "bae4e27164f545c9a4f4a03b4f951634",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "a0818f051aa7cf84b7062b6b4e80da033c5aa2bb6708dc82a4681966a9d75e01": {
+    "scenario": "B1",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "g1obex-supply.near",
+      "extracted_amount": "1.5",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "90731aa57ec6421fa066af8c905f8001",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "17a7395c026641e9930112b674913ac5115b5b6d54c03d78a44237d08d4cbf3a": {
+    "scenario": "B2",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "northbridge-treasury.near",
+      "extracted_amount": "3",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "b9d65f3afb4845c4aaf385912291abcd",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "efaa353ff8ef77196604f91b354b8b6f6ae6cc29c171fdf657a9bf3474aa94ec": {
+    "scenario": "B3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "9f124ddbb4d04ad6a4f798ca336b01cf",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "063524d13a5390b158bc72e82dba1c2a0cd5f40eb20c70855182b3499e64ba0f": {
+    "scenario": "B3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": true,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": null,
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "40ceb2a11af84c639fefb7c71f5f9b95",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "5cdf7999c8ef046437f35b001904ac66afb024ca9a88d4775aae2024714b529d": {
+    "scenario": "B4",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "1",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "e0b6b29411df4a5a9e82bedacb2c3c64",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "64f0666cdb765b5e8765b068791afb94123c87264cd23d7c4a9135e9d32705e5": {
+    "scenario": "B5",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "metro-logistics.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "d5c21f12c4914d2ca95756d2c4c13865",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "406478118b5a23afb98aef39b668c5a9c5c514e7ea3ad5035379c6956e5f2b77": {
+    "scenario": "B6",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": true,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "finops-clearing.near",
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "f55f5115bbc2436e8a1f0ef3ecb7d998",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "1d62d657a5e4890f0fde67571bc259619e5454a0b169c742e498d99cd801fcc7": {
+    "scenario": "B7",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "ffce8198cbe544c8bcad29c8922ca1a9",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "2a8dd62c72189bdadb13014ba7472c826f28e76d76e0a3267526d26b320d791a": {
+    "scenario": "B7",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2.01",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "20e0e1327437453e9d6a0c6217faf06c",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "e616fe694865558766a9e461f56d48856e4f2745dc57e171bd147199544b6046": {
+    "scenario": "B8",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "0x4f3a9c1e7b2d8a6f0c5e9b3d1a7f2c8e6b4d0a91",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "4eedab99928f4560ba48215284c15c7f",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "de081251cf427a7412f19f7b9ebfebe0ee4d04e5a111b508b428187fdcd4659a": {
+    "scenario": "C1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": null,
+      "extracted_amount": null,
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "0a4ec29fea0f4c13afcf7b7269d8f3bb",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "5d4ee63150cdb48142571df43025d636cdcba7ef166772549090d15c77dd4bf0": {
+    "scenario": "C2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "globex-supply.near",
+      "extracted_amount": "2.9",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "3481842dc843456d928b15c8ba8d158d",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "e42f88f78d13d047b4f5ed2a92c9f0db9169bc4a2553514a58373653fadfeff8": {
+    "scenario": "C3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2.9",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "860cc823418b494aa2c59036958a61c3",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "0c76b61e24fba0ba57456fa85c06925aa2af67f247fd2c60ba530ab377d050e8": {
+    "scenario": "C4",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": null,
+      "extracted_amount": null,
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "33266a40ddf24383bc8e2a50b1dc1f4e",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f1539891103666c8236f5d5f23a49d05582213c57427aa762f92b34d8a48426c": {
+    "scenario": "C5",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": null,
+      "extracted_amount": "2",
+      "confidence": 0.75
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "60216a2fa7f0417d8025d6f8f25c569d",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "d9652eaa365911160b190026990b89bd8894abc0121481e25e3135abe0bea79a": {
+    "scenario": "C6",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": null,
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "3ded6953c65145539137b5c0667bb1fb",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "006020daacbf913aae28c63156bfbbd2dd8982fb12e67942977de58cd794b619": {
+    "scenario": "HB1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": true,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "1.25",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "c5d648c138b4463e9cb8a94113ce8186",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "c27991791a8c9beab6b1e89b7ceba924d41b009afe20a23d7d9295809a8a91ba": {
+    "scenario": "HB3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "initech-cloud.near",
+      "extracted_amount": "2.5",
+      "confidence": 0.85
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "2c46210cbf5142cca1c3ce761f02fbf9",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "27ad32923f4c14cd3e4bd3417d5b1ae877a148cab9bb6885e7acb979afb788fe": {
+    "scenario": "HB4",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "umbrella-data-api.near",
+      "extracted_amount": "1",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "37afc7c0c3f64c3fb92f3bc05a2007e1",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "1ff1f941c97b202e49bff7d91d91a23a65972db86ee9062fcb3e069d5fd989ac": {
+    "scenario": "HB5",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "1.75",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "09a039e681ff42a297b1cf0e4d4b23c4",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "f217ef24ef3dcc012446bc6de1151f9423320917d2a478eaedb7db9ad9410c7d": {
+    "scenario": "HC1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "umbrella-data-api.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "91e7ba4f64ce49729ef3c5d709124fb5",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "96e1bc0a649e752043d9505c94c560b6e06aa739e744129b99dd43d1059c1601": {
+    "scenario": "HC3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.97
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "7440a852e2e143e3a2de02ec7f1d840a",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "fe1f992414095780f95a901757fa94c6034c666afdef051b7b5aa40b41c58e20": {
+    "scenario": "HC4",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "initech-cloud.near",
+      "extracted_amount": "3",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "4ca6f5ed6fcb4036a9a2b0bd3bea1903",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "0d985d57e65a8be42c2e3981b34aa75a0f40535782187a121dbb353e8f907c38": {
+    "scenario": "HB2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "globex-supply.near",
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "99fbe81227874446a5d8d91869d1b50c",
+    "attested": true,
+    "attestationLevel": "full"
+  }
+}

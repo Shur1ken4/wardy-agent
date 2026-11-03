@@ -2,7 +2,7 @@
 //   --llm     a real model as the agent, on NEAR AI Cloud. Needs NEAR_AI_CLOUD_API_KEY. Writes llm-latest.md.
 //   --record  asks NEAR AI Cloud about each scenario's text and saves the answers, for offline replay.
 // In every mode the payments stay on mock ledgers.
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { AuditLog, contextDocument, PaymentRequestSchema, ReportStore, sha256Hex } from "@wardy-agent/core";
 import { contextFrom, loadScenarios, type Scenario } from "@wardy-agent/demo-agent";
@@ -36,10 +36,22 @@ function printProblems(scenarios: { id: string; problems: string[] }[]): number 
   return problems;
 }
 
+async function analyzeWithRetry(analyzer: NearAiContextAnalyzer, document: string) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await analyzer.analyze(document);
+    } catch (caught) {
+      console.log(`Attempt ${attempt} failed: ${(caught as Error).message}`);
+    }
+  }
+  return null;
+}
+
 async function record() {
   const settings = nearAiSettings();
   const analyzer = new NearAiContextAnalyzer(settings);
-  const recordings: Record<string, RecordedFinding & { scenario: string }> = {};
+  // Picks up where a stopped run left off, so a timeout doesn't throw away answers that were already paid for.
+  const recordings: Record<string, RecordedFinding & { scenario: string }> = JSON.parse(readFileSync(FINDINGS_FILE, "utf8"));
   const scenarios: Scenario[] = [...loadScenarios(), ...loadScenarios(HOLDOUT_DIR)];
   for (const scenario of scenarios) {
     for (const step of scenario.steps) {
@@ -60,8 +72,8 @@ async function record() {
       );
       const hash = sha256Hex(document);
       if (recordings[hash]) continue;
-      const answer = await analyzer.analyze(document);
-      if (!answer.findings) {
+      const answer = await analyzeWithRetry(analyzer, document);
+      if (!answer?.findings) {
         console.log(`${scenario.id}: no usable answer, so nothing recorded for it.`);
         continue;
       }
@@ -74,10 +86,10 @@ async function record() {
         attested: answer.attested,
         attestationLevel: answer.attestationLevel ?? "none",
       };
+      writeFileSync(FINDINGS_FILE, `${JSON.stringify(recordings, null, 2)}\n`);
       console.log(`${scenario.id}: recorded (attested: ${answer.attested}, level: ${answer.attestationLevel}).`);
     }
   }
-  writeFileSync(FINDINGS_FILE, `${JSON.stringify(recordings, null, 2)}\n`);
   console.log(`\n${Object.keys(recordings).length} answers saved. Run npm run attack-lab -- --offline to use them.`);
 }
 

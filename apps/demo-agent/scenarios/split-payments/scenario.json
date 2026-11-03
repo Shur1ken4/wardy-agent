@@ -25,6 +25,10 @@
         "decision": "HOLD",
         "codes": [
           "POLICY_NEW_PAYEE_REQUIRES_APPROVAL"
+        ],
+        "aiDecision": "BLOCK",
+        "aiCodes": [
+          "CONTEXT_BYPASS_ATTEMPT"
         ]
       }
     },
@@ -40,6 +44,10 @@
         "decision": "HOLD",
         "codes": [
           "POLICY_NEW_PAYEE_REQUIRES_APPROVAL"
+        ],
+        "aiDecision": "BLOCK",
+        "aiCodes": [
+          "CONTEXT_BYPASS_ATTEMPT"
         ]
       }
     },
