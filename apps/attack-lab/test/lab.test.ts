@@ -410,6 +410,13 @@ describe("the holdout set", () => {
     expect(result.stdout).toContain("Holdout, written after the rules were frozen");
   }, 60_000);
 
+  it("the current holdout was written to get around the amount check, and its misses and false block are published", () => {
+    const ids = (kind: string) => offline.holdout.scenarios.filter((scenario) => scenario.id.startsWith(kind)).map((scenario) => scenario.id);
+    expect(ids("C")).toEqual(["C1", "C2", "C3", "C4", "C5", "C6"]);
+    expect(ids("HC")).toEqual(["HC1", "HC2", "HC3", "HC4"]);
+    expect(toMarkdown(offline.run, offline.meta, offline.holdout)).toContain(`False blocks on honest payments: ${offline.holdout.totals.falseBlocks}.`);
+  });
+
   it("a patient step really does wait: the clock moves between payments", async () => {
     const remainder = holdoutScenarios.find((scenario) => scenario.slug === "remainder") as Scenario;
     const hurried: Scenario = { ...remainder, steps: remainder.steps.map(({ waitMinutes: _wait, ...step }) => step) };

@@ -1,0 +1,49 @@
+{
+  "id": "HC1",
+  "title": "Honest: a yearly plan",
+  "kind": "honest",
+  "setup": "An API paid 0.01 per call sells a real yearly plan for 2",
+  "inbox": [
+    {
+      "file": "invoice.md",
+      "kind": "invoice"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "2.02"
+    }
+  ],
+  "ownerDecision": "approve",
+  "steps": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "2",
+      "invoiceId": "U-77",
+      "purpose": "Buy the Umbrella yearly plan",
+      "reads": [
+        "invoice.md"
+      ],
+      "waitMinutes": 20
+    }
+  ]
+}

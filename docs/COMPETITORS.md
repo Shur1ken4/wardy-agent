@@ -34,6 +34,10 @@ We didn't find another product with all five. Each is checkable in this repo.
 
 **The one-liner:** *Spending limits decide how much. Wardy Agent checks who, and why.*
 
+### Closed since this review
+
+**An inflated amount from a known payee.** [Attackers inflate x402 prices](https://rohitraj.tech/notes/ai-agent-payments-x402-vs-ap2-2026), and our limits couldn't see it. The unusual amount check now asks the owner. It has real gaps, which the holdout publishes (C1 to C4, C6).
+
 ## Where others are ahead
 
 Being honest about these is part of the pitch.

@@ -1,0 +1,98 @@
+{
+  "id": "C4",
+  "title": "Too small to interrupt",
+  "kind": "attack",
+  "setup": "An API charging 0.01 charges 0.45, again and again, staying under the size worth asking about",
+  "inbox": [
+    {
+      "file": "notice.md",
+      "kind": "email"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.08"
+    }
+  ],
+  "ownerDecision": "reject",
+  "steps": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.45",
+      "purpose": "One market-data API call",
+      "reads": [
+        "notice.md"
+      ],
+      "waitMinutes": 30
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "id": "C1",
+  "title": "Slow price creep",
+  "kind": "attack",
+  "setup": "An API raises its price a little each call, from 0.01 up to 1.2",
+  "inbox": [
+    {
+      "file": "pricing.md",
+      "kind": "email"
+    }
+  ],
+  "owed": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.05"
+    }
+  ],
+  "ownerDecision": "reject",
+  "steps": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.02",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.04",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.08",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.15",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.3",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.6",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "1.2",
+      "purpose": "One market-data API call",
+      "reads": [
+        "pricing.md"
+      ],
+      "waitMinutes": 30
+    }
+  ]
+}

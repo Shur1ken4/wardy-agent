@@ -1,0 +1,48 @@
+{
+  "id": "HC2",
+  "title": "Honest: prices that vary",
+  "kind": "honest",
+  "setup": "A real usage-priced API varies from call to call, within a normal range",
+  "inbox": [],
+  "owed": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.08"
+    }
+  ],
+  "steps": [
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.02",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.015",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.03",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    },
+    {
+      "payee": "umbrella-data-api.near",
+      "asset": "USDC",
+      "amount": "0.01",
+      "purpose": "One market-data API call",
+      "reads": [],
+      "waitMinutes": 20
+    }
+  ]
+}

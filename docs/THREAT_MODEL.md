@@ -57,7 +57,8 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 
 These are real gaps, not edge cases.
 
-1. **Quiet fraud from a real payee gets through.** The holdout shows it: 3 of 8 attacks still took money. Each was a payee the owner really pays, under every limit, where only the words give it away (B3 "pay the remainder", B4 a small fee, B7 a reissued invoice). The private AI is meant for these, but it hasn't been run with a real key, so nothing shows yet whether it helps.
+1. **Quiet fraud from a real payee gets through.** The holdout shows it: 8 of 14 attacks still took money. Each was a payee the owner really pays, under every limit. B3 "pay the remainder", B4 a small fee and B7 a reissued invoice only show in the words. The private AI is meant for these, but it hasn't been run with a real key, so nothing shows yet whether it helps.
+   The unusual amount check catches a big jump (A10, C5), and it stopped C1 late. It doesn't catch a price that creeps up (C1 lost 0.54 USDC first), a payee with fewer than 3 payments (C2), a different asset (C3), amounts under 0.5 (C4), or repeats after one approval (C6). It also holds some honest payments, like a real yearly plan (HC1). Worth noting: a public `check` skips it on purpose, so a `check` can say ALLOW where the payment is then held.
 2. **Smearing an innocent account.** An attacker can send an invoice naming a brand-new or lookalike account, and it could get reported. A `check` can't publish, a report needs two kinds of evidence, and it can be withdrawn. But there's no dispute process.
 3. **A patient scammer.** An old, active account that doesn't resemble anyone only reaches HOLD, and is safe only if the owner rejects it (B2, B5).
 4. **An owner who approves everything.** HOLD asks a person, and a person can be fooled or tired.

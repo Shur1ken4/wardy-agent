@@ -234,7 +234,7 @@ export function AttackLab() {
       {holdout.length > 0 ? (
         <section className="section">
           <div className="section-head"><h2 className="section-title">Holdout</h2></div>
-          {done ? <p className="callout" style={{ marginBottom: 12 }}><strong>{done.holdout}</strong></p> : <p className="note" style={{ marginBottom: 12 }}>Written after the rules were frozen, and never tuned for.</p>}
+          {done ? <p className="callout" style={{ marginBottom: 12 }}><strong>{done.holdout}</strong></p> : <p className="note" style={{ marginBottom: 12 }}>Written after the rules were frozen, with no expected answers.</p>}
           <div className="card"><ResultsTable rows={holdout} /></div>
         </section>
       ) : null}

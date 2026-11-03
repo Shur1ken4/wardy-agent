@@ -52,7 +52,7 @@ function table(rows: Row[]): string[] {
 export function resultsBlock(): string {
   const results = JSON.parse(readFileSync(RESULTS, "utf8")) as Results;
   const { totals, holdout } = results;
-  const attacks = holdout.scenarios.filter((row) => !row.id.startsWith("HB"));
+  const attacks = holdout.scenarios.filter((row) => !row.id.startsWith("H"));
   const missed = attacks.filter((row) => Object.keys(row.with.lost).length > 0);
   return [
     START,
@@ -60,7 +60,7 @@ export function resultsBlock(): string {
     "",
     ...table(results.scenarios),
     "",
-    `**Holdout (written after the rules were frozen, and never tuned for):** ${missed.length} of ${attacks.length} attacks still took money (${money(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${holdout.totals.honestTotal}.`,
+    `**Holdout (written after a rule freeze, with no expected answers):** ${missed.length} of ${attacks.length} attacks still took money (${money(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${holdout.totals.honestTotal}. False blocks: ${holdout.totals.falseBlocks}.`,
     "",
     ...table(holdout.scenarios),
     END,
