@@ -39,10 +39,15 @@ export function pushFrom(x: number, y: number, pointerX: number, pointerY: numbe
 
 /** Fixed starting places, so the picture looks the same on every load. */
 export function dots(count: number): { lane: number; start: number; speed: number; size: number }[] {
-  const golden = 0.61803398875;
-  return Array.from({ length: count }, (_unused, index) => {
-    const a = (index * golden) % 1;
-    const b = (index * golden * golden * 7.3) % 1;
-    return { lane: a * 2 - 1, start: b, speed: 0.045 + ((index * 0.37) % 1) * 0.05, size: 1 + ((index * 0.53) % 1) * 1.1 };
-  });
+  // A fixed scatter. Anything more regular than this lines the dots up into stripes.
+  const scatter = (index: number, salt: number) => {
+    const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  return Array.from({ length: count }, (_unused, index) => ({
+    lane: scatter(index, 1) * 2 - 1,
+    start: scatter(index, 2),
+    speed: 0.045 + scatter(index, 3) * 0.05,
+    size: 1 + scatter(index, 4) * 1.1,
+  }));
 }

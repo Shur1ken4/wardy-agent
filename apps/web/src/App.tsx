@@ -30,7 +30,7 @@ function NotFound() {
 
 function Console() {
   const { path, search } = useLocation();
-  const { apiError, needsCredential, reaction } = useDashboard();
+  const { apiError, needsCredential, reaction, frozen } = useDashboard();
   const openVerdict = search.get("verdict");
   const locked = isLocked(path, needsCredential);
 
@@ -57,7 +57,7 @@ function Console() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      <GlassBackdrop signal={reaction} dimmed={path !== "/" && !locked} />
+      <GlassBackdrop signal={reaction} dimmed={path !== "/" && !locked} frozen={frozen} />
       <Header path={path} />
       <FrozenBar />
       {apiError ? (

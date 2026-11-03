@@ -189,7 +189,8 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
 
   const reports = new ReportStore(join(dataDir, "network", "reports.jsonl"));
   const ledger = new Ledger(join(dataDir, "ledger.jsonl"));
-  const fleetOwnerId = env.WARDY_OWNER_ID || env.AGENT_OWNER_ACCOUNT_ID || DEFAULT_OWNER;
+  // The offline demo is always the demo owner. A real account in .env would make the public demo credentials fail.
+  const fleetOwnerId = env.WARDY_OWNER_ID || (mode !== "offline" && env.AGENT_OWNER_ACCOUNT_ID) || DEFAULT_OWNER;
   if (mode === "offline" && overrides.seedHistory !== false && ledger.knownPayees(fleetOwnerId).length === 0) {
     seedOfflineHistory(ledger, fleetOwnerId, new Date());
   }

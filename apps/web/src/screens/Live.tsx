@@ -180,6 +180,11 @@ export function Live() {
 
       <div ref={instruments} className="instruments">
         <StreamWithData />
+        <ul className="stream-legend" aria-label="What the verdicts mean">
+          <li><span className="chip chip-allow">ALLOW</span> Paid: it goes through the shield</li>
+          <li><span className="chip chip-hold">HOLD</span> It waits at the shield until you decide</li>
+          <li><span className="chip chip-block">BLOCK</span> Refused: it breaks, and nothing is paid</li>
+        </ul>
         <Tiles />
       </div>
 

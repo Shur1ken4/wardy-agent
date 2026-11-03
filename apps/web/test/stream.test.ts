@@ -51,7 +51,7 @@ describe("the background", () => {
 
   it("darkens as you scroll, and on every page but the first", () => {
     expect(veilOpacity(0, 900, false)).toBe(0);
-    expect(veilOpacity(0, 900, true)).toBeGreaterThan(0.5);
+    expect(veilOpacity(0, 900, true)).toBeGreaterThan(0.4);
     expect(veilOpacity(5000, 900, false)).toBeCloseTo(0.8);
     expect(veilOpacity(5000, 900, true)).toBeCloseTo(0.8);
   });

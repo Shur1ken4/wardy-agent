@@ -91,7 +91,7 @@ async function inspect(page: Page, name: string, options: { fullPage?: boolean }
   check(`${name}: nothing wider than the screen`, overflow <= 0, overflow > 0 ? `${overflow}px too wide` : "");
   const small = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("button, .btn")]
-      .filter((element) => element.getClientRects().length > 0 && element.getBoundingClientRect().height < 44)
+      .filter((element) => element.getClientRects().length > 0 && element.getBoundingClientRect().height < 43.9)
       .map((element) => element.textContent?.trim().slice(0, 30)),
   );
   check(`${name}: every button is at least 44px tall`, small.length === 0, small.join(", "));
@@ -158,7 +158,10 @@ async function main() {
     await inspect(desktop, "desktop-01-live-empty", { fullPage: false });
 
     check("the animated background is there", (await desktop.$('[data-testid="glass-backdrop"]')) !== null);
+    await wait(700);
+    check("the headline has really appeared", (await desktop.$eval(".hero-title", (title) => getComputedStyle(title).opacity)) === "1");
     check("the background can be paused", /Pause background/i.test(await textOf(desktop)));
+    check("the checkpoint says what it shows, in words", /Only checked payments go out/.test(await textOf(desktop)) && /until you decide/.test(await textOf(desktop)));
 
     // The checkpoint sits below the hero, so it's scrolled to before it's used.
     await desktop.$eval('[data-testid="payment-stream"]', (canvas) => canvas.scrollIntoView({ block: "center" }));

@@ -190,3 +190,10 @@ describe("loadPolicy", () => {
     expect(loadPolicy()).toMatchObject({ maxPerPayment: "5", dailyBudget: "40", approvalThreshold: "3", nativeNearTransfers: false });
   });
 });
+
+describe("the offline demo on a machine with a real .env", () => {
+  it("stays the demo owner, so the printed demo setup works", async () => {
+    const wiring = await wire({ WARDY_MODE: "offline", AGENT_OWNER_ACCOUNT_ID: "someone-real.near" }, { dataDir: tempDir() });
+    expect(wiring.service.fleetOwnerId).toBe("demo-owner.near");
+  });
+});

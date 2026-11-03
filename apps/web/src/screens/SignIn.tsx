@@ -15,7 +15,7 @@ export function SignIn() {
       <h1 className="signin-title">Owner sign-in</h1>
       <section className="card card-pad signin">
         <p className="note">
-          Your payment history and limits are private. Paste your owner credential to see them. It stays in this tab, and is gone when you close it.
+          Your payment history and limits are private. Paste your owner credential to see them. It stays in this tab, and is gone when you close it. The shield closes its eyes while you type.
         </p>
         <p className="note" style={{ marginTop: 8 }}>
           {health?.mode === "testnet" ? <>On testnet, it's <code>ownerToken</code> in <code>.data/testnet/secrets.json</code>.</> : <>It's <code>WARDY_OWNER_TOKEN</code> in your <code>.env</code>.</>}

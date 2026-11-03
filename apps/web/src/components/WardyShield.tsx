@@ -1,4 +1,4 @@
-// The mascot: a shield with two eyes. Its motion explains something: it glances toward a new verdict, braces on a BLOCK,
+// The mascot: a shield with two slits of light for eyes. Its motion explains something: it glances toward a new verdict, braces on a BLOCK,
 // and gives a small nod on an ALLOW. Otherwise it just blinks now and then.
 import { motion, useAnimationControls, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -8,8 +8,8 @@ type Reaction = { kind: "BLOCK" | "HOLD" | "ALLOW"; at: number } | null;
 export const SHIELD_PATH = "M24 2.5 44 9.4v15.2c0 12.2-8 21.3-20 25.4C12 46 4 36.8 4 24.6V9.4Z";
 const BLINK_EVERY_MS = 6000;
 const BLINK_FOR_MS = 140;
-const LEFT_EYE = 17;
-const RIGHT_EYE = 31;
+const LEFT_EYE = 16.5;
+const RIGHT_EYE = 31.5;
 const EYE_Y = 23;
 
 export function WardyShield({ size = 32, tone = "dark", reaction = null, title, followPointer = false }: { size?: number; tone?: "dark" | "light"; reaction?: Reaction; title?: string; followPointer?: boolean }) {
@@ -67,9 +67,8 @@ export function WardyShield({ size = 32, tone = "dark", reaction = null, title, 
     return () => clearTimeout(settle);
   }, [reaction, reduceMotion, body]);
 
-  const shield = tone === "dark" ? "#16181D" : "#F4F3EF";
-  const eye = tone === "dark" ? "#FFFFFF" : "#16181D";
-  const pupil = tone === "dark" ? "#16181D" : "#F4F3EF";
+  const shield = tone === "dark" ? "#16181D" : "#00F29B";
+  const eye = tone === "dark" ? "#FFFFFF" : "#050809";
   const lid = blinking ? 0.08 : mood === "braced" ? 0.42 : 1;
   // The newest verdict is below and to the left of the header.
   const glance = mood === "idle" ? gaze : { x: -1.3, y: 1.6 };
@@ -80,8 +79,7 @@ export function WardyShield({ size = 32, tone = "dark", reaction = null, title, 
       <path d={SHIELD_PATH} fill={shield} stroke={shield} strokeWidth="2" strokeLinejoin="round" />
       {[LEFT_EYE, RIGHT_EYE].map((cx) => (
         <motion.g key={cx} animate={{ scaleY: lid }} transition={eyeMotion} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
-          <circle cx={cx} cy={EYE_Y} r="5.4" fill={eye} />
-          <motion.circle cx={cx} cy={EYE_Y} r="2.4" fill={pupil} animate={glance} transition={{ type: "tween", duration: 0.18, ease: "easeOut" }} />
+          <motion.rect x={cx - 5.5} y={EYE_Y - 1.9} width="11" height="3.8" rx="1.9" fill={eye} animate={glance} transition={{ type: "tween", duration: 0.18, ease: "easeOut" }} />
         </motion.g>
       ))}
     </motion.svg>

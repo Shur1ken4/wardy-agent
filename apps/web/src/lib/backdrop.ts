@@ -1,6 +1,6 @@
 // The glass shield behind the dashboard, drawn live by the graphics card instead of played from a video file: there's
 // nothing to download, it works offline, and it can react to a verdict, which a video can't. The shape is the Wardy Agent
-// shield, with its two eyes. It's a small raymarcher: the shield's outline is a formula, and each pixel walks along its
+// shield, with its two eyes of light. It's a small raymarcher: the shield's outline is a formula, and each pixel walks along its
 // ray until it reaches the surface.
 import type { Decision } from "@wardy-agent/core";
 
@@ -40,9 +40,13 @@ uniform vec2 uLook;
 uniform float uPulse;
 uniform vec3 uPulseColor;
 uniform float uShift;
+uniform vec2 uGaze;
+uniform float uLid;
+uniform float uExcite;
+uniform float uSpin;
+uniform vec3 uRipple;
 
-const vec2 EYE = vec2(0.29, 0.14);
-const float EYE_RADIUS = 0.15;
+const vec2 EYE = vec2(0.26, 0.17);
 
 // The shield's outline, as a distance: straight sides, a sloped top, and two arcs meeting at the bottom point.
 float shieldOutline(vec2 p) {
@@ -59,8 +63,12 @@ float ribbon(vec3 p) {
   return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - 0.11;
 }
 
+// Two calm slits of light, tilted slightly inward. They slide toward what they're watching, and close to blink.
 float eyes(vec3 p) {
-  return length(vec3(abs(p.x) - EYE.x, p.y - EYE.y, p.z)) - EYE_RADIUS;
+  vec2 q = vec2(abs(p.x - uGaze.x * 0.075) - EYE.x, p.y - uGaze.y * 0.06 - EYE.y);
+  q.y -= q.x * 0.07;
+  float open = max(1.0 - uLid * 0.9, 0.1);
+  return (length(vec3(max(abs(q.x) - 0.1, 0.0), q.y / open, p.z)) - 0.034) * open;
 }
 
 float scene(vec3 p) { return min(ribbon(p), eyes(p)); }
@@ -76,10 +84,12 @@ mat3 turn(float yaw, float pitch) {
 }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * uSize) / min(uSize.y, uSize.x * 1.15) - vec2(uShift, 0.0);
+  float unit = min(uSize.y, uSize.x * 1.15);
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uSize) / unit - vec2(uShift, 0.0);
   float radius = length(uv);
+  uv /= 1.0 + uExcite * 0.03;
 
-  mat3 toShield = turn(sin(uTime * 0.23) * 0.42 + uLook.x * 0.22, sin(uTime * 0.17) * 0.1 - uLook.y * 0.12);
+  mat3 toShield = turn(sin(uTime * 0.23) * 0.3 + uLook.x * 0.3 + uSpin, sin(uTime * 0.17) * 0.08 - uLook.y * 0.16);
   vec3 origin = toShield * vec3(0.0, 0.0, 4.2);
   vec3 ray = toShield * normalize(vec3(uv, -1.6));
 
@@ -89,16 +99,19 @@ void main() {
 
   float t = 2.4;
   float nearest = 10.0;
+  float nearestEye = 10.0;
   bool hit = false;
   for (int i = 0; i < 44; i++) {
     float d = scene(origin + ray * t);
     nearest = min(nearest, d);
+    nearestEye = min(nearestEye, eyes(origin + ray * t));
     if (d < 0.002) { hit = true; break; }
     t += d * 0.92;
     if (t > 6.2) break;
   }
 
-  color += glowColor * exp(-nearest * 5.5) * (0.34 + uPulse * 0.5);
+  color += glowColor * exp(-nearest * 5.5) * (0.34 + uPulse * 0.5 + uExcite * 0.32);
+  color += glowColor * exp(-nearestEye * 26.0) * (0.3 + uExcite * 0.3);
 
   if (hit) {
     vec3 p = origin + ray * t;
@@ -118,20 +131,21 @@ void main() {
     float light = smoothstep(0.72, 0.97, bounce.y * 0.82 + bounce.x * 0.38) + 0.55 * smoothstep(0.86, 0.99, -bounce.y * 0.5 - bounce.x * 0.7);
     surface += vec3(0.9, 1.0, 0.96) * light;
 
-    if (eyes(p) < ribbon(p)) {
-      vec3 side = vec3(sign(p.x) * EYE.x, EYE.y, 0.0);
-      vec3 gaze = normalize(toShield * vec3(uLook * 0.75, 1.0));
-      float pupil = smoothstep(0.87, 0.91, dot(normalize(p - side), gaze));
-      surface = mix(surface + vec3(0.2), vec3(0.01, 0.03, 0.03), pupil);
-    }
-
     surface = mix(surface, uPulseColor * (0.45 + rim + light), uPulse * 0.62);
+    surface *= 1.0 + uExcite * 0.35;
+    if (eyes(p) < ribbon(p)) surface = mix(glowColor, vec3(1.0), 0.72);
     color = mix(color, surface, 0.88 + 0.12 * rim);
   }
 
   // A verdict's ring, spreading out from the shield.
   float ring = (radius - (1.0 - uPulse) * 0.85) * 16.0;
   color += uPulseColor * exp(-ring * ring) * uPulse * 0.32;
+
+  // Wherever you click, a ring of light spreads from that spot. uRipple.z fades from 1 to nothing.
+  if (uRipple.z > 0.0) {
+    float wave = (length((gl_FragCoord.xy - uRipple.xy) / unit) - (1.0 - uRipple.z) * 0.5) * 24.0;
+    color += glowColor * exp(-wave * wave) * uRipple.z * 0.42;
+  }
 
   // A little grain, so the dark gradient doesn't show bands.
   float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);

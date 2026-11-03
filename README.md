@@ -4,7 +4,7 @@ A payment firewall and shared scam-payee network for AI agents on NEAR.
 
 [![CI](https://github.com/Shur1ken4/wardy-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Shur1ken4/wardy-agent/actions/workflows/ci.yml)
 
-> Spending limits protect one agent. Wardy Agent protects all of them.
+> Spending limits decide how much. Wardy Agent checks who, and why. [How that compares with everyone else](docs/COMPETITORS.md).
 
 Built at NEAR HACKATHON. Tracks: agents, security, privacy.
 

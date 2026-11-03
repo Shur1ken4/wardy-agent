@@ -46,14 +46,17 @@ const scenario = pick();
 console.log(`${scenario.id}: ${scenario.title}\n${scenario.setup}`);
 
 const sharedUrl = process.env.WARDY_API_URL || `http://127.0.0.1:${process.env.WARDY_API_PORT || 8787}`;
-const running = await fetch(`${sharedUrl}/health`, { signal: AbortSignal.timeout(1000) }).then(
-  (response) => response.ok,
-  () => false,
+const health = await fetch(`${sharedUrl}/health`, { signal: AbortSignal.timeout(1000) }).then(
+  async (response) => (response.ok ? ((await response.json()) as { mode?: string }) : null),
+  () => null,
 );
+const running = health !== null;
+// An offline server only knows the public demo credential, whatever a real .env on this machine says.
+const offlineServer = health?.mode === "offline";
 
 let apiUrl = sharedUrl;
-let agentToken = process.env.WARDY_AGENT_TOKEN || OFFLINE_AGENT_TOKEN;
-let ownerId = process.env.WARDY_OWNER_ID || process.env.AGENT_OWNER_ACCOUNT_ID || "demo-owner.near";
+let agentToken = (!offlineServer && process.env.WARDY_AGENT_TOKEN) || OFFLINE_AGENT_TOKEN;
+let ownerId = (!offlineServer && (process.env.WARDY_OWNER_ID || process.env.AGENT_OWNER_ACCOUNT_ID)) || "demo-owner.near";
 let cleanup = async () => {};
 // On a shared server this scenario may have run before, so each run needs its own invoice to be a fresh one.
 const runTag = running ? `-${Date.now().toString(36)}` : "";

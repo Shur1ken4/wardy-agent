@@ -10,7 +10,7 @@ import { SHIELD_PATH } from "./WardyShield";
 
 const COLORS = { idle: "#c6d2cd", checked: "#00f29b", ALLOW: "#00f29b", HOLD: "#f5b942", BLOCK: "#ff5a1f" } as const;
 const LABELS_HEIGHT = 62;
-const PAUSE_HEIGHT = 30;
+const PAUSE_HEIGHT = 58;
 const MAX_VERDICTS = 4;
 const RIPPLE_MS = 900;
 const SPARKS = 18;
@@ -254,6 +254,11 @@ export function PaymentStream({ signal, leftLabel, rightLabel }: { signal: Strea
       <canvas ref={canvasRef} className="stream-canvas" aria-hidden="true" data-testid="payment-stream" />
       <div className="stream-label stream-label-left">{leftLabel}</div>
       <div className="stream-label stream-label-right">{rightLabel}</div>
+      <div className="stream-captions">
+        <span>Your agents ask to pay</span>
+        <span className="stream-caption-gate">Wardy Agent checks each one</span>
+        <span>Only checked payments go out</span>
+      </div>
       <button type="button" className="stream-pause" onClick={togglePaused} aria-pressed={paused}>
         {paused ? "Resume" : "Pause"}
       </button>
