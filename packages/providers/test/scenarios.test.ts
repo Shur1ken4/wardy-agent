@@ -83,7 +83,9 @@ function harness(options: HarnessOptions = {}) {
   const ledger = new Ledger();
   const audit = new AuditLog();
   for (const payee of ["acme-shop.near", "acme-shop.near", "acme-shop.near", "globex-supply.near", "initech-cloud.near", "umbrella-data-api.near"]) {
-    ledger.recordSettled(settled(payee));
+    // The same assets the real fixtures use: a first payment in a new asset is held on purpose.
+    const usdc = payee === "globex-supply.near" || payee === "umbrella-data-api.near";
+    ledger.recordSettled(settled(payee, usdc ? { asset: USDC_ASSET } : {}));
   }
   const reports = options.reports ?? [];
   const reportRules: ReportRules = {
