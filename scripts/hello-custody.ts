@@ -9,6 +9,7 @@
 //   pay <wNEAR>   one real transfer to our own test merchant, then its audit proof
 //   native-test   proves native NEAR transfers are refused by the policy
 //   freeze-test   freezes, proves a payment is refused, unfreezes
+//   withdraw-back <wNEAR>  owner allows withdrawals, then sends the agent's money back to the owner as native NEAR
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import {
@@ -273,6 +274,37 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
     console.log("Waiting for the deposit to be credited...");
     const status: any = await waitForStatus(client, deposit.correlation_id);
     console.log(`Deposit status: ${status.status}`);
+    await printBalances(client, id);
+  },
+
+  async "withdraw-back"([amount = ""]) {
+    const atomic = toAtomic(amount, 24);
+    if (atomic <= 0n || atomic > MAX_FUND) throw new Error("Withdraw between 0 and 2 wNEAR at a time.");
+    const id = agentId();
+    const who = owner();
+    const client = api();
+    const request = { asset: WNEAR, amount: atomic.toString(), chain: "near", recipient: who.accountId };
+    await confirm(
+      "Signs a policy change that also allows withdrawals. The policy doesn't limit where they go, so run this last.\n" +
+        `Then withdraws ${amount} wNEAR from the agent to the owner account, as native NEAR:\n  ${who.accountId}\n` +
+        "The service takes any fee from that.",
+    );
+    const current = await client.getPolicy(id);
+    if (!(current.policy as Policy).actions.includes("withdraw")) {
+      await runOwnerIntent(client, who, {
+        type: "policy_update",
+        agent_id: id,
+        expected_revision: current.revision,
+        policy: { ...POLICY, actions: ["transfer", "withdraw"] },
+      });
+      console.log("Policy updated: withdrawals are allowed.");
+    }
+    const preview: any = await grantedApi().withdraw(id, { ...request, dry: true });
+    console.log(`Preview: ${JSON.stringify(preview.details ?? preview)}`);
+    const started: any = await grantedApi().withdraw(id, request, { idempotencyKey: createIdempotencyKey() });
+    const status: any = await waitForStatus(client, started.correlation_id);
+    console.log(`Operation:  ${started.correlation_id}`);
+    console.log(`Status:     ${status.status} ${status.failure_code ?? ""}`);
     await printBalances(client, id);
   },
 

@@ -159,6 +159,12 @@ npm run hello:custody -- native-test
 npm run hello:custody -- freeze-test
 ```
 
+**8. Take the money back out.** It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
+
+```bash
+npm run hello:custody -- withdraw-back 0.15
+```
+
 ## Things you'll do later (I'll tell you when)
 
 | When | What | Why it has to be you |
