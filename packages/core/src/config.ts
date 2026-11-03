@@ -13,6 +13,12 @@ export const THRESHOLDS = {
   velocityWindowMinutes: 10,
   velocityMinRequests: 3,
   dailyBudgetWindowHours: 24,
+  /** Fewer payments than this don't show what's usual, so the amount check says nothing. */
+  unusualAmountMinPayments: 3,
+  /** "Far more than usual": ordinary invoices from one payee easily vary by double. */
+  unusualAmountMultiple: 3,
+  /** In asset units, like the owner's limits. Not worth interrupting anyone below this. */
+  unusualAmountIgnoreBelow: "0.5",
   /** Shorter names need a closer match, or `bishop.near` would look like `shop.near`. */
   editDistanceMinLength: 4,
   editDistanceLongNameLength: 6,
@@ -65,6 +71,9 @@ export const SIGNALS = {
   // D5: cross-chain destination
   CHAIN_ADDRESS_MISMATCH: { detector: "cross_chain", severity: "critical", points: 60 },
   CHAIN_NOT_CHECKED: { detector: "cross_chain", severity: "low", points: 10 },
+
+  // D6: unusual amount. Forces HOLD and never BLOCK: only the owner knows if this one's real.
+  AMOUNT_UNUSUAL_FOR_PAYEE: { detector: "amount", severity: "medium", points: 20, forces: "hold" },
 
   // Wardy Network
   NETWORK_REPORTED_SCAM: { detector: "network", severity: "critical", points: 80 },

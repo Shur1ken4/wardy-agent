@@ -28,7 +28,7 @@ worker agent
 validate with zod ──▶ refuse a malformed request, and repeat nothing it sent back
    │
    ▼
-detectors: lookalike, new account, duplicate, context tamper, cross-chain, policy
+detectors: lookalike, new account, duplicate, context tamper, cross-chain, unusual amount, policy
    │
    ▼
 Wardy Network lookup: only valid reports from trusted keys count

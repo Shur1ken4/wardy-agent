@@ -43,6 +43,7 @@ export type Detector =
   | "duplicate"
   | "context_tamper"
   | "cross_chain"
+  | "amount"
   | "network"
   | "policy";
 

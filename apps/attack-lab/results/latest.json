@@ -205,6 +205,7 @@
               "KNOWN_PAYEE",
               "CONTEXT_BYPASS_ATTEMPT",
               "AI_UNAVAILABLE",
+              "AMOUNT_UNUSUAL_FOR_PAYEE",
               "POLICY_OVER_PER_PAYMENT_LIMIT",
               "POLICY_ABOVE_APPROVAL_THRESHOLD"
             ],
@@ -562,6 +563,106 @@
       "problems": []
     },
     {
+      "id": "A10",
+      "slug": "price-jump",
+      "title": "Price jump from a real API",
+      "kind": "attack",
+      "setup": "An API that charges 0.01 asks for 2.5, a real payee and under every limit",
+      "without": {
+        "payments": [
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01"
+          },
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01"
+          },
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "2.5"
+          }
+        ],
+        "lost": {
+          "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "2.49"
+        }
+      },
+      "with": {
+        "steps": [
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01",
+            "decision": "ALLOW",
+            "riskScore": 0,
+            "codes": [
+              "KNOWN_PAYEE"
+            ],
+            "headline": "KNOWN_PAYEE",
+            "reason": "You've paid this payee once before.",
+            "verdictId": "39d4b0da-b354-4edf-88dd-731c0875b2a5",
+            "executionStatus": "executed",
+            "txHash": "mock-beb0605c14cff694d26a15643b2fc2aa",
+            "ownerDecision": null,
+            "networkReportId": null
+          },
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01",
+            "decision": "ALLOW",
+            "riskScore": 0,
+            "codes": [
+              "KNOWN_PAYEE"
+            ],
+            "headline": "KNOWN_PAYEE",
+            "reason": "You've paid this payee 2 times before.",
+            "verdictId": "bb6f490b-4871-4ef0-8ec7-849627e76c8e",
+            "executionStatus": "executed",
+            "txHash": "mock-532f2e597df264ed32598c31bffd302b",
+            "ownerDecision": null,
+            "networkReportId": null
+          },
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "2.5",
+            "decision": "HOLD",
+            "riskScore": 10,
+            "codes": [
+              "KNOWN_PAYEE",
+              "AI_UNAVAILABLE",
+              "AMOUNT_UNUSUAL_FOR_PAYEE"
+            ],
+            "headline": "AMOUNT_UNUSUAL_FOR_PAYEE",
+            "reason": "This payee usually gets about 0.01. This asks for 2.5, about 250 times as much.",
+            "verdictId": "a591d82d-d330-4145-8df5-de63eb89ebd0",
+            "executionStatus": "refused",
+            "txHash": null,
+            "ownerDecision": "reject",
+            "networkReportId": null
+          }
+        ],
+        "payments": [
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01"
+          },
+          {
+            "payee": "umbrella-data-api.near",
+            "asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+            "amount": "0.01"
+          }
+        ],
+        "lost": {}
+      },
+      "problems": []
+    },
+    {
       "id": "H1",
       "slug": "honest-supplier",
       "title": "Usual supplier",
@@ -751,16 +852,64 @@
         "lost": {}
       },
       "problems": []
+    },
+    {
+      "id": "H5",
+      "slug": "honest-bigger-order",
+      "title": "A bigger order than usual",
+      "kind": "honest",
+      "setup": "A known merchant's invoice is above anything paid before, but not far above",
+      "without": {
+        "payments": [
+          {
+            "payee": "acme-shop.near",
+            "asset": "nep141:wrap.near",
+            "amount": "2.9"
+          }
+        ],
+        "lost": {}
+      },
+      "with": {
+        "steps": [
+          {
+            "payee": "acme-shop.near",
+            "asset": "nep141:wrap.near",
+            "amount": "2.9",
+            "decision": "ALLOW",
+            "riskScore": 0,
+            "codes": [
+              "KNOWN_PAYEE",
+              "AI_UNAVAILABLE"
+            ],
+            "headline": "KNOWN_PAYEE",
+            "reason": "You've paid this payee 3 times before.",
+            "verdictId": "c15e9c34-4659-4112-8320-652614af6aaf",
+            "executionStatus": "executed",
+            "txHash": "mock-296d8ed9415a95b1df74b20df9a30401",
+            "ownerDecision": null,
+            "networkReportId": null
+          }
+        ],
+        "payments": [
+          {
+            "payee": "acme-shop.near",
+            "asset": "nep141:wrap.near",
+            "amount": "2.9"
+          }
+        ],
+        "lost": {}
+      },
+      "problems": []
     }
   ],
   "totals": {
     "lostWithout": {
       "nep141:wrap.near": "27.36",
-      "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "25"
+      "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "27.49"
     },
     "lostWith": {},
-    "honestPassed": 4,
-    "honestTotal": 4,
+    "honestPassed": 5,
+    "honestTotal": 5,
     "falseBlocks": 0
   },
   "holdout": {

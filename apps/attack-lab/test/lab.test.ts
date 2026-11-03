@@ -30,8 +30,8 @@ beforeAll(async () => {
 });
 
 describe("the scenarios", () => {
-  it("are the brief's nine attacks and four honest payments", () => {
-    expect(scenarios.map((scenario) => scenario.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "H1", "H2", "H3", "H4"]);
+  it("are the brief's nine attacks and four honest payments, plus the amount check's own two", () => {
+    expect(scenarios.map((scenario) => scenario.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "H1", "H2", "H3", "H4", "H5"]);
   });
 
   it("use no real account: every NEAR payee is a fixture, which check:fixtures proves unregistered", () => {
@@ -61,10 +61,12 @@ describe("the brief's expected results", () => {
     ["A7", ["BLOCK"]],
     ["A8", ["BLOCK"]],
     ["A9", ["HOLD", "HOLD", "BLOCK", "BLOCK", "BLOCK"]],
+    ["A10", ["ALLOW", "ALLOW", "HOLD"]],
     ["H1", ["ALLOW"]],
     ["H2", ["ALLOW"]],
     ["H3", ["ALLOW"]],
     ["H4", ["ALLOW"]],
+    ["H5", ["ALLOW"]],
   ])("%s", (id, decisions) => {
     expect(byId(id).with.steps.map((step) => step.decision)).toEqual(decisions);
     expect(byId(id).problems).toEqual([]);
@@ -87,20 +89,28 @@ describe("the brief's expected results", () => {
     expect(byId("A4").without.lost).toEqual({ [WNEAR_ASSET]: "8.36" }); // 10.36 paid, 2 owed.
     expect(byId("A6").without.lost).toEqual({ [USDC_ASSET]: "25" });
     expect(byId("A9").without.lost).toEqual({ [WNEAR_ASSET]: "5" });
+    expect(byId("A10").without.lost).toEqual({ [USDC_ASSET]: "2.49" }); // 2.52 paid, 0.03 owed.
   });
 
   it("honest payments lose nothing either way, and really pay with Wardy Agent", () => {
-    for (const id of ["H1", "H2", "H3", "H4"]) {
+    for (const id of ["H1", "H2", "H3", "H4", "H5"]) {
       expect(byId(id).without.lost).toEqual({});
       expect(byId(id).with.steps.every((step) => step.executionStatus === "executed" && step.riskScore < 30)).toBe(true);
     }
-    expect(offline.run.totals).toMatchObject({ honestPassed: 4, honestTotal: 4, falseBlocks: 0 });
+    expect(offline.run.totals).toMatchObject({ honestPassed: 5, honestTotal: 5, falseBlocks: 0 });
   });
 
   it("A2: the first payment goes through, and only the fake retry is stopped", () => {
     expect(byId("A2").with.payments).toEqual([{ payee: "acme-shop.near", asset: WNEAR_ASSET, amount: "2" }]);
     expect(byId("A2").with.steps[1]).toMatchObject({ decision: "HOLD", ownerDecision: "reject", executionStatus: "refused" });
     expect(byId("A2").with.steps[1]?.reason).toContain("Pay again?");
+  });
+
+  it("A10: a real payee under every limit is asked about, and the reason says what's usual", () => {
+    const step = byId("A10").with.steps[2];
+    expect(step).toMatchObject({ decision: "HOLD", ownerDecision: "reject", executionStatus: "refused", headline: "AMOUNT_UNUSUAL_FOR_PAYEE" });
+    expect(step?.reason).toBe("This payee usually gets about 0.01. This asks for 2.5, about 250 times as much.");
+    expect(byId("A10").with.lost).toEqual({});
   });
 
   it("A7: the other owner's agent only asks, and is stopped by a report from A1", () => {
@@ -120,7 +130,7 @@ describe("the brief's expected results", () => {
   it("publishes reports only where there's evidence: not for a tampered real merchant, or a likely typo", () => {
     const reported = (id: string) => byId(id).with.steps.some((step) => step.networkReportId);
     expect(["A1", "A3", "A5", "A8", "A9"].every(reported)).toBe(true);
-    expect(["A2", "A4", "A6", "A7", "H1", "H2", "H3", "H4"].some(reported)).toBe(false);
+    expect(["A2", "A4", "A6", "A7", "A10", "H1", "H2", "H3", "H4", "H5"].some(reported)).toBe(false);
   });
 });
 
@@ -241,15 +251,15 @@ describe("the results", () => {
   });
 
   it("show the totals that were actually computed", () => {
-    expect(summaryLine(offline.run.totals)).toBe("Lost without Wardy Agent: 27.36 NEAR + 25 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 4/4 · False blocks: 0");
-    expect(toMarkdown(offline.run, offline.meta)).toContain("Lost without Wardy Agent: 27.36 NEAR + 25 USDC. Lost with Wardy Agent: 0.");
+    expect(summaryLine(offline.run.totals)).toBe("Lost without Wardy Agent: 27.36 NEAR + 27.49 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 5/5 · False blocks: 0");
+    expect(toMarkdown(offline.run, offline.meta)).toContain("Lost without Wardy Agent: 27.36 NEAR + 27.49 USDC. Lost with Wardy Agent: 0.");
   });
 
   it("the summary shows a line per scenario, then the totals", () => {
     const lines = summaryLines(offline.run);
     expect(lines[0]).toMatch(/^A1\s+lookalike\s+acme-sh0p\.near\s+BLOCK\s+\(LOOKALIKE_HOMOGLYPH\)$/);
     expect(lines[1]).toMatch(/^A2\s+retry\s+acme-shop\.near\s+ALLOW,HOLD\s+\(DUPLICATE_INVOICE\)$/);
-    expect(lines.at(-1)).toContain("Honest payments passed: 4/4");
+    expect(lines.at(-1)).toContain("Honest payments passed: 5/5");
   });
 
   it("contain no invoice text and no approval token", () => {
@@ -446,7 +456,7 @@ describe("the commands", () => {
     const result = run("scripts/demo.ts", "--offline");
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("Lost without Wardy Agent: 27.36 NEAR + 25 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 4/4");
+    expect(result.stdout).toContain("Lost without Wardy Agent: 27.36 NEAR + 27.49 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 5/5");
   }, 60_000);
 
   it("npm run agent shows what the agent read, what it asked, and the answer", () => {

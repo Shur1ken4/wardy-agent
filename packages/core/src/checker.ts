@@ -8,6 +8,7 @@ import { crossChainSignals } from "./detectors/crossChain.js";
 import { duplicateSignals, invoiceTextHash } from "./detectors/duplicate.js";
 import { lookalikeSignals } from "./detectors/lookalike.js";
 import { newAccountSignals } from "./detectors/newAccount.js";
+import { unusualAmountSignals } from "./detectors/unusualAmount.js";
 import { hashRequest } from "./hash.js";
 import type { Ledger } from "./ledger.js";
 import { networkSignals, type ReportRules } from "./network/lookup.js";
@@ -75,7 +76,7 @@ async function factsSafely(source: AccountFactsSource, payee: string): Promise<A
 }
 
 /** Runs all detectors. `request.asset` must already be normalised. */
-export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps, now: Date): Promise<Evaluation> {
+export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps, now: Date, mode: VerdictMode = "pay"): Promise<Evaluation> {
   const snapshot = deps.ledger.snapshot(request.ownerId);
   const known = deps.ledger.knownPayees(request.ownerId);
 
@@ -94,6 +95,8 @@ export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps
     }),
     ...contextSignals(request, analysis),
     ...crossChainSignals(request),
+    // Only with an agent's credential. Anyone can send a check, and trying amounts one by one would reveal what you pay.
+    ...(mode === "pay" ? unusualAmountSignals(request, snapshot) : []),
     ...(await networkSignals(request, reports, known, deps.reportRules)),
     ...(policy ? policySignals(request, policy, snapshot, now, payeeIsKnown) : []),
   ];
@@ -140,7 +143,7 @@ export class PaymentChecker {
     const { ledger, audit, signingKey } = this.deps;
     const now = this.deps.now?.() ?? new Date();
     const request = { ...parsed, asset: normalizeAsset(parsed.asset) };
-    const evaluation = await evaluatePayment(request, this.deps, now);
+    const evaluation = await evaluatePayment(request, this.deps, now, mode);
 
     // Recorded after evaluating, so velocity counts only earlier requests plus this one. A check isn't a
     // payment request: asking before paying mustn't look like a split-payment attack.

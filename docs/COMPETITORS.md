@@ -41,7 +41,6 @@ Being honest about these is part of the pitch.
 | Gap | Who has it | What we could do |
 |---|---|---|
 | **A held payment doesn't reach your phone.** You have to look at the dashboard | [SkillGuard](https://github.com/VincenzoImp/skillguard) has mobile approval | The Telegram bot, already on the list as S3 |
-| **An inflated amount from a known payee.** We compare against the invoice and your limits, but not against what this payee usually gets. Attackers [inflate x402 prices](https://rohitraj.tech/notes/ai-agent-payments-x402-vs-ap2-2026) this way | Partly, anyone with a low per-payment cap | A small new detector. It changes the rules, so the holdout has to be rewritten afterwards, or the numbers mean nothing |
 | **Setup needs a terminal.** There's no hosted version, and signing in means pasting a credential | Every commercial wallet | A hosted read-only demo for judges (decision 13). Wallet sign-in is a bigger job, and not for this hackathon |
 | **Connecting an agent on testnet or live is manual:** `npm run mcp:config` only prints the demo credential | Most SDKs | A `--testnet` option |
 | **Other chains.** We enforce on NEAR. Competitors reach Solana, Base and more | Coinbase, Crossmint, Turnkey | Our check already spots an address from the wrong chain. Leave the rest: it's out of scope |

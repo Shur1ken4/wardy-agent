@@ -11,6 +11,7 @@ export * from "./detectors/crossChain.js";
 export * from "./detectors/duplicate.js";
 export * from "./detectors/lookalike.js";
 export * from "./detectors/newAccount.js";
+export * from "./detectors/unusualAmount.js";
 export * from "./hash.js";
 export * from "./ledger.js";
 export * from "./network/anchor.js";

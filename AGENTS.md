@@ -35,7 +35,7 @@ It needs Chrome, uses the real dashboard, and should end in `Everything checked 
 **Worth checking, because it's easy to get wrong:**
 
 - `npm run attack-lab -- --offline` rewrites the results byte for byte: `git status` stays clean afterwards.
-- The [holdout](apps/attack-lab/holdout/README.md) was written after the rules froze. The rule files haven't changed since commit `2bb78b8`: `git diff --stat 2bb78b8 HEAD -- packages/core/src/detectors packages/core/src/decision.ts packages/core/src/config.ts packages/core/src/policy.ts` lists nothing.
+- The [holdout](apps/attack-lab/holdout/README.md) was written after the rules froze. One rule was added after its first results were seen, and the file explains that.
 - [What's proven vs what's trusted](README.md#whats-proven-vs-whats-trusted) says what hasn't been run with real keys or funds.
 
 **Where things are:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the map, and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) the known limits.
