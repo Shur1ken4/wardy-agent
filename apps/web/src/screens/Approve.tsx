@@ -98,7 +98,7 @@ export function Outcome({ verdict }: { verdict: VerdictView }) {
   const open = verdict.execution?.status === "pending_owner";
   return (
     <section className="card approve-result">
-      <WardyShield size={44} />
+      <WardyShield size={44} tone="light" />
       <h1 className="approve-result-title">{paid ? "Approved and paid" : open ? "Still waiting" : "Nothing was paid"}</h1>
       <p className="note" style={{ marginTop: 10 }}>
         {formatAmount(verdict.amount, verdict.asset)} to <span className="mono">{verdict.payee}</span>. {paid ? "" : executionWords(verdict.execution)}

@@ -1,4 +1,5 @@
 import { AnimatePresence } from "motion/react";
+import { GlassBackdrop } from "./components/GlassBackdrop";
 import { Header, FrozenBar } from "./components/Header";
 import { ErrorNote, Page } from "./components/parts";
 import { VerdictPanel } from "./components/VerdictPanel";
@@ -29,7 +30,7 @@ function NotFound() {
 
 function Console() {
   const { path, search } = useLocation();
-  const { apiError, needsCredential } = useDashboard();
+  const { apiError, needsCredential, reaction } = useDashboard();
   const openVerdict = search.get("verdict");
   const locked = isLocked(path, needsCredential);
 
@@ -56,6 +57,7 @@ function Console() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
+      <GlassBackdrop signal={reaction} dimmed={path !== "/" && !locked} />
       <Header path={path} />
       <FrozenBar />
       {apiError ? (

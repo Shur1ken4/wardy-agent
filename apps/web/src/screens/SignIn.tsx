@@ -1,5 +1,4 @@
 import { type FormEvent, useState } from "react";
-import { LetterSphere } from "../components/LetterSphere";
 import { ErrorNote, Page } from "../components/parts";
 import { useDashboard } from "../lib/dashboard";
 
@@ -12,13 +11,10 @@ export function SignIn() {
     setValue("");
   };
   return (
-    <Page>
-      <div className="signin-sphere">
-        <LetterSphere signal={null} leftLabel={null} rightLabel={null} />
-      </div>
+    <Page className="signin-stage">
+      <h1 className="signin-title">Owner sign-in</h1>
       <section className="card card-pad signin">
-        <h1 className="section-title" style={{ font: "500 22px/1.2 var(--head)" }}>Owner sign-in</h1>
-        <p className="note" style={{ marginTop: 8 }}>
+        <p className="note">
           Your payment history and limits are private. Paste your owner credential to see them. It stays in this tab, and is gone when you close it.
         </p>
         <p className="note" style={{ marginTop: 8 }}>

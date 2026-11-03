@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { LetterSphere } from "../components/LetterSphere";
+import { PaymentStream } from "../components/PaymentStream";
 import { Chip, CountUp, DemoBadge, Empty, ErrorNote, Page, Payee, StatTile } from "../components/parts";
 import { Spelled } from "../components/Spelled";
 import { api } from "../lib/api";
@@ -11,8 +11,8 @@ import type { VerdictView } from "@wardy-agent/core";
 
 const TRAFFIC_SECONDS = 15;
 
-/** The sphere, with what it's pointing at. Each new payment sends a wave across it, and the name spells out below. */
-export function SphereWithData() {
+/** The checkpoint, with the real data around it. Each new payment goes to the gate, and its name spells out below. */
+export function StreamWithData() {
   const { verdicts, reaction, network } = useDashboard();
   const latest = verdicts[0];
   const lookalike = latest ? lookalikeSignal(latest.signals) : undefined;
@@ -20,23 +20,23 @@ export function SphereWithData() {
     ? payeeParts(latest.payee, lookalike?.evidence.lookalikeOf as string | undefined, lookalike?.evidence.differingPositions)
     : payeeParts("wardy-agent");
   return (
-    <div className="sphere-panel">
-      <LetterSphere
+    <div className="stream-panel">
+      <PaymentStream
         signal={reaction ? { decision: reaction.kind, at: reaction.at } : null}
         leftLabel={
           <>
             <span className="eyebrow">Last check</span>
-            {latest ? <span className="sphere-value">{latest.decision} · {timeOf(latest.createdAt)}</span> : <span className="sphere-value">Waiting for a payment</span>}
+            {latest ? <span className="stream-value">{latest.decision} · {timeOf(latest.createdAt)}</span> : <span className="stream-value">Waiting for a payment</span>}
           </>
         }
         rightLabel={
           <>
             <span className="eyebrow">On NEAR testnet</span>
-            {network?.anchor ? <a className="sphere-value link" href={network.anchor.txUrl} target="_blank" rel="noreferrer">root {shortHash(network.anchor.root, 6)}</a> : <span className="sphere-value">Nothing anchored yet</span>}
+            {network?.anchor ? <a className="stream-value link" href={network.anchor.txUrl} target="_blank" rel="noreferrer">root {shortHash(network.anchor.root, 6)}</a> : <span className="stream-value">Nothing anchored yet</span>}
           </>
         }
       />
-      <div className="sphere-reading">
+      <div className="stream-reading">
         <span className="eyebrow">{latest ? "Read just now" : "Reading every payee"}</span>
         <Spelled parts={parts} spellKey={latest?.verdictId ?? "idle"} />
         {latest ? <Chip decision={latest.decision} /> : null}
@@ -136,6 +136,7 @@ export function Live() {
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stopTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const instruments = useRef<HTMLDivElement>(null);
   const demo = health?.demoTools === true;
 
   useEffect(() => () => clearTimeout(stopTimer.current), []);
@@ -145,6 +146,8 @@ export function Live() {
     setPlaying(true);
     try {
       await api.playTraffic();
+      // The checkpoint and the feed sit below the hero, and that's where the payments are about to show up.
+      instruments.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       stopTimer.current = setTimeout(() => setPlaying(false), TRAFFIC_SECONDS * 1000);
     } catch (caught) {
       setPlaying(false);
@@ -173,10 +176,12 @@ export function Live() {
           {demo ? <p className="note hero-note">Real checks on made-up payments. Nothing leaves this machine.</p> : null}
           {error ? <ErrorNote>{error}</ErrorNote> : null}
         </div>
-        <SphereWithData />
       </section>
 
-      <Tiles />
+      <div ref={instruments} className="instruments">
+        <StreamWithData />
+        <Tiles />
+      </div>
 
       {holds.length > 0 ? (
         <section className="section" aria-label="Waiting for you">

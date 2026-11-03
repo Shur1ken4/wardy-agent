@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 type Reaction = { kind: "BLOCK" | "HOLD" | "ALLOW"; at: number } | null;
 
-const SHIELD_PATH = "M24 2.5 44 9.4v15.2c0 12.2-8 21.3-20 25.4C12 46 4 36.8 4 24.6V9.4Z";
+export const SHIELD_PATH = "M24 2.5 44 9.4v15.2c0 12.2-8 21.3-20 25.4C12 46 4 36.8 4 24.6V9.4Z";
 const BLINK_EVERY_MS = 6000;
 const BLINK_FOR_MS = 140;
 const LEFT_EYE = 17;

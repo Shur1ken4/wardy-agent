@@ -11,13 +11,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isLocked } from "../src/App";
 import { policyChipText } from "../src/components/Header";
 import { Payee, StatTile } from "../src/components/parts";
-import { LetterSphere } from "../src/components/LetterSphere";
+import { PaymentStream } from "../src/components/PaymentStream";
 import { Spelled } from "../src/components/Spelled";
 import { ReadPrivately, VerdictDetail } from "../src/components/VerdictDetail";
 import { payeeParts } from "../src/lib/format";
 import { Agents } from "../src/screens/Agents";
 import { HoldCard, Outcome, takeToken } from "../src/screens/Approve";
-import { SphereWithData, Tiles } from "../src/screens/Live";
+import { StreamWithData, Tiles } from "../src/screens/Live";
 import { type LabScenario, ResultsTable, Totals } from "../src/screens/AttackLab";
 import type { Stats } from "../src/lib/api";
 import { startCountUp } from "../src/lib/countUp";
@@ -391,8 +391,8 @@ describe("proofHolds: checked in the browser, against the anchored root", () => 
   });
 });
 
-describe("the letter sphere", () => {
-  const html = renderToStaticMarkup(<LetterSphere signal={null} leftLabel="LEFT DATA" rightLabel="RIGHT DATA" />);
+describe("the checkpoint", () => {
+  const html = renderToStaticMarkup(<PaymentStream signal={null} leftLabel="LEFT DATA" rightLabel="RIGHT DATA" />);
 
   it("is hidden from screen readers, because everything it shows is also in the page as text", () => {
     expect(html).toMatch(/<canvas[^>]*aria-hidden="true"/);
@@ -409,12 +409,12 @@ describe("the letter sphere", () => {
   });
 });
 
-describe("what the sphere points at", () => {
+describe("the data around the checkpoint", () => {
   const anchor = { network: "testnet", contractId: "c", root: "a".repeat(64), count: 6, uri: "", blockHeight: "1", anchoredAt: "", txHash: "t", txUrl: "https://testnet.near.rocks/tx/REALTX" };
   const render = (value: Partial<Dashboard>) =>
     renderToStaticMarkup(
       <DashboardContext.Provider value={{ verdicts: [], reaction: null, network: null, ...value } as Dashboard}>
-        <SphereWithData />
+        <StreamWithData />
       </DashboardContext.Provider>,
     );
 

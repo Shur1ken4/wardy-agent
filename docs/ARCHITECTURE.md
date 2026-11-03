@@ -101,7 +101,9 @@ A signature covers two layers, so that a public report can show one and hide the
 
 Vite and React, with no UI kit. Fonts ship with it, so it works with no internet. It talks only to its own origin, except when someone presses **Check the contract**, which reads a public RPC. The live feed uses `fetch` rather than `EventSource`, so the credential never goes in a URL. It closes when a tab is hidden or a page is left, because a browser allows six connections per site.
 
-The hero's letter sphere is a 2D canvas: the geometry is in [`lib/sphere.ts`](../apps/web/src/lib/sphere.ts), and the drawing in [`LetterSphere.tsx`](../apps/web/src/components/LetterSphere.tsx). Each character is drawn once ahead of time, so over a thousand letters stay smooth. It stops when it's off screen or the tab is hidden, can be paused, and doesn't turn for anyone who asks for reduced motion.
+The animated background is one small WebGL shader that draws the glass shield live ([`lib/backdrop.ts`](../apps/web/src/lib/backdrop.ts), [`GlassBackdrop.tsx`](../apps/web/src/components/GlassBackdrop.tsx)), so there's no video to download and it can react to a verdict. It runs at 30 frames a second at most, draws fewer pixels on a slow machine and then holds a still frame, stops when the tab is hidden, can be paused, and holds still for reduced motion. The approval page doesn't use it, because someone deciding about money shouldn't have anything moving behind them.
+
+The checkpoint under the hero is a 2D canvas: the geometry is in [`lib/stream.ts`](../apps/web/src/lib/stream.ts), and the drawing in [`PaymentStream.tsx`](../apps/web/src/components/PaymentStream.tsx). The faint dots are decoration, and only the bright ones come from real verdicts. It stops when it's off screen or the tab is hidden, can be paused, and doesn't flow for anyone who asks for reduced motion.
 
 `npm run dev` starts the API and dashboard together. The MCP server isn't started, because an AI client launches it for itself.
 

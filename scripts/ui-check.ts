@@ -104,16 +104,15 @@ async function inspect(page: Page, name: string, options: { fullPage?: boolean }
   if (shotsDir) await page.screenshot({ path: join(shotsDir, `${name}.png`) as `${string}.png`, fullPage: options.fullPage ?? true });
 }
 
-/** A short summary of what's on the sphere's canvas, read from its real pixels. */
-const sphereInk = (page: Page) =>
+/** A short summary of what's on the checkpoint's canvas, read from its real pixels. */
+const streamInk = (page: Page) =>
   page.evaluate(() => {
-    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="letter-sphere"]');
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="payment-stream"]');
     const context = canvas?.getContext("2d");
-    if (!canvas || !context) return { inked: 0, orange: 0, blue: 0, fingerprint: 0 };
+    if (!canvas || !context) return { inked: 0, orange: 0, fingerprint: 0 };
     const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
     let inked = 0;
     let orange = 0;
-    let blue = 0;
     let fingerprint = 0;
     for (let index = 0; index < data.length; index += 4) {
       const alpha = data[index + 3] as number;
@@ -122,10 +121,9 @@ const sphereInk = (page: Page) =>
       const red = data[index] as number;
       const bluePart = data[index + 2] as number;
       if (red > bluePart + 70) orange += 1;
-      if (bluePart > red + 70) blue += 1;
       fingerprint = (fingerprint + index * alpha) % 2147483647;
     }
-    return { inked, orange, blue, fingerprint };
+    return { inked, orange, fingerprint };
   });
 
 async function main() {
@@ -159,38 +157,35 @@ async function main() {
     check("it's labelled as demo data", /Demo data/.test(await textOf(desktop)));
     await inspect(desktop, "desktop-01-live-empty", { fullPage: false });
 
-    const sphereAt = await desktop.$eval('[data-testid="letter-sphere"]', (canvas) => {
+    check("the animated background is there", (await desktop.$('[data-testid="glass-backdrop"]')) !== null);
+    check("the background can be paused", /Pause background/i.test(await textOf(desktop)));
+
+    // The checkpoint sits below the hero, so it's scrolled to before it's used.
+    await desktop.$eval('[data-testid="payment-stream"]', (canvas) => canvas.scrollIntoView({ block: "center" }));
+    await wait(900);
+    const streamAt = await desktop.$eval('[data-testid="payment-stream"]', (canvas) => {
       const box = canvas.getBoundingClientRect();
       return { x: box.x, y: box.y, width: box.width, height: box.height };
     });
     await desktop.mouse.move(5, 5);
     await wait(300);
-    const firstLook = await sphereInk(desktop);
-    check("the letter sphere is really drawn", firstLook.inked > 2000, `${firstLook.inked} inked pixels`);
-    check("it's in the plain ink colour while nothing is happening", firstLook.orange === 0 && firstLook.blue < firstLook.inked * 0.02);
+    const firstLook = await streamInk(desktop);
+    check("the checkpoint is really drawn", firstLook.inked > 800, `${firstLook.inked} inked pixels`);
+    check("nothing is orange while nothing is being blocked", firstLook.orange === 0);
     await wait(500);
-    check("it turns by itself", (await sphereInk(desktop)).fingerprint !== firstLook.fingerprint);
-    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2, sphereAt.y + sphereAt.height / 2);
-    await wait(200);
-    const hovered = await sphereInk(desktop);
-    check("letters under the pointer light up", hovered.blue > firstLook.blue + 100, `${firstLook.blue} to ${hovered.blue} blue pixels`);
-    await desktop.mouse.move(5, 5);
-    await wait(100);
-    await clickText(desktop, ".sphere-pause", "Pause");
+    check("it flows by itself", (await streamInk(desktop)).fingerprint !== firstLook.fingerprint);
+    await clickText(desktop, ".stream-pause", "Pause");
     await wait(120);
-    const pausedOnce = await sphereInk(desktop);
+    const pausedOnce = await streamInk(desktop);
     await wait(500);
-    check("Pause really stops it", (await sphereInk(desktop)).fingerprint === pausedOnce.fingerprint);
-    check("the button says how to start it again", /resume turning/i.test(await textOf(desktop)));
-    // Still paused, so the only thing that can turn it now is the drag.
-    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2, sphereAt.y + sphereAt.height / 2);
-    await desktop.mouse.down();
-    await desktop.mouse.move(sphereAt.x + sphereAt.width / 2 + 60, sphereAt.y + sphereAt.height / 2, { steps: 4 });
-    await desktop.mouse.up();
+    check("Pause really stops it", (await streamInk(desktop)).fingerprint === pausedOnce.fingerprint);
+    check("the button says how to start it again", /resume/i.test(await textOf(desktop)));
+    // Still paused, so the only thing that can move the dots now is the pointer.
+    await desktop.mouse.move(streamAt.x + streamAt.width * 0.25, streamAt.y + streamAt.height / 2);
+    await wait(150);
+    check("the flow bends away from the pointer, even while paused", (await streamInk(desktop)).fingerprint !== pausedOnce.fingerprint);
     await desktop.mouse.move(5, 5);
-    await wait(120);
-    check("it follows a drag, even while paused", (await sphereInk(desktop)).fingerprint !== pausedOnce.fingerprint);
-    await clickText(desktop, ".sphere-pause", "Resume");
+    await clickText(desktop, ".stream-pause", "Resume");
     // A string, because the tool that runs this script would otherwise add a helper the page doesn't have.
     const framesPerSecond = (await desktop.evaluate(`new Promise((resolve) => {
       let frames = 0;
@@ -206,7 +201,8 @@ async function main() {
     await clickText(desktop, "button", "Play demo traffic");
     await desktop.waitForFunction(() => document.querySelector(".spelled-odd")?.textContent === "1", { timeout: 20_000 });
     check("a lookalike's name spells out, with its fake character marked", true);
-    check("a block sends an orange wave across the sphere", (await sphereInk(desktop)).orange > 300);
+    await wait(1100);
+    check("a block lights the gate orange and breaks the payment", (await streamInk(desktop)).orange > 60);
     await desktop.waitForFunction(() => document.querySelectorAll(".feed-row").length >= 9, { timeout: 40_000 });
     await wait(900);
     await desktop.evaluate(() => window.scrollTo(0, 0));
@@ -359,10 +355,10 @@ async function main() {
     await calm.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
     await goto(calm, "/");
     await wait(500);
-    const still = await sphereInk(calm);
-    check("with reduced motion, the sphere is still drawn", still.inked > 2000);
+    const still = await streamInk(calm);
+    check("with reduced motion, the checkpoint is still drawn", still.inked > 800);
     await wait(600);
-    check("with reduced motion, it doesn't turn by itself", (await sphereInk(calm)).fingerprint === still.fingerprint);
+    check("with reduced motion, it doesn't flow by itself", (await streamInk(calm)).fingerprint === still.fingerprint);
     await goto(calm, "/attack-lab");
     const started = Date.now();
     await clickText(calm, "button", "Run Attack Lab");
