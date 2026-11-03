@@ -682,5 +682,131 @@
     "chatId": "99fbe81227874446a5d8d91869d1b50c",
     "attested": true,
     "attestationLevel": "full"
+  },
+  "ea28f32b5ed0a873f7ff7e60b904af75112ea717481f0acb07b3d4c6601c0c43": {
+    "scenario": "D1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "1d6f9cdd83d34387b6f2d0816b845226",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "3ec6328a49d28050335d15e374aec1d2858b202db9a462e0911909a9f97445a4": {
+    "scenario": "D2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "globex-supply.near",
+      "extracted_amount": "2",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "6ea2f4d99e7b4c5c92fb3e33641faa1d",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "bd0a9a9c2628ebf6d22371e6e7bcc5ac613e2b92082e76d6750b3d4b0f459562": {
+    "scenario": "D3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "initech-cloud.near",
+      "extracted_amount": "2.5",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "09b42b6dd844442e930d465a864e3b1c",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "664dd825aa53e9727bd94eac7f07ca5cf4ff927483c8a3789863acf75f2e66f8": {
+    "scenario": "D4",
+    "findings": {
+      "payee_change_requested": true,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": true,
+      "extracted_payee": "northbridge-treasury.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "63c74d8ae8ff4152902afdee806e3041",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "ab5d484aaa7539884229cf27a36f29f4caccc636cf61143a5c41a460244592a9": {
+    "scenario": "HD2",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "acme-shop.near",
+      "extracted_amount": "2.25",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "2ad1a0d7db9c497984795361c45ddb55",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "42d9d7bbca8b5c68bf0e027fdf5d4b1fc87aee4a8228a64a11944444534ca521": {
+    "scenario": "HD3",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": false,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "initech-cloud.near",
+      "extracted_amount": "2",
+      "confidence": 0.95
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "012316c2fdcc4d84a3f3dfb3909f0ec5",
+    "attested": true,
+    "attestationLevel": "full"
+  },
+  "6a09503007c475fc309e928a64f28dbd32992cc16bca550fc7562ddbf531bc75": {
+    "scenario": "HD1",
+    "findings": {
+      "payee_change_requested": false,
+      "urgency_or_pressure": false,
+      "asks_to_bypass_limits_or_rules": true,
+      "claims_previous_payment_failed": false,
+      "mentions_new_account_or_address": false,
+      "extracted_payee": "globex-supply.near",
+      "extracted_amount": "1.25",
+      "confidence": 0.9
+    },
+    "model": "z-ai/glm-5.3-flash",
+    "recordedAt": "2026-11-03",
+    "chatId": "0e5d22d6b7c4473a8d778f33480f3c0c",
+    "attested": true,
+    "attestationLevel": "full"
   }
 }

@@ -433,7 +433,19 @@ describe("the holdout set", () => {
     const ids = (kind: string) => offline.holdout.scenarios.filter((scenario) => scenario.id.startsWith(kind)).map((scenario) => scenario.id);
     expect(ids("C")).toEqual(["C1", "C2", "C3", "C4", "C5", "C6"]);
     expect(ids("HC")).toEqual(["HC1", "HC2", "HC3", "HC4"]);
-    expect(toMarkdown(offline.run, offline.meta, offline.holdout)).toContain(`False blocks on honest payments: ${offline.holdout.totals.falseBlocks}.`);
+    expect(toMarkdown(offline.run, offline.meta, offline.holdout)).toContain(`counting one that's only held for the owner: ${offline.holdout.totals.falseBlocks}.`);
+  });
+
+  it("the newest holdout, written after the last rule change, has its own attacks and honest payments", () => {
+    const ids = offline.holdout.scenarios.map((scenario) => scenario.id);
+    expect(ids.filter((id) => id.startsWith("D"))).toEqual(["D1", "D2", "D3", "D4"]);
+    expect(ids.filter((id) => id.startsWith("HD"))).toEqual(["HD1", "HD2", "HD3"]);
+  });
+
+  it("no honest payment in the holdout is refused outright: the worst is asking the owner", () => {
+    const honest = offline.holdout.scenarios.filter((scenario) => scenario.kind === "honest").flatMap((scenario) => scenario.with.steps);
+    expect(honest.filter((step) => step.decision === "BLOCK")).toEqual([]);
+    expect(honest.filter((step) => step.decision === "HOLD").length).toBe(offline.holdout.totals.falseBlocks);
   });
 
   it("a patient step really does wait: the clock moves between payments", async () => {

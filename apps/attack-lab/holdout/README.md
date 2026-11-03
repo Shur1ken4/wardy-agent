@@ -22,3 +22,11 @@ git diff --stat 9a0bce6 HEAD -- packages/core/src/detectors packages/core/src/de
 Results are in the "Holdout" section of [`../results/latest.md`](../results/latest.md). They're measured, not expected:
 a miss here is a finding to report, not a failed build. The author wrote both the rules and these attacks, so this is
 weak evidence compared with attacks from someone else. It's still better than none, and the misses are real.
+
+**D and HD are the current holdout.** HB5's result led to a rule change: a claim of approval only the AI saw, from a
+payee the owner really pays, now holds and doesn't block. So B, HB, C and HC are no longer blind. The rules were frozen
+again at commit `753cf87`, and these were written after it, aimed at that change. To check, this should list nothing:
+
+```bash
+git diff --stat 753cf87 HEAD -- packages/core/src/detectors packages/core/src/decision.ts packages/core/src/config.ts packages/core/src/policy.ts packages/core/src/checker.ts
+```
