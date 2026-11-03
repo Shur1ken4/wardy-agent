@@ -55,7 +55,7 @@ describe("the README", () => {
 
   it("publishes the misses, and doesn't claim what hasn't run", () => {
     expect(readme).toMatch(/attacks still took money/);
-    expect(readme).toContain("Not yet run with a real key");
+    expect(readme).toContain("No real invoice has been read with a key yet");
     expect(readme).toContain("Not yet run with real funds");
     expect(readme).toContain("It catches every attack");
   });
