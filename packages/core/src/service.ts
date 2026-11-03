@@ -428,5 +428,6 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
 /** A BLOCK or rejection counts as saved money only if something looked like an attack, not just a limit. */
 function isScamStopped(verdict: Verdict): boolean {
   const stopped = verdict.decision === "BLOCK" || verdict.execution?.note === OWNER_REJECTED_NOTE;
-  return stopped && verdict.signals.some((signal) => signal.detector !== "policy" && signal.points > 0);
+  // An unusual amount alone is no attack when a limit refused it anyway. If the owner saw it and said no, it counts.
+  return stopped && verdict.signals.some((signal) => signal.detector !== "policy" && (signal.detector !== "amount" || verdict.decision === "HOLD") && signal.points > 0);
 }

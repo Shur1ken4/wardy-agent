@@ -17,6 +17,8 @@ export const THRESHOLDS = {
   unusualAmountMinPayments: 3,
   /** "Far more than usual": ordinary invoices from one payee easily vary by double. */
   unusualAmountMultiple: 3,
+  /** With fewer payments than the minimum there's less to go on, so a smaller jump is enough to ask. */
+  unusualAmountThinHistoryMultiple: 2,
   /** In asset units, like the owner's limits. Not worth interrupting anyone below this. */
   unusualAmountIgnoreBelow: "0.5",
   /** Shorter names need a closer match, or `bishop.near` would look like `shop.near`. */
@@ -65,7 +67,8 @@ export const SIGNALS = {
   CONTEXT_BYPASS_ATTEMPT: { detector: "context_tamper", severity: "critical", points: 50 },
   CONTEXT_URGENCY: { detector: "context_tamper", severity: "low", points: 10 },
   CONTEXT_PAYEE_MISMATCH: { detector: "context_tamper", severity: "high", points: 40 },
-  CONTEXT_AMOUNT_MISMATCH: { detector: "context_tamper", severity: "high", points: 35 },
+  // Forces HOLD: without it, a real payee's inflated bill scores 25 and is paid, even with the mismatch spotted.
+  CONTEXT_AMOUNT_MISMATCH: { detector: "context_tamper", severity: "high", points: 35, forces: "hold" },
   AI_UNAVAILABLE: { detector: "context_tamper", severity: "info", points: 0 },
 
   // D5: cross-chain destination
@@ -74,6 +77,9 @@ export const SIGNALS = {
 
   // D6: unusual amount. Forces HOLD and never BLOCK: only the owner knows if this one's real.
   AMOUNT_UNUSUAL_FOR_PAYEE: { detector: "amount", severity: "medium", points: 20, forces: "hold" },
+  AMOUNT_UNUSUAL_DAY_FOR_PAYEE: { detector: "amount", severity: "medium", points: 20, forces: "hold" },
+  AMOUNT_FIRST_IN_THIS_ASSET: { detector: "amount", severity: "medium", points: 15, forces: "hold" },
+  AMOUNT_HIGH_FOR_LITTLE_HISTORY: { detector: "amount", severity: "medium", points: 15, forces: "hold" },
 
   // Wardy Network
   NETWORK_REPORTED_SCAM: { detector: "network", severity: "critical", points: 80 },

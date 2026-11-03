@@ -96,7 +96,7 @@ export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps
     ...contextSignals(request, analysis),
     ...crossChainSignals(request),
     // Only with an agent's credential. Anyone can send a check, and trying amounts one by one would reveal what you pay.
-    ...(mode === "pay" ? unusualAmountSignals(request, snapshot) : []),
+    ...(mode === "pay" ? unusualAmountSignals(request, snapshot, now) : []),
     ...(await networkSignals(request, reports, known, deps.reportRules)),
     ...(policy ? policySignals(request, policy, snapshot, now, payeeIsKnown) : []),
   ];
