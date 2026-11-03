@@ -157,7 +157,7 @@ async function main() {
     check("it's labelled as demo data", /Demo data/.test(await textOf(desktop)));
     await inspect(desktop, "desktop-01-live-empty", { fullPage: false });
 
-    check("the animated background is there", (await desktop.$('[data-testid="glass-backdrop"]')) !== null);
+    check("the animated background is there", (await desktop.$('[data-testid="shield-backdrop"]')) !== null);
     await wait(700);
     check("the headline has really appeared", (await desktop.$eval(".hero-title", (title) => getComputedStyle(title).opacity)) === "1");
     check("the background can be paused", /Pause background/i.test(await textOf(desktop)));

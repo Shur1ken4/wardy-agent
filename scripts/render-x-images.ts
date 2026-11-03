@@ -5,7 +5,8 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer-core";
-import { FRAGMENT_SHADER, VERTEX_SHADER } from "../apps/web/src/lib/backdrop.js";
+import { PULSE_COLORS } from "../apps/web/src/lib/backdrop.js";
+import { blockLevel, eyeBlocks, project, ramp, shieldBlocks } from "../apps/web/src/lib/blockShield.js";
 import { dots, funnel } from "../apps/web/src/lib/stream.js";
 
 const CHROME_PLACES = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium"];
@@ -16,12 +17,23 @@ const out = resolve("docs/brand");
 mkdirSync(out, { recursive: true });
 const font = (name: string) => pathToFileURL(resolve(`node_modules/@fontsource-variable/${name}/files/${name}-latin-wght-normal.woff2`)).href;
 
-// A still moment of the animation, turned a little so the glass catches the light.
+// A still moment of the animation, turned a little so the shield has depth.
 const STILL_TIME = 24.9;
 const SHIELD_HALF_WIDTH = 142;
 
-function page(width: number, height: number, zoom: number, shift: number, overlay: string): string {
-  const shader = FRAGMENT_SHADER.replace("min(uSize.y, uSize.x * 1.15)", `(min(uSize.y, uSize.x * 1.15) * ${zoom.toFixed(3)})`);
+function page(width: number, height: number, zoom: number, centerX: number, overlay: string): string {
+  const unit = Math.min(height, width * 1.15) * zoom;
+  const yaw = Math.sin(STILL_TIME * 0.23) * 0.3;
+  const pitch = Math.sin(STILL_TIME * 0.17) * 0.08;
+  const colors = ramp(PULSE_COLORS.ALLOW);
+  const place = (x: number, y: number, z: number, size: number, color: string, alpha: number) => {
+    const seen = project(x, y, z, yaw, pitch);
+    return { x: centerX + seen.x * unit, y: height / 2 - seen.y * unit, side: size * unit * seen.near, color, alpha };
+  };
+  const rects = [
+    ...shieldBlocks().map((block) => place(block.x, block.y, block.z, block.z > 0 ? 0.0172 : 0.0126, colors[Math.round(blockLevel(block, STILL_TIME) * 11)] as string, block.z > 0 ? 1 : 0.45)),
+    ...eyeBlocks(3, 0, 0).map((eye) => place(eye.x, eye.y, 0.04, 0.023, "#5dffbe", 1)),
+  ];
   return `<!doctype html><meta charset="utf-8"><style>
     @font-face { font-family: Head; src: url("${font("space-grotesk")}"); font-weight: 300 700; }
     @font-face { font-family: Code; src: url("${font("jetbrains-mono")}"); font-weight: 100 800; }
@@ -29,30 +41,22 @@ function page(width: number, height: number, zoom: number, shift: number, overla
     canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
     .text { position: absolute; color: #f1f5f2; font-family: Head; }
   </style>
-  <canvas id="glass"></canvas><canvas id="flow"></canvas>${overlay}
+  <canvas id="shield"></canvas><canvas id="flow"></canvas>${overlay}
   <script>
-    const canvas = document.getElementById("glass");
+    const canvas = document.getElementById("shield");
     canvas.width = ${width * 2}; canvas.height = ${height * 2};
-    const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
-    const program = gl.createProgram();
-    for (const [type, source] of [[gl.VERTEX_SHADER, ${JSON.stringify(VERTEX_SHADER)}], [gl.FRAGMENT_SHADER, ${JSON.stringify(shader)}]]) {
-      const part = gl.createShader(type); gl.shaderSource(part, source); gl.compileShader(part); gl.attachShader(program, part);
+    const context2 = canvas.getContext("2d");
+    context2.scale(2, 2);
+    const halo = context2.createRadialGradient(${centerX}, ${height / 2}, ${unit * 0.05}, ${centerX}, ${height / 2}, ${unit * 0.62});
+    halo.addColorStop(0, "rgba(0,242,155,0.1)");
+    halo.addColorStop(1, "rgba(0,242,155,0)");
+    context2.fillStyle = halo;
+    context2.fillRect(0, 0, ${width}, ${height});
+    for (const r of ${JSON.stringify(rects)}) {
+      context2.globalAlpha = r.alpha;
+      context2.fillStyle = r.color;
+      context2.fillRect(r.x - r.side / 2, r.y - r.side / 2, r.side, r.side);
     }
-    gl.linkProgram(program); gl.useProgram(program);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const at = gl.getAttribLocation(program, "corner");
-    gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 0, 0);
-    const u = (name) => gl.getUniformLocation(program, name);
-    gl.uniform2f(u("uSize"), canvas.width, canvas.height);
-    gl.uniform1f(u("uTime"), ${STILL_TIME});
-    gl.uniform2f(u("uLook"), 0, 0);
-    gl.uniform1f(u("uPulse"), 0);
-    gl.uniform3f(u("uPulseColor"), 0, 0.95, 0.61);
-    gl.uniform1f(u("uShift"), ${shift});
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    window.linked = gl.getProgramParameter(program, gl.LINK_STATUS);
   </script>`;
 }
 
@@ -113,7 +117,7 @@ const previewPage = `<!doctype html><meta charset="utf-8"><style>
 <img src="x-profile.png" style="position:absolute; right:60px; top:222px; width:48px; height:48px; border-radius:50%">
 <img src="x-profile.png" style="position:absolute; right:20px; top:230px; width:32px; height:32px; border-radius:50%">`;
 
-const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--allow-file-access-from-files"] });
+const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--allow-file-access-from-files"] });
 try {
   const render = async (name: string, width: number, height: number, html: string) => {
     const file = resolve(out, `.${name}.html`);
@@ -122,16 +126,14 @@ try {
     await tab.setViewport({ width, height, deviceScaleFactor: 2 });
     await tab.goto(pathToFileURL(file).href, { waitUntil: "networkidle0", timeout: 120_000 });
     await tab.evaluate("document.fonts.ready");
-    if (!(await tab.evaluate("window.linked"))) throw new Error("The shader didn't compile.");
     await tab.screenshot({ path: resolve(out, `${name}.png`) as `${string}.png` });
     await tab.close();
     rmSync(file);
     console.log(`Wrote docs/brand/${name}.png`);
   };
   // A smaller shield than the first try: X crops the picture to a circle, and its corners have to stay inside.
-  await render("x-profile", 500, 500, page(500, 500, 0.9, 0, ""));
-  const shift = (BANNER.gateX - BANNER.width / 2) / (BANNER.height * BANNER.zoom);
-  await render("x-banner", BANNER.width, BANNER.height, page(BANNER.width, BANNER.height, BANNER.zoom, shift, bannerFlow(BANNER.width, BANNER.height, BANNER.gateX) + bannerText));
+  await render("x-profile", 500, 500, page(500, 500, 0.9, 250, ""));
+  await render("x-banner", BANNER.width, BANNER.height, page(BANNER.width, BANNER.height, BANNER.zoom, BANNER.gateX, bannerFlow(BANNER.width, BANNER.height, BANNER.gateX) + bannerText));
   writeFileSync(resolve(out, ".preview.html"), previewPage);
   const tab = await browser.newPage();
   await tab.setViewport({ width: 600, height: 330, deviceScaleFactor: 2 });

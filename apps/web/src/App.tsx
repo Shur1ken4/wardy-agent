@@ -1,5 +1,5 @@
 import { AnimatePresence } from "motion/react";
-import { GlassBackdrop } from "./components/GlassBackdrop";
+import { BlockBackdrop } from "./components/BlockBackdrop";
 import { Header, FrozenBar } from "./components/Header";
 import { ErrorNote, Page } from "./components/parts";
 import { VerdictPanel } from "./components/VerdictPanel";
@@ -57,7 +57,7 @@ function Console() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      <GlassBackdrop signal={reaction} dimmed={path !== "/" && !locked} frozen={frozen} />
+      <BlockBackdrop signal={reaction} dimmed={path !== "/" && !locked} frozen={frozen} />
       <Header path={path} />
       <FrozenBar />
       {apiError ? (

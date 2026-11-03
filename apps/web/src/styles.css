@@ -1,4 +1,4 @@
-/* Wardy Agent's look: a near-black console with one neon green glass shield. Colours are tokens, and motion is transform and opacity only. */
+/* Wardy Agent's look: a near-black console with one neon green shield built from blocks. Colours are tokens, and motion is transform and opacity only. */
 :root {
   color-scheme: dark;
   --ground: #050809;

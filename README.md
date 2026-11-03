@@ -264,7 +264,7 @@ Attackers we plan for: a poisoned invoice or email, a lookalike payee, a fake "p
 - [AgentSentinel](https://github.com/Daveboycyber/agent-sentinel): a guardian contract and watcher.
 - Nava and t54 Labs: funded teams working on agent trust, off NEAR.
 - scamgate and Allowance: open-source payee checks.
-- The dashboard's look and motion are our own code and artwork. [near.org](https://www.near.org/developer-hub) and [nearhackathon.com](https://nearhackathon.com) inspired the idea of a glass object behind the page and an animation you can touch; the shield, the checkpoint and the colours are ours. The "for agents" path was inspired by [market.near.ai](https://market.near.ai) and [Browserbase](https://www.browserbase.com).
+- The dashboard's look and motion are our own code and artwork. [near.org](https://www.near.org/developer-hub) and [nearhackathon.com](https://nearhackathon.com) inspired the idea of a large object behind the page and an animation you can touch; the block-built shield, the checkpoint and the colours are ours. The "for agents" path was inspired by [market.near.ai](https://market.near.ai) and [Browserbase](https://www.browserbase.com).
 
 Scanned on 2026-11-02, and partial. There are surely more.
 
