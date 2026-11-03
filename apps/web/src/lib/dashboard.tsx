@@ -98,10 +98,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       try {
         const answer = await api.health();
         if (stopped) return;
+        const known = answer.mode === "offline" ? OFFLINE_OWNER_CREDENTIAL : savedCredential();
+        // Before any state changes, because a child's effects run first and may call the API straight away.
+        setApiCredential(known);
         setHealth(answer);
         setFrozenState(answer.frozen);
         setApiError(null);
-        setCredential(answer.mode === "offline" ? OFFLINE_OWNER_CREDENTIAL : savedCredential());
+        setCredential(known);
       } catch (error) {
         if (stopped) return;
         setApiError((error as Error).message);

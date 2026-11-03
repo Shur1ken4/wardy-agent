@@ -96,7 +96,7 @@ npm run setup:testnet
 npm run walkthrough -- --testnet
 ```
 
-That makes real testnet transactions, with explorer links. To see them on the dashboard, set `WARDY_MODE=testnet` before `npm run dev`, and sign in with `ownerToken` from `.data/testnet/secrets.json`.
+That makes real testnet transactions, with explorer links. To see them on the dashboard, set `WARDY_MODE=testnet` before `npm run dev`, and sign in with `WARDY_OWNER_TOKEN` from `.env` if that's filled in, otherwise `ownerToken` from `.data/testnet/secrets.json`.
 
 **Mainnet** needs a NEAR AI Cloud key, an Agent Connect key and a real wallet.
 
@@ -249,7 +249,7 @@ Read the holdout honestly. These runs replay real answers from the private AI. I
 | Worker agents can't skip the check | **Enforced**, as long as they really hold no key. That's how you set them up, and nothing proves it from outside | [docs/MCP_SETUP.md](docs/MCP_SETUP.md) |
 | Wardy Agent is honest | **Trusted.** Whoever runs it holds the grant and the signing key. A TEE deployment is on the roadmap | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) |
 | The provider enforces limits, assets and budget | **Trusted**: the custody provider. **Wardy Agent alone** checks the payee | [`custody/`](packages/providers/src/custody) |
-| The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. The hardware evidence verifies live (`npm run hello:attestation`, no key needed), but that alone doesn't tie an answer to the hardware. The recorded answers each passed the full check when they were made, but a replay can't show it, so no verdict here has the tick yet | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
+| The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. The hardware evidence verifies live (`npm run hello:attestation`, no key needed), but that alone doesn't tie an answer to the hardware. The recorded answers each passed the full check when they were made, but a replay can't show it, so offline verdicts never have the tick. A live testnet verdict does: [the saved verdict](docs/evidence/attested-verdict.testnet.json), `ai.attested: true`, level `full`, and its signature verifies. It shows what our code checked at the time, and repeating it needs a key | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
 | It catches every attack | **False.** See the holdout | [Results](#attack-lab-results) |
 
 ## Threat model summary

@@ -220,6 +220,10 @@ async function main() {
     check("the detail compares the two names", panel.includes("You paid before") && panel.includes("Agent tried to pay"));
     check("the odd character is marked", (await desktop.evaluate(() => document.querySelector(".compare mark")?.textContent)) === "1");
     check("a replayed AI answer gets no attestation tick", /attestation isn't verified/.test(panel));
+    await desktop.reload({ waitUntil: "domcontentloaded" });
+    await desktop.waitForSelector(".panel");
+    await wait(1500);
+    check("a verdict's link still opens cleanly after a reload", !/Missing or wrong credential/.test(await textOf(desktop)) && /Risk \d+ of 100/.test(await textOf(desktop)));
     await clickText(desktop, ".panel button", "Verify");
     await wait(600);
     check("the signature verifies in the browser", /Valid\. .*Checked in this browser/s.test(await textOf(desktop)));

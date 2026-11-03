@@ -124,6 +124,7 @@ function AuditBox({ verdictId, inLedger }: { verdictId: string; inLedger: boolea
 
 export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClose(): void }) {
   const { verdicts, health } = useDashboard();
+  const connected = Boolean(health);
   const fromFeed = verdicts.find((candidate) => candidate.verdictId === verdictId);
   const [fetched, setFetched] = useState<VerdictView | null>(null);
   const [overridden, setOverridden] = useState<VerdictView | null>(null);
@@ -132,7 +133,8 @@ export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClos
   const panel = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (fromFeed) return;
+    // A link opened in a new page gets here before the credential is back, and asking then would only earn a 401.
+    if (fromFeed || !connected) return;
     let stopped = false;
     api.verdict(verdictId).then(
       (answer) => {
@@ -145,7 +147,7 @@ export function VerdictPanel({ verdictId, onClose }: { verdictId: string; onClos
     return () => {
       stopped = true;
     };
-  }, [verdictId, fromFeed]);
+  }, [verdictId, fromFeed, connected]);
 
   useEffect(() => {
     closeButton.current?.focus();

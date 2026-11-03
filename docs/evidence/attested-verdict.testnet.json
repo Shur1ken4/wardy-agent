@@ -1,0 +1,51 @@
+{
+  "verdictId": "f643604a-5701-43d3-896b-77dcb6d0cd28",
+  "requestId": "1dc26686-37fb-4fba-8baa-7802446be2d9",
+  "mode": "pay",
+  "requestHash": "2a24bbea962d2489d69366e9e0a5a4c1913a643022fc7929e99e0bec782df0d2",
+  "payee": "wardy-agent-shop.testnet",
+  "chain": "near",
+  "asset": "nep141:wrap.near",
+  "amount": "0.0013",
+  "decision": "HOLD",
+  "riskScore": 20,
+  "signals": [
+    {
+      "detector": "new_account",
+      "code": "ACCOUNT_DATA_UNAVAILABLE",
+      "severity": "low",
+      "points": 5,
+      "message": "Couldn't check this account's age right now.",
+      "evidence": {
+        "field": "createdAt"
+      }
+    },
+    {
+      "detector": "policy",
+      "code": "POLICY_NEW_PAYEE_REQUIRES_APPROVAL",
+      "severity": "medium",
+      "points": 15,
+      "message": "You asked to approve payees you haven't paid before.",
+      "evidence": {}
+    }
+  ],
+  "reasons": [
+    "You asked to approve payees you haven't paid before.",
+    "Couldn't check this account's age right now."
+  ],
+  "ai": {
+    "used": true,
+    "model": "z-ai/glm-5.3-flash",
+    "attested": true,
+    "attestationRef": "5e1affa847994041afd80119233c8f0c",
+    "signatureKind": "provider_tee",
+    "attestationLevel": "full"
+  },
+  "createdAt": "2026-11-03T12:47:00.174Z",
+  "wardyPublicKey": "fa9c56779a6181b3c654a0223e0101ad2f7dd7dac6a3c22747106a1b2dfc51de",
+  "signature": "1f5187c42f495a67a9b5c15cac15910c27ab1c72ec4767eae49708a2aa65b41e58cff2f8c9bea15b0e69e9c655f4557d2a0b517ff76e75af7fdffbd44b283d0b",
+  "execution": {
+    "status": "pending_owner",
+    "provider": "outlayer-testnet"
+  }
+}
