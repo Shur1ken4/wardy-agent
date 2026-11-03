@@ -5,7 +5,7 @@ export interface DecisionOutcome {
   decision: Decision;
   riskScore: number;
   reasons: string[];
-  /** Which rule decided, 1 to 5, in the order below. */
+  /** Which rule decided, 1 to 5, in the order below. Rule 2 has two cases. */
   rule: 1 | 2 | 3 | 4 | 5;
 }
 
@@ -15,6 +15,11 @@ const SERIOUS = new Set(["high", "critical"]);
 function forces(signal: Signal, what: "block" | "hold"): boolean {
   const def = SIGNALS[signal.code as SignalCode] as { forces?: string } | undefined;
   return def?.forces === what;
+}
+
+function isAiOnlyBypass(signal: Signal): boolean {
+  const sources = signal.evidence.sources;
+  return signal.code === "CONTEXT_BYPASS_ATTEMPT" && Array.isArray(sources) && sources.length === 1 && sources[0] === "ai";
 }
 
 /** The top three by points. `first` is for rule 2, where the owner has a specific question to answer. */
@@ -47,6 +52,13 @@ export function decide(signals: Signal[]): DecisionOutcome {
   const isKnown = signals.some((signal) => signal.code === "KNOWN_PAYEE");
   const otherTrouble = signals.some((signal) => OTHER_DETECTORS.has(signal.detector) && SERIOUS.has(signal.severity));
   if (duplicate && isKnown && !otherTrouble) return outcome("HOLD", 2, duplicate);
+
+  // The same goes for a claim of approval that only the AI saw. "Your admin approved this purchase" can be ordinary
+  // mail from a payee you really pay, so one model's reading asks you and doesn't refuse. The built-in patterns still
+  // block, so the AI can't soften them, and anything else serious still blocks too.
+  const aiOnlyClaim = signals.find(isAiOnlyBypass);
+  const anythingElseSerious = signals.some((signal) => signal !== aiOnlyClaim && SERIOUS.has(signal.severity));
+  if (aiOnlyClaim && isKnown && !anythingElseSerious) return outcome("HOLD", 2, aiOnlyClaim);
 
   // 3. Anything critical, from any detector or the Network.
   if (signals.some((signal) => signal.severity === "critical")) return outcome("BLOCK", 3);

@@ -201,3 +201,35 @@ describe("score table", () => {
     expect(THRESHOLDS).toMatchObject({ blockScore: 60, holdScore: 30, duplicateWindowMinutes: 15, velocityWindowMinutes: 10, velocityMinRequests: 3 });
   });
 });
+
+describe("a claim of approval that only the AI saw", () => {
+  const known = makeSignal("KNOWN_PAYEE", "Known.");
+  const claim = (sources: string[]) => makeSignal("CONTEXT_BYPASS_ATTEMPT", "Claims approval.", { sources });
+
+  it("on a payee you really pay, it asks you and leads with the reason", () => {
+    expect(decide([known, claim(["ai"])])).toMatchObject({ decision: "HOLD", rule: 2, riskScore: 40, reasons: ["Claims approval."] });
+  });
+
+  it("the built-in patterns still block, with or without the AI agreeing", () => {
+    expect(decide([known, claim(["regex"])]).decision).toBe("BLOCK");
+    expect(decide([known, claim(["regex", "ai"])]).decision).toBe("BLOCK");
+    expect(decide([known, claim([])]).decision).toBe("BLOCK");
+  });
+
+  it("on a payee you've never paid, it still blocks", () => {
+    expect(decide([claim(["ai"])]).decision).toBe("BLOCK");
+    expect(decide([claim(["ai"]), makeSignal("POLICY_NEW_PAYEE_REQUIRES_APPROVAL", "New.")]).decision).toBe("BLOCK");
+  });
+
+  it.each(["CONTEXT_PAYEE_CHANGE", "CONTEXT_AMOUNT_MISMATCH", "DUPLICATE_INVOICE", "NETWORK_REPORTED_SCAM", "ACCOUNT_VERY_NEW"] as const)("with %s as well, it still blocks", (code) => {
+    expect(decide([known, claim(["ai"]), makeSignal(code, "Also.")]).decision).toBe("BLOCK");
+  });
+
+  it("your own limits still come first", () => {
+    expect(decide([known, claim(["ai"]), makeSignal("POLICY_OVER_PER_PAYMENT_LIMIT", "Over.")]).decision).toBe("BLOCK");
+  });
+
+  it("a lesser signal doesn't turn it back into a block", () => {
+    expect(decide([known, claim(["ai"]), makeSignal("CONTEXT_URGENCY", "Hurry.")]).decision).toBe("HOLD");
+  });
+});
