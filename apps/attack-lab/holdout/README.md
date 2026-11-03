@@ -30,3 +30,15 @@ again at commit `753cf87`, and these were written after it, aimed at that change
 ```bash
 git diff --stat 753cf87 HEAD -- packages/core/src/detectors packages/core/src/decision.ts packages/core/src/config.ts packages/core/src/policy.ts packages/core/src/checker.ts
 ```
+
+**E and HE are the current holdout.** Three rules were added after seeing the results above: a bill lower than the amount
+asked, a payee's 24-hour total, and little history or a first-time asset. So B, HB, C, HC, D and HD are no longer blind. The
+rules were frozen again at commit `ecf7936`, and E and HE were written after it, aimed at getting around those rules. To
+check, this should list nothing:
+
+```bash
+git diff --stat ecf7936 HEAD -- packages/core/src/detectors packages/core/src/decision.ts packages/core/src/config.ts packages/core/src/policy.ts packages/core/src/checker.ts
+```
+
+**All 5 of the E attacks took money,** by staying just inside the numbers. We stopped tuning here on purpose: the next
+threshold could be dodged the same way.

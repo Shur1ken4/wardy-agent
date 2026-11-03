@@ -442,6 +442,14 @@ describe("the holdout set", () => {
     expect(ids.filter((id) => id.startsWith("HD"))).toEqual(["HD1", "HD2", "HD3"]);
   });
 
+  it("the blind set is reported on its own, so the older sets can't hide it", () => {
+    const ids = offline.holdout.scenarios.map((scenario) => scenario.id);
+    expect(ids.filter((id) => id.startsWith("E"))).toEqual(["E1", "E2", "E3", "E4", "E5"]);
+    expect(ids.filter((id) => id.startsWith("HE"))).toEqual(["HE1", "HE2", "HE3", "HE4"]);
+    expect(holdoutLine(offline.holdout)).toContain("Only the newest set is blind to today's rules: 5 of 5 attacks took money, and 3 of 4 honest payments passed.");
+    expect(toMarkdown(offline.run, offline.meta, offline.holdout)).toContain("Only the newest set is blind to today's rules: 5 of 5");
+  });
+
   it("no honest payment in the holdout is refused outright: the worst is asking the owner", () => {
     const honest = offline.holdout.scenarios.filter((scenario) => scenario.kind === "honest").flatMap((scenario) => scenario.with.steps);
     expect(honest.filter((step) => step.decision === "BLOCK")).toEqual([]);

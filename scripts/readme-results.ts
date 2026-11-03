@@ -49,6 +49,14 @@ function table(rows: Row[]): string[] {
   ];
 }
 
+function newest(attack: RegExp, honest: RegExp, rows: Row[]): string {
+  const attacks = rows.filter((row) => attack.test(row.id));
+  const taken = attacks.filter((row) => Object.keys(row.with.lost).length > 0);
+  const fair = rows.filter((row) => honest.test(row.id));
+  const passed = fair.filter((row) => row.with.steps.every((step) => step.decision === "ALLOW"));
+  return `${taken.length} of ${attacks.length} attacks took money, and ${passed.length} of ${fair.length} honest payments passed.`;
+}
+
 export function resultsBlock(): string {
   const results = JSON.parse(readFileSync(RESULTS, "utf8")) as Results;
   const { totals, holdout } = results;
@@ -61,6 +69,8 @@ export function resultsBlock(): string {
     ...table(results.scenarios),
     "",
     `**Holdout (written after a rule freeze, with no expected answers):** ${missed.length} of ${attacks.length} attacks still took money (${money(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${holdout.totals.honestTotal}. False blocks: ${holdout.totals.falseBlocks}.`,
+    "",
+    `**Only the newest set is blind to today's rules:** ${newest(/^E/, /^HE/, holdout.scenarios)}`,
     "",
     ...table(holdout.scenarios),
     END,

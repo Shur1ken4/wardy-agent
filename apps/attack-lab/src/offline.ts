@@ -26,12 +26,25 @@ export interface OfflineRun {
   network: ReportStore;
 }
 
+/** The set written after the latest rule freeze. Older sets have been seen, so only this one is blind to today's rules. */
+export const isNewestHoldout = (id: string) => /^H?E\d/.test(id);
+
+/** How the newest set went on its own, so the older sets can't hide it. */
+export function newestHoldoutLine(holdout: LabRun): string {
+  const newest = holdout.scenarios.filter((scenario) => isNewestHoldout(scenario.id));
+  const attacks = newest.filter((scenario) => scenario.kind === "attack");
+  const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
+  const honest = newest.filter((scenario) => scenario.kind === "honest");
+  const passed = honest.filter((scenario) => scenario.with.steps.every((step) => step.decision === "ALLOW"));
+  return `Only the newest set is blind to today's rules: ${missed.length} of ${attacks.length} attacks took money, and ${passed.length} of ${honest.length} honest payments passed.`;
+}
+
 /** A plain statement of how the holdout went, computed from the run. */
 export function holdoutLine(holdout: LabRun): string {
   const attacks = holdout.scenarios.filter((scenario) => scenario.kind === "attack");
   const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
   const honest = holdout.scenarios.length - attacks.length;
-  return `Holdout, written after the rules froze: ${missed.length} of ${attacks.length} attacks still took money (${formatAmounts(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${honest}.`;
+  return `Holdout, written after the rules froze: ${missed.length} of ${attacks.length} attacks still took money (${formatAmounts(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${honest}. ${newestHoldoutLine(holdout)}`;
 }
 
 /** What to say about this run's reports. It only claims an anchor for reports the anchor really covers. */
