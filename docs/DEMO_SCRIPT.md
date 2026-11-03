@@ -21,12 +21,23 @@ The payments are made-up, on a mock ledger. Keep the **Demo data** badge in the 
 |---|---|---|---|
 | 0:00-0:15 | The hook | In the terminal, run `npm run agent -- --scenario lookalike`. Scroll to what the agent read | "Spending limits don't stop this. This agent reads an invoice saying the account has moved, and it's ready to pay a lookalike." |
 | 0:15-0:35 | Live checks | Show the headline. Open **Policy** and point at **Wardy Agent only** | "The agent holds no keys. Only Wardy Agent can pay, and only after it checks who is being paid and why." |
-| 0:35-0:55 | Honest and lookalike | Back on **Live checks**, press **Play demo traffic**. The page scrolls to the checkpoint. Watch the gate: the ALLOW goes through in blue, then the BLOCK of `g1obex-supply.near` breaks apart in orange, with its name spelling out below. Click its row | "An honest invoice passes. This one is blocked: one character from a payee you've really paid, on a brand-new account." |
+| 0:35-0:55 | Honest and lookalike | Back on **Live checks**, press **Play demo traffic**. The page scrolls to the checkpoint. Watch the gate: the ALLOW goes through, then the BLOCK of `g1obex-supply.near` breaks apart in orange, with its name spelling out below. Click its row | "An honest invoice passes. This one is blocked: one character from a payee you've really paid, on a brand-new account." |
 | 0:55-1:20 | The phone | Close the panel. Under **Waiting for you**, press **Review**. Press **Reject — don't pay twice** | "A tool claimed the payment failed. It didn't, so Wardy Agent asks me. One tap, and nothing is paid twice." |
-| 1:20-1:40 | Private AI | **Run the testnet server for this shot** (`WARDY_MODE=testnet npm run dev`), because the offline demo can't show the tick. Open the attested verdict, and show the tick in **Read privately** | "Read privately in a TEE on NEAR AI Cloud, with its attestation verified." |
+| 1:20-1:40 | Private AI | **Record this shot separately**, because the offline demo can't show the tick. See "The private AI shot" below | "Read privately in a TEE on NEAR AI Cloud, with its attestation verified." |
 | 1:40-2:00 | The network | Open **Network**. Show **Protected by the network**, then search `acme-sh0p.near`, and press **Check the contract** | "When one agent is attacked, every agent learns. Evidence, not votes, with the root anchored on NEAR." |
 | 2:00-2:15 | Earning | **Only once a real sale exists:** open **Earnings** | "Another agent paid for this check. Wardy Agent earns by protecting agents." |
 | 2:15-2:30 | The numbers | Open **Attack Lab**, press **Run Attack Lab**, and let the totals land. Then scroll to the holdout | "With and without, on the same inbox. And here's what it still misses, because we publish that too." |
+
+## The private AI shot
+
+Set this up before you record, so your credential never appears on screen:
+
+1. Start the testnet server next to the demo:
+   ```bash
+   WARDY_MODE=testnet WARDY_WEB_PORT=5175 WARDY_API_PORT=8789 npm run dev
+   ```
+2. Open <http://localhost:5175> and sign in with `WARDY_OWNER_TOKEN` from `.env`. Stay off camera for this.
+3. Then open <http://localhost:5175/?verdict=f643604a-5701-43d3-896b-77dcb6d0cd28>, and record the **Read privately** box.
 
 ## If a shot isn't ready
 
