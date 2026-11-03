@@ -155,7 +155,10 @@ export function createMcpServer(options: McpOptions): McpServer {
     }
     const body = (await response.json().catch(() => ({}))) as VerdictLike & { error?: string; message?: string };
     if (!response.ok) {
-      return answer(`Wardy Agent refused this request (${body.error ?? response.status}): ${body.message ?? "invalid request"}. Nothing was paid.`, body, true);
+      const why = (body.message ?? "invalid request").replace(/\.$/, "");
+      // The agent can't fix this, but the owner can, and otherwise it looks like a refusal of the payment itself.
+      const fix = response.status === 401 ? " This agent's credential doesn't match the Wardy Agent that's running. Tell the owner to check WARDY_AGENT_TOKEN." : "";
+      return answer(`Wardy Agent refused this request (${body.error ?? response.status}): ${why}. Nothing was paid.${fix}`, body, true);
     }
     return answer(summarize(body), body, false, outcomeOf(body));
   }

@@ -22,6 +22,12 @@ function readPaused(): boolean {
   }
 }
 
+/** No graphics card, so the processor would do it all: true on CI and in most virtual machines. */
+function isSoftware(gl: WebGLRenderingContext): boolean {
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  return /swiftshader|llvmpipe|software|microsoft basic/i.test(info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "");
+}
+
 function compile(gl: WebGLRenderingContext): WebGLProgram | null {
   const program = gl.createProgram();
   if (!program) return null;
@@ -96,7 +102,7 @@ export function GlassBackdrop({ signal, dimmed }: { signal: { kind: Decision; at
     let quality = 1;
     let frame = 0;
     let running = false;
-    let tooSlow = false;
+    let tooSlow = isSoftware(gl);
     let lastDrawn = 0;
     let slowFrames = 0;
     let judged = 0;

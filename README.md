@@ -18,7 +18,7 @@ Built at NEAR HACKATHON. Tracks: agents, security, privacy.
 
 - **Checks every payment** and answers **ALLOW**, **HOLD** or **BLOCK**, with a 0-100 risk score, reasons and a signed verdict.
 - **Is the only spender.** Worker agents hold no keys and no spend grant. To pay anyone they have to ask, so they can't skip the check.
-- **Asks you on HOLD.** You get a one-time link on your phone, and it shows what's wrong in plain words.
+- **Asks you on HOLD.** The payment waits on your dashboard, and **Review** opens a phone-friendly page with a one-time link that shows what's wrong in plain words. Nothing sends you that link yet: you have to look.
 - **Reads invoices privately.** The AI check runs in a TEE on NEAR AI Cloud, and the attestation is verified. It can only add risk, never remove it. See [what's proven](#whats-proven-vs-whats-trusted) for how far this has been run.
 - **Shares what it learns.** A blocked scam becomes a signed report on the Wardy Network, with its Merkle root anchored on NEAR, so one agent's attack protects the others.
 - **Proves itself.** The Attack Lab replays attacks with and without it, including a holdout set it was never tuned for, and publishes the misses.

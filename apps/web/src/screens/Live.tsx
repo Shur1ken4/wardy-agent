@@ -204,7 +204,7 @@ export function Live() {
           {verdicts.length === 0 ? (
             <Empty title={stats ? "No payments checked yet" : "Connecting"}>
               {stats ? (
-                demo ? <p>Press <strong>Play demo traffic</strong> above, or run the Attack Lab, to see Wardy Agent in action.</p> : <p>This fills in as soon as one of your agents asks to pay. To connect one, follow docs/MCP_SETUP.md.</p>
+                demo ? <p>Press <strong>Play demo traffic</strong> above, or run the Attack Lab, to see Wardy Agent in action.</p> : <p>This fills in as soon as one of your agents asks to pay. <Link className="link" to="/agents">Connect an agent</Link>.</p>
               ) : null}
             </Empty>
           ) : (

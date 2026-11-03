@@ -15,7 +15,7 @@ export function pulseStrength(elapsed: number): number {
 
 /** The same colours the verdict chips and the checkpoint's gate mean. */
 export const PULSE_COLORS: Record<Decision, [number, number, number]> = {
-  ALLOW: [0.55, 0.61, 1],
+  ALLOW: [0, 0.95, 0.61],
   HOLD: [0.96, 0.72, 0.26],
   BLOCK: [1, 0.33, 0.1],
 };
@@ -83,9 +83,9 @@ void main() {
   vec3 origin = toShield * vec3(0.0, 0.0, 4.2);
   vec3 ray = toShield * normalize(vec3(uv, -1.6));
 
-  // Deep indigo, fading out to the page's own colour at the edges.
-  vec3 color = mix(vec3(0.05, 0.045, 0.13), vec3(0.031, 0.031, 0.059), smoothstep(0.1, 0.85, radius));
-  vec3 glowColor = mix(vec3(0.42, 0.4, 1.0), uPulseColor, uPulse);
+  // Deep green-black, fading out to the page's own colour at the edges.
+  vec3 color = mix(vec3(0.012, 0.05, 0.042), vec3(0.02, 0.031, 0.035), smoothstep(0.1, 0.85, radius));
+  vec3 glowColor = mix(vec3(0.0, 0.95, 0.61), uPulseColor, uPulse);
 
   float t = 2.4;
   float nearest = 10.0;
@@ -110,13 +110,13 @@ void main() {
     float film = facing * 1.35 + p.y * 0.34 + p.x * 0.22 + uTime * 0.045;
     vec3 rainbow = 0.5 + 0.5 * cos(6.2832 * (film + vec3(0.0, 0.33, 0.67)));
 
-    vec3 body = mix(vec3(0.07, 0.05, 0.32), vec3(0.5, 0.56, 1.0), smoothstep(-0.7, 0.9, n.y * 0.65 + n.x * 0.35 + 0.15));
+    vec3 body = mix(vec3(0.0, 0.3, 0.2), vec3(0.08, 0.98, 0.64), smoothstep(-0.7, 0.9, n.y * 0.65 + n.x * 0.35 + 0.15));
     vec3 surface = mix(body, rainbow * 1.15, 0.28 + 0.72 * rim);
 
     // Two studio lights, reflected in the glass.
     vec3 bounce = reflect(ray, n);
     float light = smoothstep(0.72, 0.97, bounce.y * 0.82 + bounce.x * 0.38) + 0.55 * smoothstep(0.86, 0.99, -bounce.y * 0.5 - bounce.x * 0.7);
-    surface += vec3(0.95, 0.95, 1.0) * light;
+    surface += vec3(0.9, 1.0, 0.96) * light;
 
     if (eyes(p) < ribbon(p)) {
       vec3 side = vec3(sign(p.x) * EYE.x, EYE.y, 0.0);

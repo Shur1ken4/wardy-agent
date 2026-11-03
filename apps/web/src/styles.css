@@ -1,27 +1,27 @@
-/* Wardy Agent's look: a midnight console with one indigo glass shield. Colours are tokens, and motion is transform and opacity only. */
+/* Wardy Agent's look: a near-black console with one neon green glass shield. Colours are tokens, and motion is transform and opacity only. */
 :root {
   color-scheme: dark;
-  --ground: #08080f;
-  --surface: rgba(16, 16, 28, 0.88);
-  --surface-solid: #10101c;
-  --ink: #f3f3fa;
-  --ink-soft: #1e1e32;
-  --muted: #b0b0c8;
-  --line: #2b2b44;
+  --ground: #050809;
+  --surface: rgba(12, 18, 19, 0.88);
+  --surface-solid: #0c1213;
+  --ink: #f1f5f2;
+  --ink-soft: #1a2223;
+  --muted: #a8b4b0;
+  --line: #263234;
   --grid: rgba(255, 255, 255, 0.04);
-  --hover: #1e1e32;
-  --accent: #8b9cff;
-  --accent-glow: rgba(139, 156, 255, 0.3);
-  --allow-bg: #1c2356;
-  --allow-fg: #aab7ff;
+  --hover: #1a2223;
+  --accent: #00f29b;
+  --accent-glow: rgba(0, 242, 155, 0.3);
+  --allow-bg: #0a3a2a;
+  --allow-fg: #3df2b0;
   --hold-bg: #3a2a08;
   --hold-fg: #f7cb6f;
   --block-bg: #c2410c;
   --block-fg: #ffffff;
   --danger-text: #ff9068;
   --on-block: #a8370a;
-  --on-ink: #08080f;
-  --on-accent-muted: #1b1f4e;
+  --on-ink: #050809;
+  --on-accent-muted: #0f3f2d;
   --head: "Space Grotesk Variable", system-ui, sans-serif;
   --body: "Inter Variable", system-ui, sans-serif;
   --code: "JetBrains Mono Variable", ui-monospace, monospace;
@@ -36,7 +36,7 @@ html { -webkit-text-size-adjust: 100%; background: var(--ground); }
 body { margin: 0; color: var(--ink); font: 400 15px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
 
 /* The animated background. The CSS glow is what shows if WebGL isn't available. */
-.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse 60% 55% at 70% 42%, rgba(110, 100, 255, 0.2), transparent 70%), var(--ground); }
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse 60% 55% at 70% 42%, rgba(0, 242, 155, 0.16), transparent 70%), var(--ground); }
 .backdrop-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .backdrop-veil { position: absolute; inset: 0; background: var(--ground); opacity: 0; }
 .backdrop-toggle { position: fixed; right: 10px; bottom: 6px; z-index: 5; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-button); background: var(--surface-solid); font: 500 11px var(--code); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
@@ -54,7 +54,7 @@ button { font: inherit; color: inherit; }
 .small { font-size: 13px; }
 
 /* Header */
-.header { position: sticky; top: 0; z-index: 20; background: rgba(8, 8, 15, 0.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.header { position: sticky; top: 0; z-index: 20; background: rgba(5, 8, 9, 0.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
 .header-inner { max-width: 1280px; margin: 0 auto; padding: 12px var(--gutter); display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 28px; row-gap: 8px; }
 .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; min-height: 44px; }
 .brand-name { font: 500 17px/1.1 var(--head); letter-spacing: -0.015em; white-space: nowrap; }
@@ -76,7 +76,7 @@ button { font: inherit; color: inherit; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn-primary { background: var(--ink); color: var(--on-ink); }
 .btn-primary:hover:not(:disabled) { background: var(--accent); box-shadow: 0 0 28px var(--accent-glow); }
-.btn-secondary { background: var(--surface-solid); border-color: #40405e; color: var(--ink); }
+.btn-secondary { background: var(--surface-solid); border-color: #3b4a4c; color: var(--ink); }
 .btn-secondary:hover:not(:disabled) { background: var(--hover); border-color: var(--accent); }
 .btn-freeze { background: none; border-color: var(--line); color: var(--ink); }
 .btn-freeze:hover:not(:disabled) { background: var(--block-bg); border-color: var(--block-bg); color: var(--block-fg); }
@@ -102,10 +102,10 @@ h2.section-title { font: 400 24px/1.25 var(--head); letter-spacing: -0.015em; }
 .hero { display: flex; align-items: center; min-height: clamp(520px, 82dvh, 900px); padding: 48px 0; }
 .hero-text { min-width: 0; max-width: 660px; }
 .hero-top { display: flex; align-items: center; gap: 12px; min-height: 26px; margin-bottom: 18px; }
-.hero-title { font: 500 clamp(40px, 22px + 3.4vw, 74px)/1.03 var(--head); letter-spacing: -0.035em; text-shadow: 0 2px 30px rgba(8, 8, 15, 0.7); }
-.hero-lead { max-width: 560px; margin-top: 22px; color: var(--ink); font-size: 18px; text-shadow: 0 1px 14px rgba(8, 8, 15, 0.9); }
+.hero-title { font: 500 clamp(40px, 22px + 3.4vw, 74px)/1.03 var(--head); letter-spacing: -0.035em; text-shadow: 0 2px 30px rgba(5, 8, 9, 0.7); }
+.hero-lead { max-width: 560px; margin-top: 22px; color: var(--ink); font-size: 18px; text-shadow: 0 1px 14px rgba(5, 8, 9, 0.9); }
 .hero-actions { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.hero-note { margin-top: 14px; color: var(--ink); text-shadow: 0 1px 14px rgba(8, 8, 15, 0.9); }
+.hero-note { margin-top: 14px; color: var(--ink); text-shadow: 0 1px 14px rgba(5, 8, 9, 0.9); }
 .hero-top, .hero-title, .hero-lead, .hero-actions, .hero-note { animation: rise 700ms var(--ease) both; }
 .hero-title { animation-delay: 60ms; }
 .hero-lead { animation-delay: 160ms; }
@@ -291,7 +291,7 @@ details > summary:hover { color: var(--ink); }
 
 /* Approve page */
 /* Someone is deciding about money here, so this page's background keeps still: the same look, with nothing moving. */
-.approve { min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(ellipse 90% 40% at 50% 0%, rgba(110, 100, 255, 0.2), transparent 75%), var(--ground); }
+.approve { min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 242, 155, 0.14), transparent 75%), var(--ground); }
 .approve-head { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); font: 500 16px/1 var(--head); letter-spacing: -0.015em; }
 .approve-main { flex: 1; width: 100%; max-width: 460px; margin: 0 auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
 .approve-card { padding: 22px 20px; }
@@ -305,9 +305,9 @@ details > summary:hover { color: var(--ink); }
 .approve-result-title { margin-top: 14px; font: 500 24px/1.15 var(--head); letter-spacing: -0.02em; }
 
 /* Sign in */
-.signin-stage { min-height: calc(100dvh - 72px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding-top: 32px; }
-.signin-title { font: 400 clamp(44px, 24px + 5vw, 88px)/1.02 var(--head); letter-spacing: -0.035em; text-align: center; text-shadow: 0 2px 30px rgba(8, 8, 15, 0.8); }
-.signin { width: 100%; max-width: 460px; background: rgba(12, 12, 22, 0.72); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 0 0 60px rgba(110, 100, 255, 0.14); }
+.signin-stage { min-height: calc(100dvh - 72px); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 24px; padding-top: 32px; }
+.signin-title { font: 500 clamp(40px, 22px + 3.4vw, 74px)/1.03 var(--head); letter-spacing: -0.035em; text-shadow: 0 2px 30px rgba(5, 8, 9, 0.8); }
+.signin { width: 100%; max-width: 460px; background: rgba(8, 13, 14, 0.72); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 0 0 60px rgba(0, 242, 155, 0.12); }
 .signin form { display: grid; gap: 10px; margin-top: 16px; }
 
 /* The tabs come first: the owner's id gives up its space before they get cut off. */

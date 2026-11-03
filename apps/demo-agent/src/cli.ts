@@ -94,7 +94,7 @@ const pay: PayTool = async (request: PayArgs) => {
     }),
   });
   const body = (await response.json()) as { decision?: string; reasons?: string[]; execution?: { status?: string; txHash?: string }; error?: string; message?: string };
-  if (!response.ok) return { text: `Refused (${body.error}): ${body.message ?? "invalid request"}. Nothing was paid.` };
+  if (!response.ok) return { text: `Refused (${body.error}): ${(body.message ?? "invalid request").replace(/\.$/, "")}. Nothing was paid.${response.status === 401 ? ` A different Wardy Agent is already running at ${sharedUrl}. Stop it, or set WARDY_AGENT_TOKEN to match it.` : ""}` };
   const paid = body.execution?.txHash ? `\nPaid: ${body.execution.txHash}` : "";
   return { text: `${body.decision}${body.execution?.status ? `, ${body.execution.status}` : ""}${paid}\n${(body.reasons ?? []).join("\n")}` };
 };

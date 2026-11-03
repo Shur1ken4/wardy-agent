@@ -5,8 +5,8 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer-core";
-import { FRAGMENT_SHADER, VERTEX_SHADER } from "../apps/web/src/lib/backdrop";
-import { dots, funnel } from "../apps/web/src/lib/stream";
+import { FRAGMENT_SHADER, VERTEX_SHADER } from "../apps/web/src/lib/backdrop.js";
+import { dots, funnel } from "../apps/web/src/lib/stream.js";
 
 const CHROME_PLACES = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium"];
 const chrome = process.env.CHROME_PATH || CHROME_PLACES.find((place) => existsSync(place));
@@ -25,9 +25,9 @@ function page(width: number, height: number, zoom: number, shift: number, overla
   return `<!doctype html><meta charset="utf-8"><style>
     @font-face { font-family: Head; src: url("${font("space-grotesk")}"); font-weight: 300 700; }
     @font-face { font-family: Code; src: url("${font("jetbrains-mono")}"); font-weight: 100 800; }
-    html, body { margin: 0; width: ${width}px; height: ${height}px; overflow: hidden; background: #08080f; }
+    html, body { margin: 0; width: ${width}px; height: ${height}px; overflow: hidden; background: #050809; }
     canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .text { position: absolute; color: #f3f3fa; font-family: Head; }
+    .text { position: absolute; color: #f1f5f2; font-family: Head; }
   </style>
   <canvas id="glass"></canvas><canvas id="flow"></canvas>${overlay}
   <script>
@@ -48,7 +48,7 @@ function page(width: number, height: number, zoom: number, shift: number, overla
     gl.uniform1f(u("uTime"), ${STILL_TIME});
     gl.uniform2f(u("uLook"), 0, 0);
     gl.uniform1f(u("uPulse"), 0);
-    gl.uniform3f(u("uPulseColor"), 0.55, 0.61, 1);
+    gl.uniform3f(u("uPulseColor"), 0, 0.95, 0.61);
     gl.uniform1f(u("uShift"), ${shift});
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -78,7 +78,7 @@ function bannerFlow(width: number, height: number, gateX: number): string {
     context.scale(2, 2);
     for (const r of ${JSON.stringify(rects)}) {
       context.globalAlpha = r.alpha * (r.checked ? 0.8 : 0.34);
-      context.fillStyle = r.checked ? "#8b9cff" : "#c9c9de";
+      context.fillStyle = r.checked ? "#00f29b" : "#c6d2cd";
       context.fillRect(r.x - r.size, r.y - r.size, r.size * 2, r.size * 2);
     }
     context.fillStyle = "#ff5a1f";
@@ -94,11 +94,11 @@ function bannerFlow(width: number, height: number, gateX: number): string {
 const BANNER = { width: 1500, height: 500, gateX: 1225, zoom: 0.87 };
 // X's profile picture covers the banner's lower left, up to about x = 375, so the words start after it.
 const bannerText = `
-  <div style="position:absolute; left:320px; top:0; width:700px; height:500px; background:radial-gradient(closest-side, rgba(8,8,15,.86), rgba(8,8,15,.62) 65%, transparent)"></div>
+  <div style="position:absolute; left:320px; top:0; width:700px; height:500px; background:radial-gradient(closest-side, rgba(5,8,9,.86), rgba(5,8,9,.62) 65%, transparent)"></div>
   <div class="text" style="left:396px; top:122px; width:600px;">
-    <div style="font:500 20px Code; color:#aab7ff; letter-spacing:.01em">Wardy Agent</div>
+    <div style="font:500 20px Code; color:#3df2b0; letter-spacing:.01em">Wardy Agent</div>
     <div style="font:500 58px/1.05 Head; letter-spacing:-.035em; margin-top:14px">Every payment your agents make is checked first.</div>
-    <div style="font:400 22px Head; color:#d5d5e6; margin-top:18px">A payment firewall for AI agents on NEAR</div>
+    <div style="font:400 22px Head; color:#d3ddd9; margin-top:18px">A payment firewall for AI agents on NEAR</div>
   </div>`;
 
 // How the two look together, on a profile and as a tiny icon. Only to look at: it doesn't get uploaded.

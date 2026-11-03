@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { dots, funnel, GATE_AT, pushFrom, tokenAt, TRAVEL_MS, VERDICT_MS } from "../lib/stream";
 import { SHIELD_PATH } from "./WardyShield";
 
-const COLORS = { idle: "#c9c9de", checked: "#8b9cff", ALLOW: "#8b9cff", HOLD: "#f5b942", BLOCK: "#ff5a1f" } as const;
+const COLORS = { idle: "#c6d2cd", checked: "#00f29b", ALLOW: "#00f29b", HOLD: "#f5b942", BLOCK: "#ff5a1f" } as const;
 const LABELS_HEIGHT = 62;
 const PAUSE_HEIGHT = 30;
 const MAX_VERDICTS = 4;
@@ -127,7 +127,7 @@ export function PaymentStream({ signal, leftLabel, rightLabel }: { signal: Strea
       context.translate(gateX - 24 * scale, centerY - 26 * scale);
       context.scale(scale, scale);
       context.globalAlpha = 1;
-      context.fillStyle = "rgba(8, 8, 15, 0.82)";
+      context.fillStyle = "rgba(5, 8, 9, 0.82)";
       context.fill(shield);
       context.strokeStyle = gateColor;
       context.lineWidth = (1.4 + gateFlash * 1.6) / scale + 0.3;

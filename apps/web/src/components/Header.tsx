@@ -41,7 +41,7 @@ function FreezeButton() {
 }
 
 export function Header({ path }: { path: string }) {
-  const { health, reaction, policy } = useDashboard();
+  const { health, reaction, policy, signedIn, signOut } = useDashboard();
   const nav = useRef<HTMLElement>(null);
   // On a phone the tabs scroll sideways, so the current one is brought into view.
   useEffect(() => {
@@ -67,6 +67,7 @@ export function Header({ path }: { path: string }) {
         <div className="header-side">
           {health ? <span className="policy-chip">{policyChipText(health.mode, health.provider)}</span> : null}
           {policy ? <span className="owner">{policy.ownerId}</span> : null}
+          {signedIn ? <button type="button" className="btn btn-freeze" onClick={signOut}>Sign out</button> : null}
           <FreezeButton />
         </div>
       </div>

@@ -47,7 +47,7 @@ function CopyLine({ text }: { text: string }) {
 }
 
 function TryCheck() {
-  const { policy } = useDashboard();
+  const { policy, health } = useDashboard();
   const [payee, setPayee] = useState("g1obex-supply.near");
   const [amount, setAmount] = useState("1.5");
   const [asked, setAsked] = useState<Record<string, unknown> | null>(null);
@@ -87,14 +87,17 @@ function TryCheck() {
         </label>
         <button type="submit" className="btn btn-primary" disabled={busy || !payee.trim() || !amount.trim()}>Check it</button>
       </form>
-      <div className="examples">
-        <span className="small muted">Try:</span>
-        {EXAMPLES.map((example) => (
-          <button key={example.payee} type="button" className="example" onClick={() => setPayee(example.payee)}>
-            <span className="mono">{example.payee}</span> <span className="muted">{example.note}</span>
-          </button>
-        ))}
-      </div>
+      {/* These describe the demo owner's history, so they'd be untrue for a real owner's. */}
+      {health?.mode === "offline" ? (
+        <div className="examples">
+          <span className="small muted">Try:</span>
+          {EXAMPLES.map((example) => (
+            <button key={example.payee} type="button" className="example" onClick={() => setPayee(example.payee)}>
+              <span className="mono">{example.payee}</span> <span className="muted">{example.note}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {answer ? (
         <div className="try-answer" aria-live="polite">
@@ -116,6 +119,8 @@ function TryCheck() {
 }
 
 export function Agents() {
+  const { health } = useDashboard();
+  const offline = health?.mode === "offline";
   return (
     <Page>
       <header className="page-head">
@@ -130,6 +135,15 @@ export function Agents() {
             <h2 className="block-title">Connect in one command</h2>
             <p className="note" style={{ marginBottom: 12 }}>While <code>npm run dev</code> is running, this prints the setup for Claude Code, Claude Desktop or any MCP client.</p>
             <CopyLine text={CONNECT_COMMAND} />
+            {offline ? (
+              <p className="note" style={{ marginTop: 12 }}>
+                Then ask your agent: <em>"Use wardy_pay to pay 2 wNEAR to acme-sh0p.near for invoice 77."</em> You should see <code>BLOCK</code>, and the payment show up on <a className="link" href="/">Live checks</a>.
+              </p>
+            ) : (
+              <p className="note" style={{ marginTop: 12 }}>
+                It prints the demo credential. Replace <code>WARDY_AGENT_TOKEN</code> and <code>WARDY_OWNER_ID</code> with your own, as <code>docs/MCP_SETUP.md</code> explains. Use the agent token, never the owner's.
+              </p>
+            )}
             <p className="note" style={{ marginTop: 12 }}>
               No MCP? Your agent can read <a className="link" href="/llms.txt" target="_blank" rel="noreferrer">llms.txt</a> and use plain HTTP.
             </p>

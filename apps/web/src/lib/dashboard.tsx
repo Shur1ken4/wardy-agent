@@ -20,6 +20,9 @@ export interface Dashboard {
   apiError: string | null;
   needsCredential: boolean;
   signIn(credential: string): void;
+  /** True only for a real owner's sign-in: the offline demo has nothing to sign out of. */
+  signedIn: boolean;
+  signOut(): void;
   signInError: string | null;
   stats: Stats | null;
   policy: PolicyView | null;
@@ -237,6 +240,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       apiError,
       needsCredential: Boolean(health) && health?.mode !== "offline" && !credential,
       signIn: (next) => setCredential(next.trim() || null),
+      signedIn: Boolean(health) && health?.mode !== "offline" && Boolean(credential),
+      // A full reload, so nothing of the owner's history stays in this tab's memory.
+      signOut: () => {
+        saveCredential(null);
+        window.location.assign("/");
+      },
       signInError,
       stats,
       policy,
