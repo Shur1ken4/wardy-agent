@@ -219,7 +219,7 @@ async function main() {
     const panel = await textOf(desktop);
     check("the detail compares the two names", panel.includes("You paid before") && panel.includes("Agent tried to pay"));
     check("the odd character is marked", (await desktop.evaluate(() => document.querySelector(".compare mark")?.textContent)) === "1");
-    check("with no AI run, there's no attestation tick", /didn't run/.test(panel));
+    check("a replayed AI answer gets no attestation tick", /attestation isn't verified/.test(panel));
     await clickText(desktop, ".panel button", "Verify");
     await wait(600);
     check("the signature verifies in the browser", /Valid\. .*Checked in this browser/s.test(await textOf(desktop)));

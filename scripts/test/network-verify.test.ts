@@ -76,7 +76,7 @@ describe("npm run network:verify", () => {
   });
 
   it("fails when a report was dropped from the feed, even with a matching anchor file", () => {
-    const lines = reportLines().slice(1);
+    const lines = reportLines().slice(0, -1); // The newest report, which the current run produces.
     const { status, output } = verify(serializeFeed(lines), anchorFor(lines));
     expect(output).toMatch(/FAIL\s+Every seed report from that run is in the anchored feed/);
     expect(status).toBe(1);

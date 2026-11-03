@@ -30,7 +30,7 @@ The payments are made-up, on a mock ledger. Keep the **Demo data** badge in the 
 
 ## If a shot isn't ready
 
-- **No real attested verdict:** skip the private AI shot. Don't show the box as if it ran. It says "didn't run", and that's the truth.
+- **No real attested verdict:** skip the private AI shot. The offline demo replays recorded answers, so its box says the attestation isn't verified, and that's the truth.
 - **No real sale:** skip the earning shot, or show **Earnings** and say it isn't listed yet.
 - **Give the time to the Attack Lab.** It's the strongest moment anyway.
 
