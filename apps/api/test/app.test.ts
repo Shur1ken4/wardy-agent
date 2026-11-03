@@ -179,14 +179,45 @@ describe("POST /v1/pay", () => {
 });
 
 describe("POST /v1/check", () => {
-  it("needs no credential and never moves money", async () => {
+  it("never moves money", async () => {
     const { app, body, makeKnown, custody } = await harness();
     makeKnown();
-    const response = await app.inject({ method: "POST", url: "/v1/check", payload: body() });
+    const response = await app.inject({ method: "POST", url: "/v1/check", headers: { authorization: `Bearer ${AGENT_TOKEN}` }, payload: body() });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ decision: "ALLOW", mode: "check" });
     expect(response.json().execution).toBeUndefined();
     expect(custody.transfers).toEqual([]);
+  });
+
+  it("another owner's agent needs no credential, and gets nothing of this owner's", async () => {
+    const { app, body, makeKnown } = await harness();
+    makeKnown();
+    const response = await app.inject({ method: "POST", url: "/v1/check", payload: body({ ownerId: "someone-else.near", amount: "99" }) });
+    expect(response.statusCode).toBe(200);
+    const codes = response.json().signals.map((signal: { code: string }) => signal.code);
+    expect(codes).not.toContain("KNOWN_PAYEE");
+    expect(codes.filter((code: string) => code.startsWith("POLICY_"))).toEqual([]);
+  });
+
+  it("a stranger can't ask as this owner: no history, no limits, and nothing recorded", async () => {
+    const { app, body, makeKnown } = await harness();
+    makeKnown();
+    for (const headers of [{}, { authorization: "Bearer wrong" }]) {
+      const response = await app.inject({ method: "POST", url: "/v1/check", headers, payload: body({ amount: "99" }) });
+      expect(response.statusCode).toBe(401);
+      expect(response.body).not.toContain("KNOWN_PAYEE");
+      expect(response.body).not.toContain("POLICY_");
+    }
+    const owner = { authorization: `Bearer ${OWNER_TOKEN}` };
+    expect((await app.inject({ method: "GET", url: "/v1/verdicts", headers: owner })).json().verdicts).toEqual([]);
+  });
+
+  it.each([["agent", AGENT_TOKEN], ["owner", OWNER_TOKEN]])("the %s's credential can ask as this owner", async (_who, token) => {
+    const { app, body, makeKnown } = await harness();
+    makeKnown();
+    const response = await app.inject({ method: "POST", url: "/v1/check", headers: { authorization: `Bearer ${token}` }, payload: body() });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().signals.map((signal: { code: string }) => signal.code)).toContain("KNOWN_PAYEE");
   });
 
   it("is rate limited", async () => {
@@ -199,7 +230,7 @@ describe("POST /v1/check", () => {
 
   it("validates its input", async () => {
     const { app, body } = await harness();
-    expect((await app.inject({ method: "POST", url: "/v1/check", payload: body({ amount: "abc" }) })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/v1/check", payload: body({ ownerId: "someone-else.near", amount: "abc" }) })).statusCode).toBe(400);
   });
 });
 
@@ -443,7 +474,7 @@ describe("for an agent", () => {
     expect((await pay()).json().nextStep).toBe("wait_for_owner");
     makeKnown();
     expect((await pay(body({ amount: "1.5" }))).json().nextStep).toBe("done");
-    const check = await app.inject({ method: "POST", url: "/v1/check", payload: body({ requestId: crypto.randomUUID(), payee: "no-such-account.near" }) });
+    const check = await app.inject({ method: "POST", url: "/v1/check", headers: { authorization: `Bearer ${AGENT_TOKEN}` }, payload: body({ requestId: crypto.randomUUID(), payee: "no-such-account.near" }) });
     expect(check.json().nextStep).toBe("do_not_pay");
   });
 
@@ -458,8 +489,8 @@ describe("for an agent", () => {
 
   it("too many requests says to wait, instead of a code", async () => {
     const { app, body } = await harness({ checkRateLimitPerMinute: 1 });
-    await app.inject({ method: "POST", url: "/v1/check", payload: body() });
-    const second = await app.inject({ method: "POST", url: "/v1/check", payload: body({ requestId: crypto.randomUUID() }) });
+    await app.inject({ method: "POST", url: "/v1/check", payload: body({ ownerId: "someone-else.near" }) });
+    const second = await app.inject({ method: "POST", url: "/v1/check", payload: body({ ownerId: "someone-else.near", requestId: crypto.randomUUID() }) });
     expect(second.statusCode).toBe(429);
     expect(second.json().message).toContain("Wait a minute");
   });
@@ -510,7 +541,7 @@ describe("for an agent", () => {
       const { app, body } = await harness();
       expect((await status(app, crypto.randomUUID())).statusCode).toBe(404);
       expect((await status(app, "nope")).statusCode).toBe(400);
-      const check = (await app.inject({ method: "POST", url: "/v1/check", payload: body() })).json();
+      const check = (await app.inject({ method: "POST", url: "/v1/check", headers: { authorization: `Bearer ${AGENT_TOKEN}` }, payload: body() })).json();
       expect((await status(app, check.verdictId)).statusCode).toBe(404);
     });
   });

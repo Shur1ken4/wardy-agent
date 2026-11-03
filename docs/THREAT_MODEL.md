@@ -52,6 +52,7 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 | A secret committed to git | Secret check in the pre-commit hook and CI | `scripts/check-secrets.mjs` |
 | Too much at stake in live mode | Refuses to start above 10 NEAR equivalent unless told otherwise | `wiring.ts` |
 | Abuse of the check endpoint | Rate limit on `/v1/check`, and on network lookups | `app.ts` |
+| A stranger reads the owner's payees and limits by asking as them | A check using this owner's id needs the agent's or owner's credential. A refusal does confirm that id is this server's owner, which is an account name and not a secret | `app.ts` |
 
 ## Known limits
 

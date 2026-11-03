@@ -142,7 +142,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.post(
     "/v1/check",
     { config: { rateLimit: { max: options.checkRateLimitPerMinute ?? 60, timeWindow: "1 minute" } } },
-    async (request) => service.view(await service.check(request.body)),
+    async (request) => {
+      // Anyone may ask about their own payment. Asking as this owner reads this owner's history and limits, so it needs a
+      // credential: the agent's or the owner's.
+      const asksAboutOwner = (request.body as { ownerId?: unknown } | null)?.ownerId === service.fleetOwnerId;
+      if (asksAboutOwner && !sameSecret(bearer(request), options.agentToken)) requireToken(request, options.ownerToken);
+      return service.view(await service.check(request.body));
+    },
   );
 
   app.get("/v1/verdicts", async (request) => {

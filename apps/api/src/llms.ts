@@ -12,7 +12,7 @@ The tools are wardy_pay, wardy_check, wardy_status and wardy_network_lookup. Set
 
 POST /v1/pay                     Ask to pay. Needs the agent's credential: Authorization: Bearer <token>
 GET  /v1/pay/{verdictId}/status  What happened to a payment, such as what the owner decided. Same credential
-POST /v1/check                   Check a payment without making it. Nothing can move. No credential
+POST /v1/check                   Check a payment without making it. Nothing can move. No credential, unless ownerId is the owner this server pays for: then it needs the agent's credential
 GET  /v1/network/payee/{chain}/{payee}  Look up a payee in the Wardy Network. No credential
 GET  /v1/verdicts/{verdictId}/verify    Check a verdict's signature. No credential
 GET  /health                     Mode, custody provider, and whether payments are frozen
