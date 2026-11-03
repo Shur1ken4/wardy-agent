@@ -163,8 +163,8 @@ export function Live() {
             {health?.mode === "offline" ? <DemoBadge /> : null}
             {health?.mode === "testnet" ? <span className="badge badge-plain">NEAR testnet</span> : null}
           </div>
-          <h1 className="hero-title">Every payment your agents make is checked first.</h1>
-          <p className="hero-lead">Your worker agents hold no keys and no spend grant. Only Wardy Agent can pay, after it checks who is being paid and why.</p>
+          <h1 className="hero-title">Payment firewall for AI agents.</h1>
+          <p className="hero-lead">Every payment your agents make is checked first. They hold no keys, so only Wardy Agent can pay, after it checks who is being paid and why.</p>
           <div className="hero-actions">
             {demo ? (
               <button type="button" className="btn btn-primary" disabled={playing} onClick={() => void play()}>
