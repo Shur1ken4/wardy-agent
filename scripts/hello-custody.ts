@@ -329,6 +329,12 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
       console.log("Withdrawals are already off. Nothing was done.");
       return;
     }
+    const availableAt = (await client.getAgent(id)).cooldowns.policy_change_available_at;
+    if (availableAt && Date.parse(availableAt) > Date.now()) {
+      const minutes = Math.ceil((Date.parse(availableAt) - Date.now()) / 60_000);
+      console.log(`The service won't change the policy again for about ${minutes} minute(s), until ${availableAt}. Nothing was done. Run this again after that.`);
+      process.exit(1);
+    }
     await confirm("Signs a policy change that turns withdrawals off again, back to transfers only. No money moves.");
     await runOwnerIntent(client, owner(), {
       type: "policy_update",

@@ -172,7 +172,7 @@ npm run live:pay
 npm run hello:custody -- withdraw-back 0.05
 ```
 
-**10. Lock withdrawals again.** Always run this after step 9. No money moves. You should see `PASS: the agent is allowed: transfer`.
+**10. Lock withdrawals again.** Always run this after step 9. No money moves. The service waits a few minutes between policy changes, so if it gives you a time, run it again after that. You should see `PASS: the agent is allowed: transfer`.
 
 ```bash
 npm run hello:custody -- lock-withdrawals
