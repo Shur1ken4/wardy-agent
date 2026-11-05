@@ -167,7 +167,7 @@ Smaller notes to apply later:
   - Policy edits have a 10-minute cooldown. Plan demos around it.
 - **Funding (DOCS):** `POST /deposit` with `origin_asset: nep141:wrap.near` expects a **wNEAR token transfer** to the deposit address, not a plain NEAR send. That's awkward from a wallet, so `hello:custody fund` does it from the owner account in one transaction: register the address on `wrap.near`, wrap the NEAR, transfer.
 - **Licensing:** the examples repo has **no license**, so nothing is copied from it. `scripts/hello-custody.ts` is our own code on the MIT-licensed SDK.
-- **TODO-VERIFY (`npm run hello:custody`, run by Shurik):** whether a settled transfer exposes a NEAR tx hash for the "tx link" (the schema mentions `transaction_hash`; otherwise link the `op_…` proof). Whether a funded implicit owner account works for onboarding (the SDK's examples support it). The deposit minimum and any fee, which aren't in the docs. Which portal gives Shurik a key. That the native refusal returns `native_method_denied`.
+- **Settled by the 2026-11-05 run (LIVE):** a settled transfer's details are redacted and gave no NEAR tx hash, so the receipt is the `op_…` id. A funded implicit owner account works for onboarding. The wNEAR deposit minimum quoted for a 0.2 request was 0.2, and the full 0.2 arrived. The demo portal's key is the one in use. The native refusal returns `native_method_denied`.
 
 ### OutLayer: fallback custody, and a real testnet path
 
@@ -198,7 +198,7 @@ Smaller notes to apply later:
 - **Code:** `packages/providers/src/ai/nearAiCloud.ts`. `attested` is true only if all eight checks pass.
 - **NVIDIA tokens:** read from NVIDIA's own HTTPS answer. TLS authenticates them; the JWT signature isn't separately checked. State this in "What's proven".
 - **LIVE, 2026-11-03, no key:** the attestation report is public, and `provider=near` reports do return for `glm-5.3-flash`. `npm run hello:attestation` passes 4 of the 8 checks against the live service: NVIDIA GPU evidence, Intel TDX quote (`UpToDate`), and the quote binding the signer and our nonce. This does not mark any verdict attested, because the other 4 tie a real answer to this evidence.
-- **TODO-VERIFY:** the service accepts our exact chat request, and its signature is `provider_tee` from a signer in the report. `npm run hello:ai` settles both once there is a key with credit. Never fake a result: anything less than all eight checks shows as `partial`.
+- **Settled (LIVE):** the service accepts our exact chat request, and its signature is `provider_tee` from a signer in the report: `npm run hello:ai` passes all eight checks. Never fake a result: anything less than all eight checks shows as `partial`.
 - **Credits, 2026-11-03:** joining NEAR Builders and signing in to NEAR AI Cloud with the same wallet (`Sign in with NEAR`) showed $0.00, as did a Google sign-in. Neither page says how to claim the $10 from Q-000, so Shurik asked in the builders chat. Wallet accounts can only pay with crypto; the page says card top-up needs a Google or GitHub account.
 
 ### Chain data: new-account detector, Must
