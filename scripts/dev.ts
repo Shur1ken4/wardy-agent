@@ -47,7 +47,9 @@ try {
     rmSync(process.env.WARDY_DATA_DIR || join(".data", "offline"), { recursive: true, force: true });
   }
 
-  const webUrl = process.env.WARDY_WEB_URL || `http://${lan ? (lanAddress() ?? "localhost") : "localhost"}:${webPort}`;
+  // With --lan, the phone's address wins: localhost in .env would point the phone at itself, and approval links too.
+  const lanUrl = lan && lanAddress() ? `http://${lanAddress()}:${webPort}` : undefined;
+  const webUrl = lanUrl ?? process.env.WARDY_WEB_URL ?? `http://localhost:${webPort}`;
   const wiring = await wire({ ...process.env, WARDY_WEB_URL: webUrl });
   const { service } = wiring;
 
