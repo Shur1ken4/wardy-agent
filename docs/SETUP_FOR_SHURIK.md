@@ -166,10 +166,16 @@ npm run hello:custody -- freeze-test
 npm run live:pay
 ```
 
-**9. Take the money back out. Leave this until the very end, after the real Wardy Agent payment:** it widens what the agent's rules allow, and the withdrawals aren't limited to one destination. It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
+**9. Take money back out.** It signs a policy change that allows withdrawals, which aren't limited to one destination, so step 10 turns them off again. It then shows the fee and asks you a second time before returning wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first. You should see `Status: SUCCESS`. Use a small amount for a test, or whatever is left at the very end.
 
 ```bash
-npm run hello:custody -- withdraw-back 0.15
+npm run hello:custody -- withdraw-back 0.05
+```
+
+**10. Lock withdrawals again.** Always run this after step 9. No money moves. You should see `PASS: the agent is allowed: transfer`.
+
+```bash
+npm run hello:custody -- lock-withdrawals
 ```
 
 ## Things you'll do later (I'll tell you when)

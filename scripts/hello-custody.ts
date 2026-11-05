@@ -10,6 +10,7 @@
 //   native-test   proves native NEAR transfers are refused by the policy
 //   freeze-test   freezes, proves a payment is refused, unfreezes
 //   withdraw-back <wNEAR>  owner allows withdrawals, then sends the agent's money back to the owner as native NEAR
+//   lock-withdrawals  owner puts the transfer-only policy back
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import {
@@ -74,13 +75,13 @@ function saveToEnv(values: Record<string, string>) {
   writeFileSync(".env", fillEnv(readFileSync(".env", "utf8"), values), { mode: 0o600 });
 }
 
-async function confirm(summary: string) {
+async function confirm(summary: string, stopped = "Stopped. Nothing was done.") {
   console.log(`\n${summary}`);
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await prompt.question('Type "yes" to continue: ');
   prompt.close();
   if (answer.trim().toLowerCase() !== "yes") {
-    console.log("Stopped. Nothing was done.");
+    console.log(stopped);
     process.exit(0);
   }
 }
@@ -197,7 +198,8 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
     const policy = await client.getPolicy(id);
     console.log(`Agent:      ${agent.id} (${agent.status})`);
     console.log(`Policy:     revision ${policy.revision}, ${policy.status}, synced: ${policy.provider_policy_synced}`);
-    console.log(`Grant:      ${process.env.WARDY_GRANT_TOKEN ? "saved in .env" : "not issued yet"}`);
+    console.log(`Allowed:    ${(policy.policy as Policy).actions.join(", ")}`);
+    console.log(`Grant:     ${process.env.WARDY_GRANT_TOKEN ? "saved in .env" : "not issued yet"}`);
     await printBalances(client, id);
   },
 
@@ -287,9 +289,9 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
     const client = api();
     const request = { asset: WNEAR, amount: atomic.toString(), chain: "near", recipient: who.accountId };
     await confirm(
-      "Signs a policy change that also allows withdrawals. The policy doesn't limit where they go, so run this last.\n" +
-        `Then withdraws ${amount} wNEAR from the agent to the owner account, as native NEAR:\n  ${who.accountId}\n` +
-        "The service takes any fee from that.",
+      "Signs a policy change that also allows withdrawals. The policy doesn't limit where they go, so lock them again after.\n" +
+        `Then previews withdrawing ${amount} wNEAR from the agent to the owner account, as native NEAR:\n  ${who.accountId}\n` +
+        "It shows the fee and asks you again before anything moves.",
     );
     const current = await client.getPolicy(id);
     if (!(current.policy as Policy).actions.includes("withdraw")) {
@@ -302,12 +304,41 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
       console.log("Policy updated: withdrawals are allowed.");
     }
     const preview: any = await grantedApi().withdraw(id, { ...request, dry: true });
-    console.log(`Preview: ${JSON.stringify(preview.details ?? preview)}`);
+    const details = preview.details ?? preview;
+    console.log(`Preview: ${JSON.stringify(details)}`);
+    const unlocked = "Stopped. No money moved, but withdrawals are still allowed. Run: npm run hello:custody -- lock-withdrawals";
+    if (details.quote?.would_succeed === false) {
+      console.log(`The service says this would fail: ${details.quote.message ?? details.quote.reason}`);
+      console.log(unlocked);
+      process.exit(1);
+    }
+    await confirm(`Withdraws ${amount} wNEAR now, with the fee shown above.`, unlocked);
     const started: any = await grantedApi().withdraw(id, request, { idempotencyKey: createIdempotencyKey() });
     const status: any = await waitForStatus(client, started.correlation_id);
     console.log(`Operation:  ${started.correlation_id}`);
     console.log(`Status:     ${status.status} ${status.failure_code ?? ""}`);
     await printBalances(client, id);
+    console.log("Next: npm run hello:custody -- lock-withdrawals");
+  },
+
+  async "lock-withdrawals"() {
+    const id = agentId();
+    const client = api();
+    const current = await client.getPolicy(id);
+    if (!(current.policy as Policy).actions.includes("withdraw")) {
+      console.log("Withdrawals are already off. Nothing was done.");
+      return;
+    }
+    await confirm("Signs a policy change that turns withdrawals off again, back to transfers only. No money moves.");
+    await runOwnerIntent(client, owner(), {
+      type: "policy_update",
+      agent_id: id,
+      expected_revision: current.revision,
+      policy: POLICY,
+    });
+    const after = await client.getPolicy(id);
+    const actionsNow = (after.policy as Policy).actions;
+    console.log(`${actionsNow.includes("withdraw") ? "CHECK" : "PASS"}: the agent is allowed: ${actionsNow.join(", ")}`);
   },
 
   async pay([amount = ""]) {
