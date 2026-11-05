@@ -47,11 +47,6 @@ function page(width: number, height: number, zoom: number, centerX: number, over
     canvas.width = ${width * 2}; canvas.height = ${height * 2};
     const context2 = canvas.getContext("2d");
     context2.scale(2, 2);
-    const halo = context2.createRadialGradient(${centerX}, ${height / 2}, ${unit * 0.05}, ${centerX}, ${height / 2}, ${unit * 0.62});
-    halo.addColorStop(0, "rgba(0,242,155,0.1)");
-    halo.addColorStop(1, "rgba(0,242,155,0)");
-    context2.fillStyle = halo;
-    context2.fillRect(0, 0, ${width}, ${height});
     for (const r of ${JSON.stringify(rects)}) {
       context2.globalAlpha = r.alpha;
       context2.fillStyle = r.color;
