@@ -4,6 +4,7 @@
 //   --fresh    starts the offline demo from nothing
 //   --lan      lets a phone on your Wi-Fi open the dashboard and approval page
 import { existsSync, readFileSync, rmSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,12 +28,22 @@ function lanAddress(): string | undefined {
     .find((address) => address && address.family === "IPv4" && !address.internal)?.address;
 }
 
+function assertPortFree(port: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const probe = createNetServer();
+    probe.once("error", () => reject(new Error(`Wardy Agent is already running on port ${port}, so nothing was cleared. Stop it first, then run this again.`)));
+    probe.listen(port, host, () => probe.close(() => resolve()));
+  });
+}
+
 try {
   const mode = process.env.WARDY_MODE || "offline";
   // Your Wi-Fi isn't encrypted to this server, and live mode's credential guards real money.
   if (lan && mode === "live") throw new Error("--lan won't run in live mode. Use it offline or on testnet.");
   if (process.argv.includes("--fresh")) {
     if (mode !== "offline") throw new Error("--fresh only clears the offline demo. It won't touch testnet or live data.");
+    // Before clearing anything: a copy that's already running would lose its data, and this one couldn't start anyway.
+    await assertPortFree(port, host);
     rmSync(process.env.WARDY_DATA_DIR || join(".data", "offline"), { recursive: true, force: true });
   }
 
