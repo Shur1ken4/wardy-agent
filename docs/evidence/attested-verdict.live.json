@@ -1,0 +1,51 @@
+{
+  "verdictId": "d031d5b1-1063-4eaf-8ac2-d5ab32cdafba",
+  "requestId": "33a686a9-cb05-4d7d-9eab-6e7c1182fba2",
+  "mode": "pay",
+  "requestHash": "c2bd1c827e78d2aa3b815255d99891d6a6681cf7f2b1f7e31d6892d97d7d4b93",
+  "payee": "65348c8aa4fca347e1e7a5ed9df58dd46cba7c87d7cda87b9c7b1e5c167f85ef",
+  "chain": "near",
+  "asset": "nep141:wrap.near",
+  "amount": "0.005",
+  "decision": "ALLOW",
+  "riskScore": 10,
+  "signals": [
+    {
+      "detector": "lookalike",
+      "code": "KNOWN_PAYEE",
+      "severity": "info",
+      "points": -10,
+      "message": "You've paid this payee once before.",
+      "evidence": {
+        "paidCount": 1
+      }
+    },
+    {
+      "detector": "new_account",
+      "code": "IMPLICIT_ACCOUNT_UNFUNDED",
+      "severity": "medium",
+      "points": 20,
+      "message": "This account has never been funded, so it has no history.",
+      "evidence": {}
+    }
+  ],
+  "reasons": [
+    "This account has never been funded, so it has no history."
+  ],
+  "ai": {
+    "used": true,
+    "model": "z-ai/glm-5.3-flash",
+    "attested": true,
+    "attestationRef": "6acfc3b6c8824b5b981dd1027f77f791",
+    "signatureKind": "provider_tee",
+    "attestationLevel": "full"
+  },
+  "createdAt": "2026-11-05T17:19:15.296Z",
+  "wardyPublicKey": "fa9c56779a6181b3c654a0223e0101ad2f7dd7dac6a3c22747106a1b2dfc51de",
+  "signature": "4ef21e2f41916130806a00740e97f213e9185b05be75456b574dd2b2b68a9c7569af8f76cd20a81141e9c0bdb0c07f892e58c848496d3b2e172ea8880bde610a",
+  "execution": {
+    "status": "executed",
+    "provider": "agent-connect",
+    "reference": "op_16pYlGvdVZEERHZJRtHUGdnX5jUYTCEeg5Qbe4W5AhM"
+  }
+}

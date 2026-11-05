@@ -56,7 +56,7 @@ describe("the README", () => {
   it("publishes the misses, and doesn't claim what hasn't run", () => {
     expect(readme).toMatch(/attacks still took money/);
     expect(readme).toContain("offline verdicts never have the tick");
-    expect(readme).toContain("Not yet run with real funds");
+    expect(readme).toContain("These are small test amounts to our own account");
     expect(readme).toContain("It catches every attack");
   });
 

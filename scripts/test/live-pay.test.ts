@@ -1,8 +1,9 @@
 // The real command spends real money, so its flow is tested on the mock ledger.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { wire } from "@wardy-agent/api";
+import { verifyVerdict } from "@wardy-agent/core";
 import { MockCustody } from "@wardy-agent/providers";
 import { afterEach, describe, expect, it } from "vitest";
 import { FIRST_AMOUNT, runLivePayment, SECOND_AMOUNT } from "../live-pay.js";
@@ -21,6 +22,17 @@ async function run(answers: string[], payee = "acme-shop.near", custody = new Mo
   const outcome = await runLivePayment({ wiring, payee, ask: async () => answers.shift() ?? "", log: (line) => lines.push(line) });
   return { outcome, output: lines.join("\n"), custody };
 }
+
+describe("the saved real payment", () => {
+  it("is an ALLOW that really paid, with a verified attestation and a signature that checks", async () => {
+    const verdict = JSON.parse(readFileSync("docs/evidence/attested-verdict.live.json", "utf8"));
+    expect(verdict.decision).toBe("ALLOW");
+    expect(verdict.ai.attested).toBe(true);
+    expect(verdict.execution).toMatchObject({ status: "executed", provider: "agent-connect" });
+    expect(await verifyVerdict(verdict, verdict.wardyPublicKey)).toBe(true);
+    expect(await verifyVerdict({ ...verdict, amount: "2000" }, verdict.wardyPublicKey)).toBe(false);
+  });
+});
 
 describe("the live payment flow", () => {
   it("holds a new payee, pays once the owner approves, then allows the next with no human", async () => {
