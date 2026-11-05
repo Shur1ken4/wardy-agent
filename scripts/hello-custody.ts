@@ -332,7 +332,7 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
       const verified = verifyOperationProof(proof as never, `${new URL(apiUrl()).host}/log`);
       console.log(`Audit proof: ${verified.proven.length} proven, ${verified.pending} pending, ${verified.unlogged} unlogged`);
     } catch (error) {
-      console.log(`Audit proof: not available yet (${(error as Error).message}). It can take a few minutes.`);
+      console.log(`Audit proof: not available (${(error as Error).message}).`);
     }
   },
 

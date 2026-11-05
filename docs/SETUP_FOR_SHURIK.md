@@ -133,8 +133,9 @@ npm run hello:custody -- create-agent
 npm run hello:custody -- issue-grant
 ```
 
-**4. Fund the agent.** It moves 0.2 NEAR from the owner account into the agent, and may take a few minutes. You
-should see a balance for `nep141:wrap.near`. If it says the amount is below a minimum, stop and tell me.
+**4. Fund the agent.** It moves 0.2 NEAR from the owner account into the agent, plus about 0.003 NEAR in fees, and
+may take a few minutes. You should see a balance for `nep141:wrap.near`. If it says the amount is below a minimum,
+stop and tell me.
 
 ```bash
 npm run hello:custody -- fund 0.2
@@ -159,7 +160,7 @@ npm run hello:custody -- native-test
 npm run hello:custody -- freeze-test
 ```
 
-**8. Take the money back out.** It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
+**8. Take the money back out. Leave this until the very end, after the real Wardy Agent payment:** it widens what the agent's rules allow, and the withdrawals aren't limited to one destination. It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
 
 ```bash
 npm run hello:custody -- withdraw-back 0.15

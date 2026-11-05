@@ -154,7 +154,10 @@ Smaller notes to apply later:
   - Funding: `POST /v1/agents/{id}/deposit`. Reads: `GET /v1/whoami`, `/v1/tokens`, `/v1/network`, `/v1/agents/{id}/policy`, `/balances`.
 - **Asset ids (LIVE):** `nep141:wrap.near` (wNEAR, 24 decimals), `nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1` (USDC on NEAR, 6 decimals).
 - **Native NEAR gotcha: confirmed in the docs and wider than reported.** "None of `destinations`, `budget`, `timelock_ms`, `schedule` or `owner_approval` applies to native requests: the switch is the whole fence." Our policy **omits the `native` block**, which means all off. Phase 1 proves the refusal.
+- **First real-funds run (2026-11-05, Shurik ran each step):** agent created and grant issued on the demo API; [0.2 wNEAR deposited](https://near.rocks/tx/DnHBpbdW3w7MDUTZ14F97pydfCq4ZGfdSLUA6PYThRuF); 0.01 wNEAR paid to our test merchant, whose balance on `intents.near` then read 0.01 (LIVE). A native transfer was refused with `native_method_denied` (HTTP 403, layer policy), and a payment while frozen with `wallet_frozen`. This used the provider directly; Wardy Agent's own check-then-pay path hasn't run with real funds yet.
 - **Gotchas:**
+  - wrap.near keeps its 0.00125 NEAR registration fee out of an unregistered account's first `near_deposit`, so a deposit followed by a transfer of the same amount fails. Register the account first with `storage_deposit`.
+  - This deployment keeps no transparency log, so `getOperationProof` has no inclusion proof to give. We can't claim that proof.
   - Amounts are atomic integer strings.
   - Grants carry no permissions; the policy decides. Up to 50 grants per agent; we issue one.
   - A new policy applies only when `/policy` shows `APPLIED` and `provider_policy_synced: true`.
