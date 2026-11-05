@@ -265,6 +265,8 @@ const steps: Record<string, (args: string[]) => Promise<void>> = {
     const result = await who.account.signAndSendTransaction({
       receiverId: "wrap.near",
       actions: [
+        // Register the owner first: otherwise near_deposit keeps the fee out of the amount, and ft_transfer comes up short.
+        actions.functionCall("storage_deposit", { account_id: who.accountId, registration_only: true }, TGAS_30, STORAGE_DEPOSIT),
         actions.functionCall("storage_deposit", { account_id: address, registration_only: true }, TGAS_30, STORAGE_DEPOSIT),
         actions.functionCall("near_deposit", {}, TGAS_30, atomic),
         actions.functionCall("ft_transfer", { receiver_id: address, amount: atomic.toString(), ...(memo ? { memo } : {}) }, TGAS_30, 1n),
