@@ -144,13 +144,16 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
 
-      // A soft light behind it, so the blocks stand on something.
+      // No light behind it at rest: the blocks stand on the dark. A verdict or a freeze still flashes its colour there.
       const glowColor = isFrozen ? "255,84,26" : pulse && strength > 0.05 ? PULSE_COLORS[pulse.kind].map((c) => Math.round(c * 255)).join(",") : "0,242,155";
-      const halo = context.createRadialGradient(centerX, centerY, unit * 0.05, centerX, centerY, unit * 0.62);
-      halo.addColorStop(0, `rgba(${glowColor},${0.1 + strength * 0.14 + excite * 0.1})`);
-      halo.addColorStop(1, `rgba(${glowColor},0)`);
-      context.fillStyle = halo;
-      context.fillRect(0, 0, width, height);
+      const haloAlpha = isFrozen ? 0.1 : strength * 0.14 + excite * 0.1;
+      if (haloAlpha > 0.005) {
+        const halo = context.createRadialGradient(centerX, centerY, unit * 0.05, centerX, centerY, unit * 0.62);
+        halo.addColorStop(0, `rgba(${glowColor},${haloAlpha})`);
+        halo.addColorStop(1, `rgba(${glowColor},0)`);
+        context.fillStyle = halo;
+        context.fillRect(0, 0, width, height);
+      }
 
       const normal = isFrozen ? RAMPS.BLOCK : RAMPS.ALLOW;
       const swept = pulse ? RAMPS[pulse.kind] : normal;
