@@ -18,11 +18,12 @@ export function Spelled({ parts, spellKey }: { parts: PayeePart[]; spellKey: str
       return;
     }
     setShown(0);
+    // By the clock, not by counting ticks: a busy machine skips ticks, and the name must finish before the next payment.
+    const startedAt = performance.now();
     const timer = setInterval(() => {
-      setShown((count) => {
-        if (count >= letters.length) clearInterval(timer);
-        return Math.min(letters.length, count + 1);
-      });
+      const count = Math.min(letters.length, Math.floor((performance.now() - startedAt) / LETTER_MS));
+      setShown(count);
+      if (count >= letters.length) clearInterval(timer);
     }, LETTER_MS);
     return () => clearInterval(timer);
     // spellKey is what says it's a new name to read.

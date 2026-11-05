@@ -130,7 +130,9 @@ async function main() {
   if (shotsDir) mkdirSync(shotsDir, { recursive: true });
   const dataDir = mkdtempSync(join(tmpdir(), "wardy-agent-ui-"));
   const server = await startServer(dataDir);
-  const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args: ["--no-first-run", "--disable-extensions", "--no-sandbox"] });
+  // Chrome can take over 30 seconds to start on a busy machine, so it gets longer, and one more try.
+  const launch = () => puppeteer.launch({ executablePath: chromePath(), headless: true, timeout: 90_000, args: ["--no-first-run", "--disable-extensions", "--no-sandbox"] });
+  const browser = await launch().catch(launch);
   try {
     console.log("Moving between pages");
     {
@@ -201,8 +203,16 @@ async function main() {
     })`)) as number;
     check("it stays smooth", framesPerSecond >= 20, `${framesPerSecond} frames a second`);
 
+    // The mark is only up until the next payment, so it's watched for rather than polled: a slow machine could miss it.
+    await desktop.evaluate(() => {
+      new MutationObserver((_, observer) => {
+        if (document.querySelector(".spelled-odd")?.textContent !== "1") return;
+        document.body.dataset.sawLookalike = "true";
+        observer.disconnect();
+      }).observe(document.body, { subtree: true, childList: true, attributes: true });
+    });
     await clickText(desktop, "button", "Play demo traffic");
-    await desktop.waitForFunction(() => document.querySelector(".spelled-odd")?.textContent === "1", { timeout: 20_000 });
+    await desktop.waitForFunction(() => document.body.dataset.sawLookalike === "true", { timeout: 30_000 });
     check("a lookalike's name spells out, with its fake character marked", true);
     await wait(1100);
     check("a block lights the gate orange and breaks the payment", (await streamInk(desktop)).orange > 60);
