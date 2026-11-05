@@ -130,9 +130,19 @@ async function main() {
   if (shotsDir) mkdirSync(shotsDir, { recursive: true });
   const dataDir = mkdtempSync(join(tmpdir(), "wardy-agent-ui-"));
   const server = await startServer(dataDir);
-  // Chrome can take over 30 seconds to start on a busy machine, so it gets longer, and one more try.
-  const launch = () => puppeteer.launch({ executablePath: chromePath(), headless: true, timeout: 90_000, args: ["--no-first-run", "--disable-extensions", "--no-sandbox"] });
-  const browser = await launch().catch(launch);
+  // On CI, Chrome sometimes hangs before it's ready, and waiting longer didn't help. A fresh try usually works. The
+  // last try prints Chrome's own output, so a hang that keeps happening says why.
+  const launch = (attempt: number) =>
+    puppeteer.launch({
+      executablePath: chromePath(),
+      headless: true,
+      timeout: 60_000,
+      dumpio: attempt === 3,
+      args: ["--no-first-run", "--disable-extensions", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    });
+  const browser = await launch(1)
+    .catch(() => launch(2))
+    .catch(() => launch(3));
   try {
     console.log("Moving between pages");
     {
