@@ -26,6 +26,7 @@
     "hello:attestation": "tsx scripts/hello-attestation.ts",
     "hello:custody": "tsx scripts/hello-custody.ts",
     "hello:contract": "tsx scripts/hello-contract.ts",
+    "live:pay": "tsx scripts/live-pay.ts",
     "contract:test": "cargo test --manifest-path contracts/registry/Cargo.toml",
     "contract:build": "cd contracts/registry && cargo near build non-reproducible-wasm",
     "demo": "tsx scripts/demo.ts",

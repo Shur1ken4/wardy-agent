@@ -160,7 +160,13 @@ npm run hello:custody -- native-test
 npm run hello:custody -- freeze-test
 ```
 
-**8. Take the money back out. Leave this until the very end, after the real Wardy Agent payment:** it widens what the agent's rules allow, and the withdrawals aren't limited to one destination. It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
+**8. Pay through Wardy Agent.** This is the real product: it checks first, and only then pays. It spends at most 0.015 wNEAR, to our own test merchant. Type `yes` to start. The first payment should be `HOLD`, because this payee is new, so type `approve`. Then type `yes` for the second, which should be `ALLOW` and pay with no human. You should see `Done.` If it says anything about not running it again, don't; send me the output.
+
+```bash
+npm run live:pay
+```
+
+**9. Take the money back out. Leave this until the very end, after the real Wardy Agent payment:** it widens what the agent's rules allow, and the withdrawals aren't limited to one destination. It signs a policy change that allows withdrawals, then returns wNEAR from the agent to the owner account as native NEAR. Check the balance `status` shows first, because a fee may apply. You should see `Status: SUCCESS`.
 
 ```bash
 npm run hello:custody -- withdraw-back 0.15
