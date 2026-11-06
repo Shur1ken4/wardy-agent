@@ -1,0 +1,17 @@
+# Never in the image: secrets, local data and anything built on this machine.
+.env
+.env.*
+!.env.example
+.data
+.intents
+secrets
+*.key
+*.pem
+.git
+node_modules
+**/node_modules
+**/dist
+coverage
+target
+contracts/**/target
+.claude

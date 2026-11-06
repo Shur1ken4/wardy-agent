@@ -39,6 +39,25 @@ jobs:
       # A real browser, using the real dashboard. Unit tests can't see a hang or a page wider than a phone.
       - run: npm run test:ui
 
+  # The hosted server, built the way Fly.io builds it, then asked for its health, its dashboard and a sandbox.
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t wardy-agent .
+      - run: docker run -d --name wardy -p 8080:8080 wardy-agent
+      - name: The container answers
+        run: |
+          for attempt in $(seq 1 60); do curl -fs http://127.0.0.1:8080/health && break; sleep 1; done
+          curl -fs http://127.0.0.1:8080/health | grep '"hosted":true'
+          curl -fs -H "accept: text/html" http://127.0.0.1:8080/ | grep -i "<!doctype html>"
+          curl -fs -X POST http://127.0.0.1:8080/v1/sandbox | grep ownerToken
+      - name: It refuses a mainnet setting
+        run: |
+          if docker run --rm -e WARDY_GRANT_TOKEN=x wardy-agent; then echo "started with a mainnet setting"; exit 1; fi
+      - if: failure()
+        run: docker logs wardy
+
   contract:
     runs-on: ubuntu-latest
     defaults:
