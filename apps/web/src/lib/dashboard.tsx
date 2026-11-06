@@ -257,10 +257,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       needsCredential: Boolean(health) && health?.mode !== "offline" && !credential,
       signIn: (next) => setCredential(next.trim() || null),
       signedIn: Boolean(health) && health?.mode !== "offline" && Boolean(credential),
-      // A full reload, so nothing of the owner's history stays in this tab's memory.
+      // A full reload, so nothing of the owner's history stays in this tab's memory. A hosted server ends the session too.
       signOut: () => {
-        saveCredential(null);
-        window.location.assign("/");
+        const ending = health?.hosted ? api.signOut().catch(() => undefined) : Promise.resolve();
+        void ending.finally(() => {
+          saveCredential(null);
+          window.location.assign("/");
+        });
       },
       signInError,
       stats,

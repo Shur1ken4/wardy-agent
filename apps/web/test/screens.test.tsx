@@ -92,7 +92,15 @@ describe("the source itself", () => {
   });
 
   it("only knows these outside addresses: so it can't quietly call anything else", () => {
-    const allowed = new Set(["https://test.rpc.fastnear.com", "https://testnet.near.rocks", "https://near.rocks"]);
+    const allowed = new Set([
+      "https://test.rpc.fastnear.com",
+      "https://testnet.near.rocks",
+      "https://near.rocks",
+      // Sign-in on a hosted server only: the wallet's view of mainnet. The wallet code loads when someone presses the button.
+      "https://free.rpc.fastnear.com",
+      "https://helper.mainnet.near.org",
+      "https://api.kitwallet.app",
+    ]);
     const seen = sources.flatMap(({ text }) => [...text.matchAll(/https?:\/\/[^\s"'`)/]+/g)].map((match) => match[0]));
     for (const address of seen) {
       if (address === "http://x") continue; // A placeholder base for parsing a path, never fetched.

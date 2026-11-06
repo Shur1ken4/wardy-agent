@@ -70,6 +70,9 @@ button { font: inherit; color: inherit; }
 .link:hover { color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--accent); background: var(--ink-soft); }
 .header-side { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sign-in-near { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.sign-in-near .btn { white-space: nowrap; }
+.sign-in-near .note { max-width: 260px; text-align: right; }
 .policy-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--radius-button); color: var(--muted); font: 400 12px var(--code); white-space: nowrap; }
 .owner { max-width: 120px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-family: var(--code); font-size: 12px; white-space: nowrap; }
 .frozen-bar { background: var(--block-bg); color: var(--block-fg); }

@@ -118,9 +118,48 @@ function TryCheck() {
   );
 }
 
+/** On a hosted server: this owner's own agent token, made on request and shown once, and where to send requests. */
+function HostedConnect() {
+  const { policy } = useDashboard();
+  const [token, setToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const origin = window.location.origin;
+  return (
+    <section className="card card-pad">
+      <h2 className="block-title">Connect your agent to this server</h2>
+      <p className="note" style={{ marginBottom: 12 }}>
+        Your agent sends its payment requests to <code>{origin}/v1/pay</code> with a token of its own. It's not a key: it can ask to pay, never approve. Making a new one stops the old one working.
+      </p>
+      <button
+        type="button"
+        className="btn btn-secondary"
+        onClick={() => {
+          setError(null);
+          api.newAgentToken().then(({ agentToken }) => setToken(agentToken), (caught: Error) => setError(caught.message));
+        }}
+      >
+        {token ? "Make another token" : "Make an agent token"}
+      </button>
+      {token ? (
+        <>
+          <p className="note" style={{ marginTop: 12 }}>Copy it now. It isn't shown again.</p>
+          <CopyLine text={token} />
+          <p className="note" style={{ marginTop: 12 }}>For an MCP client, with this project cloned, use these settings:</p>
+          <CopyLine text={`WARDY_API_URL=${origin} WARDY_AGENT_TOKEN=${token} WARDY_OWNER_ID=${policy?.ownerId ?? "your-account.near"}`} />
+        </>
+      ) : null}
+      {error ? <p className="note note-error" role="alert">{error}</p> : null}
+      <p className="note" style={{ marginTop: 12 }}>
+        Your agent can read <a className="link" href="/llms.txt" target="_blank" rel="noreferrer">llms.txt</a> to learn the calls.
+      </p>
+    </section>
+  );
+}
+
 export function Agents() {
   const { health } = useDashboard();
   const offline = health?.mode === "offline";
+  const hosted = health?.hosted === true;
   return (
     <Page>
       <header className="page-head">
@@ -131,7 +170,8 @@ export function Agents() {
 
       <div className="agents-grid section">
         <div style={{ display: "grid", gap: 14 }}>
-          <section className="card card-pad">
+          {hosted ? <HostedConnect /> : null}
+          <section className="card card-pad" hidden={hosted}>
             <h2 className="block-title">Connect in one command</h2>
             <p className="note" style={{ marginBottom: 12 }}>While <code>npm run dev</code> is running, this prints the setup for Claude Code, Claude Desktop or any MCP client.</p>
             <CopyLine text={CONNECT_COMMAND} />

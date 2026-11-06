@@ -295,7 +295,7 @@ All code written during NEAR HACKATHON (Nov 1-14, 2026). Wardy Agent is a new, s
 | Where | Libraries |
 |---|---|
 | Crypto and validation | `@noble/ed25519`, `@noble/hashes`, `zod`, `viem` |
-| NEAR | `near-api-js`, `@near-intents-agent-api/sdk`, `@phala/dcap-qvl` (attestation), `near-sdk` (contract) |
+| NEAR | `near-api-js`, `@near-intents-agent-api/sdk`, `@phala/dcap-qvl` (attestation), `near-sdk` (contract), `@near-wallet-selector/core` and `@near-wallet-selector/meteor-wallet` (sign-in on a hosted server), with `buffer` for the wallet code in a browser |
 | API and agents | `fastify`, `@fastify/cors`, `@fastify/rate-limit`, `@modelcontextprotocol/sdk` |
 | Dashboard | `react`, `react-dom`, `motion`, `vite`, `@vitejs/plugin-react`, and the Inter, Space Grotesk and JetBrains Mono fonts through `@fontsource-variable` |
 | Tests and tooling | `vitest`, `typescript`, `tsx`, `puppeteer-core`, `axe-core`, `@scure/base` |

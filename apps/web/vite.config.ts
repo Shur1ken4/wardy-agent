@@ -8,8 +8,10 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  "font-src 'self'",
-  "connect-src 'self' https://test.rpc.fastnear.com",
+  // The build inlines its smallest font files as data: URLs.
+  "font-src 'self' data:",
+  // NEAR RPC, for the Network root and for the wallet when someone signs in, and Meteor's wallet, which signs in a popup.
+  "connect-src 'self' https://test.rpc.fastnear.com https://free.rpc.fastnear.com https://mw.rpc.fastnear.com https://wallet.meteorwallet.app",
   "base-uri 'none'",
   "form-action 'none'",
 ].join("; ");
@@ -25,4 +27,6 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   plugins: [react(), contentSecurityPolicy()],
   build: { sourcemap: false },
+  // The wallet libraries were written for Node too, and look for its `global`. In a browser that's `globalThis`.
+  define: { global: "globalThis" },
 });

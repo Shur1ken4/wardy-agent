@@ -26,7 +26,7 @@ const TYPES: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
   ".webmanifest": "application/manifest+json",
 };
-// Same origin only. The one outside call is the button that reads the Network root from NEAR testnet.
+// Same origin, plus NEAR RPC (the Network root, and the wallet at sign-in) and Meteor's wallet, which signs in a popup.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -34,7 +34,7 @@ const CSP = [
   "img-src 'self' data:",
   // The build inlines its smallest font files as data: URLs.
   "font-src 'self' data:",
-  "connect-src 'self' https://test.rpc.fastnear.com",
+  "connect-src 'self' https://test.rpc.fastnear.com https://free.rpc.fastnear.com https://mw.rpc.fastnear.com https://wallet.meteorwallet.app",
   "frame-ancestors 'none'",
   "base-uri 'none'",
   "form-action 'self'",

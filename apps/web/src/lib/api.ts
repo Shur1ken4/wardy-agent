@@ -128,6 +128,12 @@ export const api = {
     postJson<VerdictView>(`/v1/approve/${encodeURIComponent(id)}`, { action, ownerToken, ...(tenant ? { tenant } : {}) }),
   /** A hosted server's own demo for this visitor. Nothing real behind it. */
   sandbox: () => call<{ key: string; ownerToken: string; agentToken: string }>("/v1/sandbox", { method: "POST" }),
+  me: () => call<{ kind: "owner"; ownerId: string; signInAvailable: boolean } | { kind: "sandbox"; signInAvailable: boolean }>("/v1/me"),
+  signInChallenge: () => call<{ message: string; recipient: string; nonce: string }>("/v1/auth/challenge", { method: "POST" }),
+  signInVerify: (body: { accountId: string; publicKey: string; signature: string; nonce: string }) => postJson<{ ownerId: string; sessionToken: string; expiresAt: string }>("/v1/auth/verify", body),
+  signOut: () => call<{ signedOut: boolean }>("/v1/auth/logout", { method: "POST" }),
+  /** A new token for this owner's agents. The old one stops working. */
+  newAgentToken: () => call<{ agentToken: string }>("/v1/agent-token", { method: "POST" }),
   playTraffic: () => call<{ started: boolean }>("/v1/demo/traffic", { method: "POST" }),
   check: (request: Record<string, unknown>) => postJson<VerdictView>("/v1/check", request),
 };
