@@ -40,6 +40,9 @@ try {
   const mode = process.env.WARDY_MODE || "offline";
   // Your Wi-Fi isn't encrypted to this server, and live mode's credential guards real money.
   if (lan && mode === "live") throw new Error("--lan won't run in live mode. Use it offline or on testnet.");
+  if (mode === "live" && !["127.0.0.1", "localhost", "::1"].includes(host) && process.env.WARDY_I_UNDERSTAND_RISK !== "1") {
+    throw new Error(`Live mode won't listen on ${host}, where others could reach the API that moves real money. Use 127.0.0.1, or set WARDY_I_UNDERSTAND_RISK=1 if it's protected.`);
+  }
   if (process.argv.includes("--fresh")) {
     if (mode !== "offline") throw new Error("--fresh only clears the offline demo. It won't touch testnet or live data.");
     // Before clearing anything: a copy that's already running would lose its data, and this one couldn't start anyway.
