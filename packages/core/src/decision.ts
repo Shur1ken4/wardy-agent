@@ -69,5 +69,6 @@ export function decide(signals: Signal[]): DecisionOutcome {
 
   // 5. A rule that asks for the owner lifts ALLOW to HOLD.
   if (signals.some((signal) => forces(signal, "hold"))) return outcome("HOLD", 5);
-  return outcome("ALLOW", 4);
+  // An ALLOW leads with why it's fine, when there is a reason, so a small note doesn't read like the verdict.
+  return outcome("ALLOW", 4, signals.find((signal) => signal.code === "KNOWN_PAYEE"));
 }

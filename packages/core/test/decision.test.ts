@@ -26,6 +26,20 @@ describe("score", () => {
   });
 });
 
+describe("reasons", () => {
+  it("leads an ALLOW to a known payee with that, ahead of a small note", () => {
+    const { decision, reasons } = decide([scored(10), makeSignal("KNOWN_PAYEE", "You've paid this payee 2 times before.")]);
+    expect(decision).toBe("ALLOW");
+    expect(reasons).toEqual(["You've paid this payee 2 times before.", "worth 10"]);
+  });
+
+  it("leaves a HOLD's reasons about what's wrong", () => {
+    const { decision, reasons } = decide([scored(THRESHOLDS.holdScore + 10), makeSignal("KNOWN_PAYEE", "known")]);
+    expect(decision).toBe("HOLD");
+    expect(reasons[0]).toBe(`worth ${THRESHOLDS.holdScore + 10}`);
+  });
+});
+
 describe("rule 4: thresholds", () => {
   it.each<[number, string]>([
     [0, "ALLOW"],

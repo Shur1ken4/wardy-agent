@@ -2868,7 +2868,7 @@
                 "CONTEXT_URGENCY"
               ],
               "headline": "KNOWN_PAYEE",
-              "reason": "What the agent read pushes for speed.",
+              "reason": "You've paid this payee 3 times before.",
               "verdictId": "c2094684-1ec4-4ff2-84fc-eef1ba59b4dc",
               "executionStatus": "executed",
               "txHash": "mock-6d73a07fb0037782498a48632c0b275b",
@@ -2963,7 +2963,7 @@
                 "CONTEXT_PAYEE_CHANGE"
               ],
               "headline": "CONTEXT_PAYEE_CHANGE",
-              "reason": "What the agent read asks to pay a changed or new account.",
+              "reason": "You've paid this payee once before.",
               "verdictId": "496e90b2-49aa-41fd-8c5c-1440f996efa0",
               "executionStatus": "executed",
               "txHash": "mock-4822bd7814a4e37e73a4c8f540348a18",

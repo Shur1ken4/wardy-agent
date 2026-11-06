@@ -42,3 +42,8 @@ git diff --stat ecf7936 HEAD -- packages/core/src/detectors packages/core/src/de
 
 **All 5 of the E attacks took money,** by staying just inside the numbers. We stopped tuning here on purpose: the next
 threshold could be dodged the same way.
+
+**So that diff now lists `decision.ts`, for wording only.** On 2026-11-06 an ALLOW to a payee the owner already pays
+began leading its reasons with that fact, instead of with a small note. It came from a real mainnet payment whose ALLOW
+began "This account has never been funded", not from a holdout result. No decision, score or rule changed: in the
+results, the only difference is the first reason on two ALLOWs.
