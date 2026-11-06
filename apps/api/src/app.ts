@@ -43,6 +43,8 @@ export interface Tenant {
   earnings?(): Earnings;
   /** What /health calls this tenant's mode, if not the instance's. */
   mode?: string;
+  /** Why this tenant won't take a payee, if it won't, such as a mainnet name on a testnet-only server. */
+  acceptPayee?(payee: unknown): string | undefined;
 }
 
 /** Which owner a credential belongs to. Each lookup is by credential, so one owner's token never opens another's data. */
@@ -187,9 +189,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     };
   });
 
+  const payeeAllowed = (tenant: Tenant, body: unknown) => {
+    const problem = tenant.acceptPayee?.((body as { payee?: unknown } | null)?.payee);
+    if (problem) throw new ServiceError(400, "payee_not_allowed", problem);
+  };
+
   app.post("/v1/pay", async (request) => {
-    const { service } = agentOf(request);
-    return service.view(await service.pay(request.body));
+    const tenant = agentOf(request);
+    payeeAllowed(tenant, request.body);
+    return tenant.service.view(await tenant.service.pay(request.body));
   });
 
   // The agent's way to learn the outcome of its own request, such as what the owner decided. It says nothing else.
@@ -208,7 +216,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // Anyone may ask about their own payment. Asking as an owner reads that owner's history and limits, so it needs a
       // credential: the agent's or the owner's.
       const tenant = credentialed(request);
-      if (tenant) return tenant.service.view(await tenant.service.check(request.body));
+      if (tenant) {
+        payeeAllowed(tenant, request.body);
+        return tenant.service.view(await tenant.service.check(request.body));
+      }
       const { service } = tenancy.fallback();
       if ((request.body as { ownerId?: unknown } | null)?.ownerId === service.fleetOwnerId) throw unauthorized();
       return service.view(await service.check(request.body));

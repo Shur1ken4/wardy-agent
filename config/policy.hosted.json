@@ -1,0 +1,9 @@
+{
+  "maxPerPayment": "0.02",
+  "dailyBudget": "0.1",
+  "approvalThreshold": "0.01",
+  "allowedAssets": ["nep141:wrap.near"],
+  "askForNewPayees": true,
+  "frozen": false,
+  "nativeNearTransfers": false
+}

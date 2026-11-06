@@ -130,6 +130,12 @@ export interface WireOverrides {
   secretsDir?: string;
   /** On an instance with many owners, approval links name this one, so the link reaches the right owner. */
   tenantKey?: string;
+  /** An owner's limits, instead of config/policy.json. A hosted server gives each owner small testnet ones. */
+  policy?: OwnerPolicy;
+  /** One private-AI reader shared by many owners, so its daily cap counts them all. */
+  analyzer?: ContextAnalyzer;
+  /** Testnet account facts from somewhere else, such as a test's fixed answers. */
+  chainData?: AccountFactsSource;
 }
 
 export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wiring> {
@@ -138,7 +144,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
 
   const dataDir = overrides.dataDir ?? env.WARDY_DATA_DIR ?? join(".data", mode);
   mkdirSync(dataDir, { recursive: true });
-  const policy = loadPolicy();
+  const policy = overrides.policy ?? loadPolicy();
 
   let custody: CustodyProvider;
   let chainData: AccountFactsSource;
@@ -161,8 +167,8 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     if (!apiKey && !overrides.custody) throw new Error("No OutLayer testnet wallet yet. Run: npm run setup:testnet");
     custody = overrides.custody ?? new OutLayerCustody({ apiUrl: env.OUTLAYER_API_URL || "https://testnet-api.outlayer.ai", apiKey: apiKey as string });
     // No NearBlocks here: its testnet index is weeks behind, so its age data would be wrong.
-    chainData = new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" });
-    analyzer = nearAi(env);
+    chainData = overrides.chainData ?? new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" });
+    analyzer = overrides.analyzer ?? nearAi(env);
     const secrets = localSecrets(overrides.secretsDir ?? dataDir);
     signingKey = env.WARDY_SIGNING_KEY || secrets.signingKey;
     agentToken = env.WARDY_AGENT_TOKEN || secrets.agentToken;
