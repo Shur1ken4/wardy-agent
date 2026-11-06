@@ -33,6 +33,27 @@ export interface DemoTools {
   labVerdict(verdictId: string): VerdictView | undefined;
 }
 
+/** One owner's Wardy Agent: their service, and what goes with it. A single-owner instance has just one. */
+export interface Tenant {
+  /** Stable and public. It goes in approval links, so a link reaches the right owner. */
+  key: string;
+  service: PaymentService;
+  reporting?: Reporting;
+  demo?: DemoTools;
+  earnings?(): Earnings;
+  /** What /health calls this tenant's mode, if not the instance's. */
+  mode?: string;
+}
+
+/** Which owner a credential belongs to. Each lookup is by credential, so one owner's token never opens another's data. */
+export interface Tenancy {
+  forOwner(token: string): Tenant | undefined;
+  forAgent(token: string): Tenant | undefined;
+  byKey(key: string): Tenant | undefined;
+  /** Answers what comes with no credential: public checks, signature checks and health. */
+  fallback(): Tenant;
+}
+
 export interface AppOptions {
   service: PaymentService;
   network: NetworkSource;
@@ -41,6 +62,14 @@ export interface AppOptions {
   /** Lets the owner freeze, unfreeze and see what's waiting. */
   ownerToken: string;
   mode: string;
+  /** Many owners on one instance. Without it, the service and tokens above are the only owner. */
+  tenancy?: Tenancy;
+  /** Extra routes on the same instance, such as sign-in on a hosted one. */
+  extend?(app: FastifyInstance): void | Promise<void>;
+  /** Behind a hosting proxy, so rate limits count each visitor, not the proxy. */
+  trustProxy?: boolean;
+  /** The dashboard, for a browser that opens `/`. An agent asking for `/` still gets the JSON. */
+  indexHtml?(): string;
   corsOrigins?: string[];
   checkRateLimitPerMinute?: number;
   networkRateLimitPerMinute?: number;
@@ -53,8 +82,9 @@ export interface AppOptions {
 const VerdictIdParams = z.object({ id: z.uuid() });
 const LimitQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) });
 const PayeeParams = z.object({ chain: z.string().min(1).max(32), payee: z.string().min(1).max(128) });
-const ApproveBody = z.strictObject({ action: z.enum(["approve", "reject"]), ownerToken: z.string().min(1).max(256) });
-const PreviewBody = z.strictObject({ ownerToken: z.string().min(1).max(256) });
+const TenantKey = z.string().min(1).max(128).optional();
+const ApproveBody = z.strictObject({ action: z.enum(["approve", "reject"]), ownerToken: z.string().min(1).max(256), tenant: TenantKey });
+const PreviewBody = z.strictObject({ ownerToken: z.string().min(1).max(256), tenant: TenantKey });
 const ReportIdParams = z.object({ id: z.string().min(1).max(128) });
 const AuditQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50), verdictId: z.uuid().optional() });
 
@@ -68,19 +98,46 @@ function bearer(request: FastifyRequest): string {
   return header.startsWith("Bearer ") ? header.slice(7) : "";
 }
 
-function requireToken(request: FastifyRequest, expected: string) {
-  if (!sameSecret(bearer(request), expected)) {
-    throw new ServiceError(401, "unauthorized", "Missing or wrong credential.");
-  }
+const unauthorized = () => new ServiceError(401, "unauthorized", "Missing or wrong credential.");
+
+/** The one owner of a single-owner instance, as a tenancy, so both kinds run the same routes. */
+export function singleTenancy(options: Pick<AppOptions, "service" | "agentToken" | "ownerToken" | "reporting" | "demo" | "earnings">): Tenancy {
+  const tenant: Tenant = {
+    key: "default",
+    service: options.service,
+    ...(options.reporting ? { reporting: options.reporting } : {}),
+    ...(options.demo ? { demo: options.demo } : {}),
+    ...(options.earnings ? { earnings: options.earnings } : {}),
+  };
+  return {
+    forOwner: (token) => (sameSecret(token, options.ownerToken) ? tenant : undefined),
+    forAgent: (token) => (sameSecret(token, options.agentToken) ? tenant : undefined),
+    byKey: (key) => (key === tenant.key ? tenant : undefined),
+    fallback: () => tenant,
+  };
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
-  const { service, network } = options;
+  const { network } = options;
+  const tenancy = options.tenancy ?? singleTenancy(options);
+  const ownerOf = (request: FastifyRequest): Tenant => {
+    const tenant = tenancy.forOwner(bearer(request));
+    if (!tenant) throw unauthorized();
+    return tenant;
+  };
+  const agentOf = (request: FastifyRequest): Tenant => {
+    const tenant = tenancy.forAgent(bearer(request));
+    if (!tenant) throw unauthorized();
+    return tenant;
+  };
+  /** The owner's or their agent's: either may ask about what that agent asked for. */
+  const credentialed = (request: FastifyRequest): Tenant | undefined => tenancy.forOwner(bearer(request)) ?? tenancy.forAgent(bearer(request));
   const corsOrigins = options.corsOrigins ?? ["http://localhost:5173", "http://127.0.0.1:5173"];
   const app = Fastify({
     logger: (options.logger ?? false) as boolean | FastifyBaseLogger,
     bodyLimit: 256 * 1024,
     forceCloseConnections: true,
+    trustProxy: options.trustProxy ?? false,
   });
 
   await app.register(cors, { origin: corsOrigins });
@@ -104,37 +161,42 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.status(500).send({ error: "internal_error", message: "Something went wrong." });
   });
 
-  // For an agent that's been given only this address.
-  app.get("/", async () => ({
-    name: "Wardy Agent",
-    about: "A payment firewall for AI agents on NEAR. It checks every payment, and holds the only spend grant.",
-    forAgents: "/llms.txt",
-    health: "/health",
-    mode: options.mode,
-  }));
+  // For an agent that's been given only this address. A browser on a hosted instance gets the dashboard instead.
+  app.get("/", async (request, reply) => {
+    if (options.indexHtml && request.headers.accept?.includes("text/html")) return reply.type("text/html; charset=utf-8").send(options.indexHtml());
+    return {
+      name: "Wardy Agent",
+      about: "A payment firewall for AI agents on NEAR. It checks every payment, and holds the only spend grant.",
+      forAgents: "/llms.txt",
+      health: "/health",
+      mode: options.mode,
+    };
+  });
 
   app.get("/llms.txt", async (_request, reply) => reply.type("text/plain; charset=utf-8").send(LLMS_TXT));
 
-  app.get("/health", async () => ({
-    status: "ok",
-    mode: options.mode,
-    provider: service.providerName,
-    frozen: service.isFrozen(),
-    demoTools: Boolean(options.demo),
-  }));
+  app.get("/health", async (request) => {
+    const tenant = credentialed(request) ?? tenancy.fallback();
+    return {
+      status: "ok",
+      mode: tenant.mode ?? options.mode,
+      provider: tenant.service.providerName,
+      frozen: tenant.service.isFrozen(),
+      demoTools: Boolean(tenant.demo),
+      ...(options.tenancy ? { hosted: true } : {}),
+    };
+  });
 
   app.post("/v1/pay", async (request) => {
-    requireToken(request, options.agentToken);
+    const { service } = agentOf(request);
     return service.view(await service.pay(request.body));
   });
 
   // The agent's way to learn the outcome of its own request, such as what the owner decided. It says nothing else.
   app.get("/v1/pay/:id/status", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request) => {
-    const token = bearer(request);
-    if (!sameSecret(token, options.agentToken) && !sameSecret(token, options.ownerToken)) {
-      throw new ServiceError(401, "unauthorized", "Missing or wrong credential.");
-    }
-    const status = service.paymentStatus(VerdictIdParams.parse(request.params).id);
+    const tenant = credentialed(request);
+    if (!tenant) throw unauthorized();
+    const status = tenant.service.paymentStatus(VerdictIdParams.parse(request.params).id);
     if (!status) throw new ServiceError(404, "not_found", "No such payment.");
     return status;
   });
@@ -143,57 +205,65 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     "/v1/check",
     { config: { rateLimit: { max: options.checkRateLimitPerMinute ?? 60, timeWindow: "1 minute" } } },
     async (request) => {
-      // Anyone may ask about their own payment. Asking as this owner reads this owner's history and limits, so it needs a
+      // Anyone may ask about their own payment. Asking as an owner reads that owner's history and limits, so it needs a
       // credential: the agent's or the owner's.
-      const asksAboutOwner = (request.body as { ownerId?: unknown } | null)?.ownerId === service.fleetOwnerId;
-      if (asksAboutOwner && !sameSecret(bearer(request), options.agentToken)) requireToken(request, options.ownerToken);
+      const tenant = credentialed(request);
+      if (tenant) return tenant.service.view(await tenant.service.check(request.body));
+      const { service } = tenancy.fallback();
+      if ((request.body as { ownerId?: unknown } | null)?.ownerId === service.fleetOwnerId) throw unauthorized();
       return service.view(await service.check(request.body));
     },
   );
 
   app.get("/v1/verdicts", async (request) => {
-    requireToken(request, options.ownerToken);
+    const { service } = ownerOf(request);
     const { limit } = LimitQuery.parse(request.query);
     return { verdicts: service.recentVerdicts(limit) };
   });
 
-  const verdictOr404 = (id: string): VerdictView => {
-    const verdict = service.getVerdict(id) ?? options.demo?.labVerdict(id);
+  const verdictOr404 = (tenant: Tenant, id: string): VerdictView => {
+    const verdict = tenant.service.getVerdict(id) ?? tenant.demo?.labVerdict(id);
     if (!verdict) throw new ServiceError(404, "not_found", "No such verdict.");
     return verdict;
   };
 
-  app.get("/v1/verdicts/:id", async (request) => {
-    requireToken(request, options.ownerToken);
-    return verdictOr404(VerdictIdParams.parse(request.params).id);
-  });
+  app.get("/v1/verdicts/:id", async (request) => verdictOr404(ownerOf(request), VerdictIdParams.parse(request.params).id));
 
   // Open, because checking a signature is for anyone. It says nothing about the payment.
   app.get("/v1/verdicts/:id/verify", async (request) => {
-    const verdict = verdictOr404(VerdictIdParams.parse(request.params).id);
-    return { valid: await service.verify(verdict), publicKey: await service.publicKey() };
+    const tenant = credentialed(request) ?? tenancy.fallback();
+    const verdict = verdictOr404(tenant, VerdictIdParams.parse(request.params).id);
+    return { valid: await tenant.service.verify(verdict), publicKey: await tenant.service.publicKey() };
   });
 
   app.post("/v1/verdicts/:id/report", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
-    requireToken(request, options.ownerToken);
+    const { service, reporting } = ownerOf(request);
     const verdict = service.getVerdict(VerdictIdParams.parse(request.params).id);
     if (!verdict) throw new ServiceError(404, "not_found", "No such verdict.");
-    if (!options.reporting) throw new ServiceError(409, "cannot_report", "This instance can't publish reports.");
-    return { reportId: await options.reporting.report(verdict) };
+    if (!reporting) throw new ServiceError(409, "cannot_report", "This instance can't publish reports.");
+    return { reportId: await reporting.report(verdict) };
   });
 
   app.get("/v1/audit", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
-    requireToken(request, options.ownerToken);
+    const { service } = ownerOf(request);
     const { limit, verdictId } = AuditQuery.parse(request.query);
     return service.auditReport(limit, verdictId);
   });
+
+  /** The link names its owner, and the one-time token is checked against that owner's records only. */
+  const linkTenant = (key: string | undefined): Tenant => {
+    const tenant = key ? tenancy.byKey(key) : tenancy.fallback();
+    if (!tenant) throw new ServiceError(401, "invalid_token", "That approval link isn't valid.");
+    return tenant;
+  };
 
   app.post(
     "/v1/approve/:id",
     { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
     async (request) => {
       const { id } = VerdictIdParams.parse(request.params);
-      const { action, ownerToken } = ApproveBody.parse(request.body);
+      const { action, ownerToken, tenant } = ApproveBody.parse(request.body);
+      const { service } = linkTenant(tenant);
       return service.view(await service.decideHold(id, action, ownerToken));
     },
   );
@@ -204,34 +274,27 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
     async (request) => {
       const { id } = VerdictIdParams.parse(request.params);
-      return service.previewHold(id, PreviewBody.parse(request.body).ownerToken);
+      const { ownerToken, tenant } = PreviewBody.parse(request.body);
+      return linkTenant(tenant).service.previewHold(id, ownerToken);
     },
   );
 
-  app.get("/v1/approvals", async (request) => {
-    requireToken(request, options.ownerToken);
-    return { approvals: service.pendingHolds() };
-  });
+  app.get("/v1/approvals", async (request) => ({ approvals: ownerOf(request).service.pendingHolds() }));
 
-  app.post("/v1/approvals/:id/link", async (request) => {
-    requireToken(request, options.ownerToken);
-    return service.renewApprovalLink(VerdictIdParams.parse(request.params).id);
-  });
+  app.post("/v1/approvals/:id/link", async (request) => ownerOf(request).service.renewApprovalLink(VerdictIdParams.parse(request.params).id));
 
   app.post("/v1/freeze", async (request) => {
-    requireToken(request, options.ownerToken);
-    service.freeze();
+    ownerOf(request).service.freeze();
     return { frozen: true };
   });
 
   app.post("/v1/unfreeze", async (request) => {
-    requireToken(request, options.ownerToken);
-    service.unfreeze();
+    ownerOf(request).service.unfreeze();
     return { frozen: false };
   });
 
   app.get("/v1/policy", async (request) => {
-    requireToken(request, options.ownerToken);
+    const { service } = ownerOf(request);
     return {
       policy: service.currentPolicy(),
       provider: service.providerName,
@@ -251,15 +314,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/v1/network/reports", networkLimit, async (request) => network.feed(LimitQuery.parse(request.query).limit));
 
   app.post("/v1/network/reports/:id/revoke", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
-    requireToken(request, options.ownerToken);
+    const { reporting } = ownerOf(request);
     const { id } = ReportIdParams.parse(request.params);
-    if (!(await options.reporting?.revoke(id))) throw new ServiceError(404, "not_found", "This instance has no live report with that id.");
+    if (!(await reporting?.revoke(id))) throw new ServiceError(404, "not_found", "This instance has no live report with that id.");
     return { revoked: true };
   });
 
   app.get("/v1/stats", async (request) => {
-    requireToken(request, options.ownerToken);
-    return { ...service.stats(), earned: options.earnings?.() ?? { checksSold: 0, revenue: [] } };
+    const { service, earnings } = ownerOf(request);
+    return { ...service.stats(), earned: earnings?.() ?? { checksSold: 0, revenue: [] } };
   });
 
   /** Takes over the response to send events. The caller must have checked the credential first. */
@@ -279,7 +342,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   // Live feed for the dashboard. Carries verdicts only, never an approval link.
   app.get("/v1/stream", async (request, reply) => {
-    requireToken(request, options.ownerToken);
+    const { service } = ownerOf(request);
     const { raw, send } = openEventStream(request, reply);
     const onVerdict = (verdict: Verdict) => send("verdict", service.view(verdict));
     const onFrozen = (frozen: boolean) => send("frozen", { frozen });
@@ -293,24 +356,30 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   });
 
-  const { demo } = options;
-  if (demo) {
-    let trafficRunning = false;
+  // Only where some owner has demo tools. Each owner's traffic is their own, so one can't block another's.
+  if (options.demo || options.tenancy) {
+    const trafficRunning = new Set<string>();
+    const demoOf = (request: FastifyRequest): { key: string; demo: DemoTools } => {
+      const { key, demo } = ownerOf(request);
+      if (!demo) throw new ServiceError(404, "not_found", "There are no demo tools here.");
+      return { key, demo };
+    };
+
     app.post("/v1/demo/traffic", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
-      requireToken(request, options.ownerToken);
-      if (trafficRunning) throw new ServiceError(409, "already_running", "Demo traffic is already playing.");
-      trafficRunning = true;
+      const { key, demo } = demoOf(request);
+      if (trafficRunning.has(key)) throw new ServiceError(409, "already_running", "Demo traffic is already playing.");
+      trafficRunning.add(key);
       demo
         .playTraffic()
         .catch((error: Error) => request.log.error({ errorName: error.name }, "demo traffic failed"))
         .finally(() => {
-          trafficRunning = false;
+          trafficRunning.delete(key);
         });
       return reply.status(202).send({ started: true });
     });
 
     app.post("/v1/lab/run", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
-      requireToken(request, options.ownerToken);
+      const { demo } = demoOf(request);
       const { raw, send } = openEventStream(request, reply);
       try {
         await demo.runLab(send);
@@ -322,5 +391,6 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  await options.extend?.(app);
   return app;
 }

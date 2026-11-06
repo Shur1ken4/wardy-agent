@@ -1,0 +1,142 @@
+// The hosted server, run in-process: visitors' sandboxes can't reach each other, and it won't hold a mainnet key.
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { HostedTenancy } from "../hosted.js";
+import { assertNoMainnetKeys, buildHostedApp, staticFile } from "../serve.js";
+
+const dirs: string[] = [];
+const temp = () => {
+  const dir = mkdtempSync(join(tmpdir(), "wardy-agent-hosted-"));
+  dirs.push(dir);
+  return dir;
+};
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+async function server() {
+  const { app, tenancy } = await buildHostedApp({ dataRoot: temp(), webUrl: "https://wardy.example", indexHtml: "<!doctype html><title>dash</title>", dist: temp() });
+  const sandbox = async () => (await app.inject({ method: "POST", url: "/v1/sandbox" })).json() as { key: string; ownerToken: string; agentToken: string };
+  const as = (token: string) => ({ authorization: `Bearer ${token}` });
+  const pay = (agentToken: string, overrides: Record<string, unknown> = {}) =>
+    app.inject({
+      method: "POST",
+      url: "/v1/pay",
+      headers: as(agentToken),
+      payload: { requestId: crypto.randomUUID(), agentId: "bot", ownerId: "demo-owner.near", payee: "acme-shop.near", asset: "wNEAR", amount: "1", purpose: "test", createdAt: new Date().toISOString(), ...overrides },
+    });
+  return { app, tenancy, sandbox, as, pay };
+}
+
+describe("sandboxes", () => {
+  it("are separate: a freeze, a payment and its history stay with the visitor who made them", async () => {
+    const { app, sandbox, as, pay } = await server();
+    const one = await sandbox();
+    const two = await sandbox();
+    expect(one.ownerToken).not.toBe(two.ownerToken);
+
+    await app.inject({ method: "POST", url: "/v1/freeze", headers: as(one.ownerToken) });
+    expect((await app.inject({ method: "GET", url: "/health", headers: as(one.ownerToken) })).json().frozen).toBe(true);
+    expect((await app.inject({ method: "GET", url: "/health", headers: as(two.ownerToken) })).json().frozen).toBe(false);
+
+    const paid = (await pay(two.agentToken)).json();
+    const twoSees = (await app.inject({ method: "GET", url: "/v1/verdicts", headers: as(two.ownerToken) })).json().verdicts.map((v: { verdictId: string }) => v.verdictId);
+    const oneSees = (await app.inject({ method: "GET", url: "/v1/verdicts", headers: as(one.ownerToken) })).json().verdicts.map((v: { verdictId: string }) => v.verdictId);
+    expect(twoSees).toContain(paid.verdictId);
+    expect(oneSees).not.toContain(paid.verdictId);
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${paid.verdictId}`, headers: as(one.ownerToken) })).statusCode).toBe(404);
+  });
+
+  it("can't be opened with another visitor's agent token, or none", async () => {
+    const { app, sandbox, as } = await server();
+    const one = await sandbox();
+    expect((await app.inject({ method: "GET", url: "/v1/verdicts" })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url: "/v1/verdicts", headers: as(one.agentToken) })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/v1/freeze", headers: as("made-up") })).statusCode).toBe(401);
+  });
+
+  it("send approval links that name their sandbox, and the token works only there", async () => {
+    const { app, tenancy, sandbox, pay } = await server();
+    const one = await sandbox();
+    const two = await sandbox();
+    let link = "";
+    tenancy.forOwner(one.ownerToken)?.service.on("hold", (hold) => {
+      link = hold.approvalUrl;
+    });
+    // Above the demo policy's "ask me above 3", to a payee it knows.
+    const held = (await pay(one.agentToken, { amount: "4" })).json();
+    expect(held.decision).toBe("HOLD");
+    const params = new URLSearchParams(new URL(link).hash.slice(1));
+    expect(params.get("t")).toBe(one.key);
+    const token = params.get("token") as string;
+
+    const wrongSandbox = await app.inject({ method: "POST", url: `/v1/approve/${held.verdictId}`, payload: { action: "reject", ownerToken: token, tenant: two.key } });
+    expect(wrongSandbox.statusCode).not.toBe(200);
+    const right = await app.inject({ method: "POST", url: `/v1/approve/${held.verdictId}`, payload: { action: "reject", ownerToken: token, tenant: one.key } });
+    expect(right.statusCode).toBe(200);
+    expect(right.json().execution.status).toBe("refused");
+  });
+
+  it("make room when full, and go when nobody has used them for a while, files and all", async () => {
+    let now = 1_000;
+    const dataRoot = temp();
+    const tenancy = await HostedTenancy.create({ dataRoot, webUrl: "https://wardy.example", maxSandboxes: 2, sandboxIdleMs: 60_000, now: () => now });
+    const first = await tenancy.createSandbox();
+    now += 10;
+    await tenancy.createSandbox();
+    now += 10;
+    await tenancy.createSandbox();
+    expect(tenancy.sandboxCount).toBe(2);
+    expect(tenancy.forOwner(first.ownerToken)).toBeUndefined();
+    now += 120_000;
+    tenancy.sweep();
+    expect(tenancy.sandboxCount).toBe(0);
+  });
+
+  it("answers an agent with no credential from the public demo, never a visitor's sandbox", async () => {
+    const { app, sandbox, as } = await server();
+    const one = await sandbox();
+    await app.inject({ method: "POST", url: "/v1/freeze", headers: as(one.ownerToken) });
+    expect((await app.inject({ method: "GET", url: "/health" })).json()).toMatchObject({ hosted: true, frozen: false });
+    const check = await app.inject({
+      method: "POST",
+      url: "/v1/check",
+      payload: { requestId: crypto.randomUUID(), agentId: "x", ownerId: "someone-else.near", payee: "acme-sh0p.near", asset: "wNEAR", amount: "1", purpose: "t", createdAt: new Date().toISOString() },
+    });
+    expect(check.json().decision).toBe("BLOCK");
+  });
+});
+
+describe("the hosted server", () => {
+  it("won't start with live mode or any mainnet setting", () => {
+    expect(() => assertNoMainnetKeys({ WARDY_MODE: "live" })).toThrow(/live/);
+    for (const name of ["NEAR_INTENTS_AGENT_API_KEY", "WARDY_GRANT_TOKEN", "WARDY_AGENT_ID", "AGENT_OWNER_PRIVATE_KEY"]) {
+      expect(() => assertNoMainnetKeys({ [name]: "x" }), name).toThrow(name);
+    }
+    expect(() => assertNoMainnetKeys({ WARDY_MODE: "offline" })).not.toThrow();
+  });
+
+  it("serves only files inside the dashboard's folder", () => {
+    const root = temp();
+    mkdirSync(join(root, "assets"));
+    writeFileSync(join(root, "assets", "app.js"), "ok");
+    writeFileSync(join(root, "..", "secret.txt"), "no");
+    expect(staticFile("/assets/app.js", root)).toBe(join(root, "assets", "app.js"));
+    for (const path of ["/../secret.txt", "/%2e%2e/secret.txt", "/assets/../../secret.txt", "/assets/", "/nope.js"]) {
+      expect(staticFile(path, root), path).toBeUndefined();
+    }
+    rmSync(join(root, "..", "secret.txt"), { force: true });
+  });
+
+  it("gives a browser the dashboard and an agent the JSON, with safety headers", async () => {
+    const { app } = await server();
+    const page = await app.inject({ method: "GET", url: "/", headers: { accept: "text/html" } });
+    expect(page.body).toContain("<title>dash</title>");
+    expect(page.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+    expect((await app.inject({ method: "GET", url: "/" })).json().name).toBe("Wardy Agent");
+    expect((await app.inject({ method: "GET", url: "/approve/abc" })).body).toContain("<title>dash</title>");
+    expect((await app.inject({ method: "GET", url: "/v1/nothing" })).statusCode).toBe(404);
+  });
+});

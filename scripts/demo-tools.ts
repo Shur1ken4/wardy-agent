@@ -22,7 +22,9 @@ export function demoTools(wiring: Pick<Wiring, "mode" | "agentToken" | "service"
           await inject({
             method: "POST",
             url: other ? "/v1/check" : "/v1/pay",
-            headers: other ? {} : { authorization: `Bearer ${wiring.agentToken}` },
+            // The other owner's check carries this credential too, only so a hosted server sends it to this visitor's
+            // sandbox, whose Network has the report. It asks as another owner, so it reads none of this owner's history.
+            headers: { authorization: `Bearer ${wiring.agentToken}` },
             payload: {
               requestId: crypto.randomUUID(),
               agentId: other ? "agent-b" : "procure-bot",

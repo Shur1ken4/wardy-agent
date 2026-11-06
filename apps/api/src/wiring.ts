@@ -128,6 +128,8 @@ export interface WireOverrides {
   anchorFile?: string;
   /** Where testnet's throw-away secrets live, if not with the data. So a fresh ledger can keep the same reporter. */
   secretsDir?: string;
+  /** On an instance with many owners, approval links name this one, so the link reaches the right owner. */
+  tenantKey?: string;
 }
 
 export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wiring> {
@@ -218,7 +220,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     fleetOwnerId,
     policy,
     // After the #, because browsers never send that part to a server, so the token stays out of every request log.
-    approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}#token=${token}`,
+    approvalUrl: (verdictId, token) => `${webUrl}/approve/${verdictId}#token=${token}${overrides.tenantKey ? `&t=${overrides.tenantKey}` : ""}`,
   });
   const reporting: Reporting = {
     report: async (verdict) => {

@@ -173,7 +173,11 @@ export function Live() {
             ) : null}
             <Link className="btn btn-secondary" to="/agents">Connect an agent</Link>
           </div>
-          {demo ? <p className="note hero-note">Real checks on made-up payments. Nothing leaves this machine.</p> : null}
+          {demo ? (
+            <p className="note hero-note">
+              {health?.hosted ? "Real checks on made-up payments, in a demo of your own. Nothing real is paid." : "Real checks on made-up payments. Nothing leaves this machine."}
+            </p>
+          ) : null}
           {error ? <ErrorNote>{error}</ErrorNote> : null}
         </div>
       </section>

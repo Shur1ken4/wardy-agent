@@ -34,6 +34,7 @@
     "agent": "tsx apps/demo-agent/src/cli.ts",
     "dev": "tsx scripts/dev.ts",
     "build:web": "npm run build -w @wardy-agent/web",
+    "serve": "tsx scripts/serve.ts",
     "test:ui": "tsx scripts/ui-check.ts",
     "verify-audit": "tsx scripts/verify-audit.ts",
     "network:seed": "tsx scripts/seed-network.ts",

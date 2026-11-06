@@ -9,6 +9,17 @@ import { approvalQuestion, executionWords, formatAmount, lookalikeSignal, shortH
 
 const TOKEN_KEY = "wardy-agent-approval-";
 
+/** On a server with many owners, the link also names whose payment it is. Read before the token clears the address. */
+export function takeTenant(verdictId: string): string | undefined {
+  const fromLink = new URLSearchParams(window.location.hash.slice(1)).get("t");
+  try {
+    if (fromLink) sessionStorage.setItem(`${TOKEN_KEY}${verdictId}-owner`, fromLink);
+    return fromLink ?? sessionStorage.getItem(`${TOKEN_KEY}${verdictId}-owner`) ?? undefined;
+  } catch {
+    return fromLink ?? undefined;
+  }
+}
+
 /** Takes the token out of the address bar, so it isn't left in history or a screenshot. A reload still works. */
 export function takeToken(verdictId: string): string | null {
   const fromLink = new URLSearchParams(window.location.hash.slice(1)).get("token");
@@ -118,6 +129,7 @@ type State =
   | { kind: "done"; verdict: VerdictView };
 
 export function Approve({ verdictId }: { verdictId: string }) {
+  const [tenant] = useState(() => takeTenant(verdictId));
   const [token] = useState(() => takeToken(verdictId));
   const [state, setState] = useState<State>(token ? { kind: "loading" } : { kind: "no-token" });
   const [busy, setBusy] = useState(false);
@@ -133,7 +145,7 @@ export function Approve({ verdictId }: { verdictId: string }) {
       },
       () => undefined,
     );
-    api.previewHold(verdictId, token).then(
+    api.previewHold(verdictId, token, tenant).then(
       (answer) => {
         if (stopped) return;
         setState(answer.open ? { kind: "open", verdict: answer.verdict, expiresAt: answer.expiresAt } : { kind: "done", verdict: answer.verdict });
@@ -146,13 +158,13 @@ export function Approve({ verdictId }: { verdictId: string }) {
     return () => {
       stopped = true;
     };
-  }, [verdictId, token, framed]);
+  }, [verdictId, token, tenant, framed]);
 
   const decide = async (action: "approve" | "reject") => {
     if (!token || state.kind !== "open") return;
     setBusy(true);
     try {
-      setState({ kind: "done", verdict: await api.decideHold(verdictId, action, token) });
+      setState({ kind: "done", verdict: await api.decideHold(verdictId, action, token, tenant) });
     } catch (caught) {
       // Frozen, for one: the payment is still waiting, so the choices stay on screen.
       setState({ ...state, note: (caught as Error).message });

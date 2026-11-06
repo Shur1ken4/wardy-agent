@@ -70,6 +70,8 @@ export interface Health {
   provider: string;
   frozen: boolean;
   demoTools: boolean;
+  /** On a hosted server, where each visitor gets their own sandbox. */
+  hosted?: boolean;
 }
 
 export interface Stats {
@@ -120,8 +122,12 @@ export const api = {
   lookup: (payee: string, chain = "near") => call<PayeeLookup>(`/v1/network/payee/${encodeURIComponent(chain)}/${encodeURIComponent(payee)}`),
   networkFeed: (limit = 100) => call<{ reports: FeedEntry[]; anchor: AnchorSummary | null }>(`/v1/network/reports?limit=${limit}`),
   revokeReport: (id: string) => call<{ revoked: boolean }>(`/v1/network/reports/${encodeURIComponent(id)}/revoke`, { method: "POST" }),
-  previewHold: (id: string, ownerToken: string) => postJson<HoldPreview>(`/v1/approve/${encodeURIComponent(id)}/preview`, { ownerToken }),
-  decideHold: (id: string, action: "approve" | "reject", ownerToken: string) => postJson<VerdictView>(`/v1/approve/${encodeURIComponent(id)}`, { action, ownerToken }),
+  previewHold: (id: string, ownerToken: string, tenant?: string) =>
+    postJson<HoldPreview>(`/v1/approve/${encodeURIComponent(id)}/preview`, { ownerToken, ...(tenant ? { tenant } : {}) }),
+  decideHold: (id: string, action: "approve" | "reject", ownerToken: string, tenant?: string) =>
+    postJson<VerdictView>(`/v1/approve/${encodeURIComponent(id)}`, { action, ownerToken, ...(tenant ? { tenant } : {}) }),
+  /** A hosted server's own demo for this visitor. Nothing real behind it. */
+  sandbox: () => call<{ key: string; ownerToken: string; agentToken: string }>("/v1/sandbox", { method: "POST" }),
   playTraffic: () => call<{ started: boolean }>("/v1/demo/traffic", { method: "POST" }),
   check: (request: Record<string, unknown>) => postJson<VerdictView>("/v1/check", request),
 };

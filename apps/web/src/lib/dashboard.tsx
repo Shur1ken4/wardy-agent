@@ -96,9 +96,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     let timer: ReturnType<typeof setTimeout>;
     const connect = async () => {
       try {
-        const answer = await api.health();
+        let answer = await api.health();
         if (stopped) return;
-        const known = answer.mode === "offline" ? OFFLINE_OWNER_CREDENTIAL : savedCredential();
+        let known = answer.mode === "offline" && !answer.hosted ? OFFLINE_OWNER_CREDENTIAL : savedCredential();
+        // A hosted server gives each visitor their own sandbox, kept for this tab, so nobody shares a demo. One the server
+        // has since cleared away is replaced, rather than leaving the page locked.
+        if (answer.hosted) {
+          setApiCredential(known);
+          const stillThere = known ? await api.stats().then(() => true, () => false) : false;
+          if (!stillThere) {
+            known = (await api.sandbox()).ownerToken;
+            saveCredential(known);
+            setApiCredential(known);
+          }
+          answer = await api.health();
+          if (stopped) return;
+        }
         // Before any state changes, because a child's effects run first and may call the API straight away.
         setApiCredential(known);
         setHealth(answer);

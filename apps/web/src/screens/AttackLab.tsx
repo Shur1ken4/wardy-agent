@@ -244,7 +244,7 @@ export function AttackLab() {
       {status === "idle" && available ? (
         <section className="section card">
           <Empty title="Nothing has run yet">
-            <p>Press <strong>Run Attack Lab</strong> to see each attack play out. It takes a few seconds, and nothing leaves this machine.</p>
+            <p>Press <strong>Run Attack Lab</strong> to see each attack play out. It takes a few seconds, and {health?.hosted ? "it runs on mock ledgers, so nothing real is paid" : "nothing leaves this machine"}.</p>
           </Empty>
         </section>
       ) : null}
