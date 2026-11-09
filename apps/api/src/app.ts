@@ -6,7 +6,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { type NetworkSource, type PaymentService, RequestIdConflictError, ServiceError, type Verdict, type VerdictView } from "@wardy-agent/core";
-import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from "fastify";
 import { z, ZodError } from "zod";
 import { LLMS_TXT } from "./llms.js";
 
@@ -68,12 +68,18 @@ export interface AppOptions {
   tenancy?: Tenancy;
   /** Extra routes on the same instance, such as sign-in on a hosted one. */
   extend?(app: FastifyInstance): void | Promise<void>;
-  /** Behind a hosting proxy, so rate limits count each visitor, not the proxy. */
-  trustProxy?: boolean;
+  /**
+   * Behind a hosting proxy, so rate limits count each visitor, not the proxy. A number trusts only that many proxies in
+   * front: `true` would trust whatever X-Forwarded-For a visitor sends, and so let them pick their own address.
+   */
+  trustProxy?: boolean | number;
+  /** How many live feeds one owner may hold open at once. Each is a connection the server keeps. */
+  maxStreamsPerOwner?: number;
   /** The dashboard, for a browser that opens `/`. An agent asking for `/` still gets the JSON. */
   indexHtml?(): string;
   corsOrigins?: string[];
   checkRateLimitPerMinute?: number;
+  payRateLimitPerMinute?: number;
   networkRateLimitPerMinute?: number;
   logger?: boolean | object;
   earnings?(): Earnings;
@@ -135,12 +141,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   /** The owner's or their agent's: either may ask about what that agent asked for. */
   const credentialed = (request: FastifyRequest): Tenant | undefined => tenancy.forOwner(bearer(request)) ?? tenancy.forAgent(bearer(request));
   const corsOrigins = options.corsOrigins ?? ["http://localhost:5173", "http://127.0.0.1:5173"];
-  const app = Fastify({
+  const serverOptions: FastifyServerOptions = {
     logger: (options.logger ?? false) as boolean | FastifyBaseLogger,
     bodyLimit: 256 * 1024,
     forceCloseConnections: true,
-    trustProxy: options.trustProxy ?? false,
-  });
+    // Fastify takes a number here too, but its types don't say so. This is what it does with one: trust that many hops.
+    trustProxy: typeof options.trustProxy === "number" ? ((hops: number) => (_address: string, hop: number) => hop < hops)(options.trustProxy) : (options.trustProxy ?? false),
+  };
+  const app = Fastify(serverOptions);
 
   await app.register(cors, { origin: corsOrigins });
   await app.register(rateLimit, { global: false });
@@ -194,7 +202,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (problem) throw new ServiceError(400, "payee_not_allowed", problem);
   };
 
-  app.post("/v1/pay", async (request) => {
+  // Counted per agent, not per address: the demo's own agents all call from this machine, and must not share one limit.
+  const perAgent = { max: options.payRateLimitPerMinute ?? 120, timeWindow: "1 minute", keyGenerator: (request: FastifyRequest) => `pay:${createHash("sha256").update(bearer(request)).digest("hex")}` };
+  app.post("/v1/pay", { config: { rateLimit: perAgent } }, async (request) => {
     const tenant = agentOf(request);
     payeeAllowed(tenant, request.body);
     return tenant.service.view(await tenant.service.pay(request.body));
@@ -352,8 +362,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   };
 
   // Live feed for the dashboard. Carries verdicts only, never an approval link.
+  const openStreams = new Map<string, number>();
   app.get("/v1/stream", async (request, reply) => {
-    const { service } = ownerOf(request);
+    const { service, key } = ownerOf(request);
+    const open = openStreams.get(key) ?? 0;
+    if (open >= (options.maxStreamsPerOwner ?? 20)) throw new ServiceError(429, "too_many_streams", "Too many live feeds are open. Close a tab and try again.");
+    openStreams.set(key, open + 1);
+    request.raw.on("close", () => {
+      const left = (openStreams.get(key) ?? 1) - 1;
+      if (left > 0) openStreams.set(key, left);
+      else openStreams.delete(key);
+    });
     const { raw, send } = openEventStream(request, reply);
     const onVerdict = (verdict: Verdict) => send("verdict", service.view(verdict));
     const onFrozen = (frozen: boolean) => send("frozen", { frozen });

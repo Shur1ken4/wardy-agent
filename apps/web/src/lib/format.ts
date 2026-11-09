@@ -72,6 +72,7 @@ export function executionWords(execution: VerdictExecution | undefined): string 
     case "refused":
       return execution.note ?? "Not paid";
     case "failed":
+      if (execution.failureCode === "server_daily_limit") return "This server's shared test wallet reached its limit for today. Nothing was sent.";
       return execution.note ?? "The payment failed. Nothing was sent.";
     case "uncertain":
       return "Couldn't confirm. The money may have moved, so it won't be retried.";

@@ -8,8 +8,8 @@ import { MockChainData, MockCustody } from "@wardy-agent/providers";
 import { base64 } from "@scure/base";
 import { KeyPair, KeyPairSigner } from "near-api-js";
 import { afterEach, describe, expect, it } from "vitest";
-import { SIGN_IN_MESSAGE, WalletSignIn } from "../auth.js";
-import { DailyCappedAnalyzer, type HostedOwners, ownerKey, testnetPayeeProblem } from "../hosted.js";
+import { MAX_SESSIONS_PER_ACCOUNT, SIGN_IN_MESSAGE, WalletSignIn } from "../auth.js";
+import { DailyCappedAnalyzer, type HostedOwners, ownerKey, PoolDailyCap, testnetPayeeProblem } from "../hosted.js";
 import { buildHostedApp } from "../serve.js";
 
 const dirs: string[] = [];
@@ -34,8 +34,8 @@ function owners(custody = new MockCustody({ "nep141:wrap.near": "10" })): Hosted
   };
 }
 
-async function server(dataRoot = temp(), withOwners = owners()) {
-  const { app, tenancy } = await buildHostedApp({ dataRoot, webUrl: "https://wardy.example", indexHtml: "<!doctype html>", dist: temp(), owners: withOwners });
+async function server(dataRoot = temp(), withOwners = owners(), signUpsPerAddressPerDay = 100) {
+  const { app, tenancy } = await buildHostedApp({ dataRoot, webUrl: "https://wardy.example", indexHtml: "<!doctype html>", dist: temp(), owners: withOwners, signUpsPerAddressPerDay });
   const as = (token: string) => ({ authorization: `Bearer ${token}` });
   const signIn = async (accountId: string) => {
     const keyPair = KeyPair.fromRandom("ed25519");
@@ -113,6 +113,8 @@ describe("signed-in owners", () => {
     const approved = await app.inject({ method: "POST", url: `/v1/approve/${held.verdictId}`, payload: { action: "approve", ownerToken: params.get("token"), tenant: params.get("t") } });
     expect(approved.json().execution.status).toBe("executed");
     expect(custody.transfers.map((transfer) => transfer.amount)).toEqual(["0.015"]);
+    const stats = (await app.inject({ method: "GET", url: "/v1/stats", headers: { authorization: `Bearer ${alice.sessionToken}` } })).json();
+    expect(stats.spentLast24h).toEqual([{ asset: "nep141:wrap.near", amount: "0.015" }]);
   });
 
   it("keep their agent and history after a restart, but must sign in again", async () => {
@@ -141,6 +143,32 @@ describe("signed-in owners", () => {
     expect((await app.inject({ method: "GET", url: "/v1/me", headers: as(alice.sessionToken) })).statusCode).toBe(401);
   });
 
+  it("see their account: since when, their agent's token and last call, and what they spent, never a token itself", async () => {
+    const { app, as, signIn, pay } = await server();
+    const alice = await signIn("alice.near");
+    const me = async () => (await app.inject({ method: "GET", url: "/v1/me", headers: as(alice.sessionToken) })).json();
+    const before = await me();
+    expect(before.signedUpAt).toMatch(/^\d{4}-/);
+    expect(before.agent.tokenMadeAt).toMatch(/^\d{4}-/);
+    expect(before.agent.lastSeenAt).toBeUndefined();
+
+    const paid = (await pay(alice.agentToken, "alice.near", { amount: "0.005" })).json();
+    const after = await me();
+    expect(after.agent.lastSeenAt).toMatch(/^\d{4}-/);
+    const shown = JSON.stringify(after);
+    expect(shown).not.toContain(alice.agentToken);
+    expect(shown).not.toContain(alice.sessionToken);
+    expect(Object.keys(after).sort()).toEqual(["agent", "kind", "ownerId", "signInAvailable", "signedUpAt"]);
+
+    const stats = (await app.inject({ method: "GET", url: "/v1/stats", headers: as(alice.sessionToken) })).json();
+    const settled = paid.execution?.status === "executed" ? [{ asset: "nep141:wrap.near", amount: "0.005" }] : [];
+    expect(stats.spentLast24h).toEqual(settled);
+
+    // A new token is a new agent: it hasn't called yet.
+    await app.inject({ method: "POST", url: "/v1/agent-token", headers: as(alice.sessionToken) });
+    expect((await me()).agent.lastSeenAt).toBeUndefined();
+  });
+
   it("can't sign in with a bad signature, and the server says so without detail", async () => {
     const { app } = await server();
     const { nonce } = (await app.inject({ method: "POST", url: "/v1/auth/challenge" })).json();
@@ -162,6 +190,52 @@ describe("signed-in owners", () => {
     const signed = await new KeyPairSigner(keyPair).signNep413Message("bob.near", { message, recipient, nonce: base64.decode(nonce) });
     const answer = await app.inject({ method: "POST", url: "/v1/auth/verify", payload: { accountId: "bob.near", publicKey: keyPair.getPublicKey().toString(), signature: base64.encode(signed.signature), nonce } });
     expect(answer.statusCode).toBe(503);
+  });
+});
+
+describe("abuse of sign-in", () => {
+  it("one address can make only a few new accounts a day, but anyone can sign back in", async () => {
+    const { app, signIn } = await server(temp(), owners(), 2);
+    await signIn("a1.testnet");
+    await signIn("a2.testnet");
+    await signIn("a1.testnet");
+    const keyPair = KeyPair.fromRandom("ed25519");
+    const { nonce, recipient, message } = (await app.inject({ method: "POST", url: "/v1/auth/challenge" })).json();
+    const signed = await new KeyPairSigner(keyPair).signNep413Message("a3.testnet", { message, recipient, nonce: base64.decode(nonce) });
+    const answer = await app.inject({ method: "POST", url: "/v1/auth/verify", payload: { accountId: "a3.testnet", publicKey: keyPair.getPublicKey().toString(), signature: base64.encode(signed.signature), nonce } });
+    expect(answer.statusCode).toBe(503);
+    expect(answer.json().message).toMatch(/Too many new accounts/);
+  });
+
+  it("an account keeps only its latest sessions, so signing in over and over can't fill memory", async () => {
+    const signIn = new WalletSignIn({ recipient: "wardy.example", fetchFn: fullAccess });
+    const keyPair = KeyPair.fromRandom("ed25519");
+    const session = async () => {
+      const { nonce, recipient, message } = signIn.challenge();
+      const signed = await new KeyPairSigner(keyPair).signNep413Message("alice.near", { message, recipient, nonce: base64.decode(nonce) });
+      return (await signIn.verify({ accountId: "alice.near", publicKey: keyPair.getPublicKey().toString(), signature: base64.encode(signed.signature), nonce })).sessionToken;
+    };
+    const first = await session();
+    const second = await session();
+    for (let i = 0; i < MAX_SESSIONS_PER_ACCOUNT - 1; i += 1) await session();
+    expect(signIn.session(first)).toBeUndefined();
+    expect(signIn.session(second)).toBe("alice.near");
+  });
+});
+
+describe("the shared test wallet's daily cap", () => {
+  it("refuses past the server's limit for the day, before anything is sent, and gives back a proven failure", async () => {
+    let now = Date.parse("2026-11-09T10:00:00Z");
+    const inner = new MockCustody({ "nep141:wrap.near": "10" });
+    const pool = new PoolDailyCap(inner, "0.03", () => now);
+    const send = (amount: string) => pool.transfer({ to: SHOP, asset: "nep141:wrap.near", amount, memo: "m", idempotencyKey: crypto.randomUUID() });
+    expect((await send("0.02")).status).toBe("executed");
+    const refused = await send("0.02");
+    expect(refused).toMatchObject({ status: "failed", failureCode: "server_daily_limit" });
+    expect(inner.transfers).toHaveLength(1);
+    expect((await send("0.01")).status).toBe("executed");
+    now += 24 * 60 * 60_000;
+    expect((await send("0.02")).status).toBe("executed");
   });
 });
 

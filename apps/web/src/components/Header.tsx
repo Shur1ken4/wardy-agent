@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { agentWords, type OwnerMe, spentOfBudget } from "../lib/account";
 import { saveCredential } from "../lib/api";
+import { assetLabel } from "../lib/format";
 import { useDashboard } from "../lib/dashboard";
 import { Link } from "../lib/router";
 import { WardyShield } from "./WardyShield";
@@ -109,8 +111,70 @@ function SignInWithNear() {
   );
 }
 
+/** A signed-in owner on a hosted server: their account, and what matters about it at a glance. */
+function AccountMenu({ account }: { account: OwnerMe }) {
+  const { stats, policy, signOut } = useDashboard();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const agent = agentWords(account);
+  const rules = policy?.policy;
+
+  // Closes on a tap elsewhere, on Escape, and when a link inside is followed.
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: PointerEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  return (
+    <div className="account-menu" ref={box}>
+      <button type="button" className="btn btn-secondary account-button" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(!open)} title={account.ownerId}>
+        <span className={`account-dot account-dot-${agent.state}`} aria-hidden="true" />
+        <span className="account-name">{account.ownerId}</span>
+        <span className="account-short">Account</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {open ? (
+        <div className="account-popover" role="dialog" aria-label="Your account">
+          <div>
+            <div className="account-full">{account.ownerId}</div>
+            <div className="note">NEAR testnet · test tokens, not real money</div>
+          </div>
+          <dl className="facts">
+            <dt>Agent</dt>
+            <dd>{agent.text}</dd>
+            {rules ? (
+              <>
+                <dt>Last 24 hours</dt>
+                <dd className="mono">{spentOfBudget(stats, rules)} of {rules.dailyBudget} {assetLabel(rules.allowedAssets[0] ?? "")}</dd>
+              </>
+            ) : null}
+            <dt>Waiting for you</dt>
+            <dd className="mono">{stats?.heldNow ?? 0}</dd>
+          </dl>
+          <div className="account-popover-actions">
+            <Link className="btn btn-secondary" to="/account" onClick={() => setOpen(false)}>Your account</Link>
+            <button type="button" className="btn btn-secondary" onClick={signOut}>Sign out</button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function Header({ path }: { path: string }) {
-  const { health, reaction, policy, signedIn, signOut } = useDashboard();
+  const { health, reaction, policy, signedIn, signOut, account } = useDashboard();
+  const owner = account?.kind === "owner" ? account : null;
   const nav = useRef<HTMLElement>(null);
   // On a phone the tabs scroll sideways, so the current one is brought into view.
   useEffect(() => {
@@ -134,9 +198,20 @@ export function Header({ path }: { path: string }) {
           ))}
         </nav>
         <div className="header-side">
-          {health ? <span className="policy-chip">{policyChipText(health.mode, health.provider)}</span> : null}
-          {policy ? <span className="owner">{policy.ownerId}</span> : null}
-          {signedIn ? <button type="button" className="btn btn-freeze" onClick={signOut}>Sign out</button> : null}
+          {/* A signed-in owner's menu says it all, so the header keeps room for the tabs. */}
+          {owner ? (
+            <AccountMenu account={owner} />
+          ) : (
+            <>
+              {account?.kind === "sandbox" ? (
+                <span className="policy-chip sandbox-chip" title="Your own demo. Nothing real, and it's cleared after a while.">Demo sandbox</span>
+              ) : health ? (
+                <span className="policy-chip">{policyChipText(health.mode, health.provider)}</span>
+              ) : null}
+              {policy && !health?.hosted ? <span className="owner">{policy.ownerId}</span> : null}
+              {signedIn && !health?.hosted ? <button type="button" className="btn btn-freeze" onClick={signOut}>Sign out</button> : null}
+            </>
+          )}
           <SignInWithNear />
           <FreezeButton />
         </div>

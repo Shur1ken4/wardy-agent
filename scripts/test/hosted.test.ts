@@ -118,13 +118,46 @@ describe("the hosted server", () => {
     expect(() => assertNoMainnetKeys({ WARDY_MODE: "offline" })).not.toThrow();
   });
 
+  it("won't sign with the key that signed real verdicts: it makes its own", () => {
+    expect(() => assertNoMainnetKeys({ WARDY_SIGNING_KEY: "x" })).toThrow(/its own signing key/);
+  });
+
+  it("believes only its own proxy about who a visitor is, so a made-up X-Forwarded-For can't dodge a limit", async () => {
+    const { app } = await server();
+    const codes: number[] = [];
+    for (let i = 0; i < 11; i += 1) {
+      // Each claims to be someone new. The proxy adds the real address last, which is the one that counts.
+      const answer = await app.inject({ method: "POST", url: "/v1/sandbox", headers: { "x-forwarded-for": `10.0.0.${i}, 203.0.113.7` } });
+      codes.push(answer.statusCode);
+    }
+    expect(codes.slice(0, 10).every((code) => code === 200)).toBe(true);
+    expect(codes[10]).toBe(429);
+  });
+
+  it("holds only a few live feeds open per visitor", async () => {
+    const { app, sandbox, as } = await server();
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const { ownerToken } = await sandbox();
+    const { port } = app.server.address() as { port: number };
+    const controllers = Array.from({ length: 6 }, () => new AbortController());
+    const statuses: number[] = [];
+    for (const controller of controllers) {
+      const answer = await fetch(`http://127.0.0.1:${port}/v1/stream`, { headers: as(ownerToken), signal: controller.signal });
+      statuses.push(answer.status);
+    }
+    expect(statuses.slice(0, 5)).toEqual([200, 200, 200, 200, 200]);
+    expect(statuses[5]).toBe(429);
+    for (const controller of controllers) controller.abort();
+    await app.close();
+  });
+
   it("serves only files inside the dashboard's folder", () => {
     const root = temp();
     mkdirSync(join(root, "assets"));
     writeFileSync(join(root, "assets", "app.js"), "ok");
     writeFileSync(join(root, "..", "secret.txt"), "no");
     expect(staticFile("/assets/app.js", root)).toBe(join(root, "assets", "app.js"));
-    for (const path of ["/../secret.txt", "/%2e%2e/secret.txt", "/assets/../../secret.txt", "/assets/", "/nope.js"]) {
+    for (const path of ["/../secret.txt", "/%2e%2e/secret.txt", "/assets/../../secret.txt", "/assets/", "/nope.js", "/%E0%A4%A", "/assets/app.js%00.png"]) {
       expect(staticFile(path, root), path).toBeUndefined();
     }
     rmSync(join(root, "..", "secret.txt"), { force: true });
@@ -138,5 +171,7 @@ describe("the hosted server", () => {
     expect((await app.inject({ method: "GET", url: "/" })).json().name).toBe("Wardy Agent");
     expect((await app.inject({ method: "GET", url: "/approve/abc" })).body).toContain("<title>dash</title>");
     expect((await app.inject({ method: "GET", url: "/v1/nothing" })).statusCode).toBe(404);
+    // A broken address is just a page that isn't there, not a server error.
+    expect((await app.inject({ method: "GET", url: "/%E0%A4%A" })).statusCode).toBeLessThan(500);
   });
 });

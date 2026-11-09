@@ -60,6 +60,9 @@ export interface WalletSignInOptions {
   sessionTtlMs?: number;
 }
 
+/** Signed in on this many browsers at once. A new sign-in past it ends the oldest. */
+export const MAX_SESSIONS_PER_ACCOUNT = 10;
+
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export class WalletSignIn {
@@ -106,8 +109,17 @@ export class WalletSignIn {
       throw new SignInError("That key isn't a full-access key of this account on NEAR.");
     }
 
+    // Old sessions go, and one account keeps only its latest few, so signing in again and again can't fill memory.
+    const now = this.now();
+    const mine: string[] = [];
+    for (const [hash, session] of this.sessions) {
+      if (session.expiresAt <= now) this.sessions.delete(hash);
+      else if (session.ownerId === input.accountId) mine.push(hash);
+    }
+    for (const hash of mine.slice(0, Math.max(0, mine.length - (MAX_SESSIONS_PER_ACCOUNT - 1)))) this.sessions.delete(hash);
+
     const sessionToken = randomBytes(32).toString("hex");
-    const until = this.now() + (this.options.sessionTtlMs ?? 7 * 24 * 60 * 60_000);
+    const until = now + (this.options.sessionTtlMs ?? 7 * 24 * 60 * 60_000);
     this.sessions.set(hashToken(sessionToken), { ownerId: input.accountId, expiresAt: until });
     return { ownerId: input.accountId, sessionToken, expiresAt: new Date(until).toISOString() };
   }

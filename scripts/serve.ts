@@ -10,7 +10,7 @@ import { generateSigningKey, ServiceError } from "@wardy-agent/core";
 import { NearAiContextAnalyzer, OutLayerCustody } from "@wardy-agent/providers";
 import type { FastifyRequest } from "fastify";
 import { SignInBody, SignInError, WalletSignIn } from "./auth.js";
-import { DailyCappedAnalyzer, HostedTenancy, type HostedOwners } from "./hosted.js";
+import { DailyCappedAnalyzer, HostedTenancy, type HostedOwners, PoolDailyCap } from "./hosted.js";
 
 const MAINNET_SETTINGS = ["NEAR_INTENTS_AGENT_API_KEY", "WARDY_GRANT_TOKEN", "WARDY_AGENT_ID", "AGENT_OWNER_PRIVATE_KEY"];
 const DIST = fileURLToPath(new URL("../apps/web/dist/", import.meta.url));
@@ -44,11 +44,21 @@ export function assertNoMainnetKeys(env: NodeJS.ProcessEnv) {
   if (env.WARDY_MODE === "live") throw new Error("The hosted server won't run live mode. Real money stays on your own computer.");
   const found = MAINNET_SETTINGS.filter((name) => env[name]);
   if (found.length > 0) throw new Error(`The hosted server won't start with mainnet settings present: ${found.join(", ")}. Remove them from its environment.`);
+  // The key that signed real mainnet verdicts must not also sign whatever strangers do here, or their verdicts would look
+  // like ours. The server makes its own key and keeps it with its data.
+  if (env.WARDY_SIGNING_KEY) throw new Error("The hosted server makes its own signing key. Remove WARDY_SIGNING_KEY from its environment.");
 }
 
 /** A file from the built dashboard, or undefined. Never outside it, whatever the path says. */
 export function staticFile(urlPath: string, root = DIST): string | undefined {
-  const clean = normalize(decodeURIComponent(urlPath.split("?")[0] ?? "/")).replace(/^([/\\])+/, "");
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(urlPath.split("?")[0] ?? "/");
+  } catch {
+    return undefined; // A broken %-escape names no file.
+  }
+  if (decoded.includes("\0")) return undefined;
+  const clean = normalize(decoded).replace(/^([/\\])+/, "");
   const path = join(root, clean);
   if (!path.startsWith(root.endsWith(sep) ? root : root + sep)) return undefined;
   return existsSync(path) && statSync(path).isFile() ? path : undefined;
@@ -59,7 +69,20 @@ const bearerOf = (request: FastifyRequest) => {
   return header.startsWith("Bearer ") ? header.slice(7) : "";
 };
 
-export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST, owners }: { dataRoot: string; webUrl: string; indexHtml: string; dist?: string; owners?: HostedOwners }) {
+export interface HostedAppOptions {
+  dataRoot: string;
+  webUrl: string;
+  indexHtml: string;
+  dist?: string;
+  owners?: HostedOwners;
+  /** How many proxies stand in front, such as Fly.io's one. Only their X-Forwarded-For entries are believed. */
+  proxyHops?: number;
+  /** New accounts one address may sign up in a day, so free testnet accounts can't fill the server. */
+  signUpsPerAddressPerDay?: number;
+  now?: () => number;
+}
+
+export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST, owners, proxyHops = 1, signUpsPerAddressPerDay = 3, now = Date.now }: HostedAppOptions) {
   const tenancy = await HostedTenancy.create({ dataRoot, webUrl, ...(owners ? { owners } : {}) });
   const fallback = tenancy.fallback();
   const app = await buildApp({
@@ -70,7 +93,8 @@ export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST,
     ownerToken: randomBytes(24).toString("hex"),
     mode: "offline",
     tenancy,
-    trustProxy: true,
+    trustProxy: proxyHops,
+    maxStreamsPerOwner: 5,
     corsOrigins: [webUrl],
     indexHtml: () => indexHtml,
     logger: { level: "warn", serializers: { req: (request: { method: string; routeOptions?: { url?: string } }) => ({ method: request.method, route: request.routeOptions?.url }) } },
@@ -102,6 +126,7 @@ export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST,
       });
 
       if (owners) {
+        let signUps = { day: "", byAddress: new Map<string, number>() };
         server.post("/v1/auth/challenge", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async () => {
           try {
             return owners.signIn.challenge();
@@ -120,6 +145,13 @@ export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST,
             throw error;
           }
           try {
+            if (!tenancy.hasOwner(session.ownerId)) {
+              const day = new Date(now()).toISOString().slice(0, 10);
+              if (signUps.day !== day) signUps = { day, byAddress: new Map() };
+              const made = signUps.byAddress.get(request.ip) ?? 0;
+              if (made >= signUpsPerAddressPerDay) throw new Error("Too many new accounts from your network today. Try again tomorrow.");
+              signUps.byAddress.set(request.ip, made + 1);
+            }
             await tenancy.ensureOwner(session.ownerId);
           } catch (error) {
             owners.signIn.logout(session.sessionToken);
@@ -154,7 +186,7 @@ export function hostedOwners(env: NodeJS.ProcessEnv, dataRoot: string, webUrl: s
   const outlayerKey = env.OUTLAYER_API_KEY;
   if (!outlayerKey) return undefined;
   // One Wardy key signs every owner's verdicts. Kept with the data if it isn't set, so a restart keeps it.
-  let signingKey = env.WARDY_SIGNING_KEY;
+  let signingKey = env.WARDY_HOSTED_SIGNING_KEY;
   if (!signingKey) {
     const file = join(dataRoot, "signing-key");
     mkdirSync(dataRoot, { recursive: true });
@@ -167,7 +199,7 @@ export function hostedOwners(env: NodeJS.ProcessEnv, dataRoot: string, webUrl: s
     : undefined;
   return {
     signIn: new WalletSignIn({ recipient: new URL(webUrl).host }),
-    custody: new OutLayerCustody({ apiUrl: env.OUTLAYER_API_URL || "https://testnet-api.outlayer.ai", apiKey: outlayerKey }),
+    custody: new PoolDailyCap(new OutLayerCustody({ apiUrl: env.OUTLAYER_API_URL || "https://testnet-api.outlayer.ai", apiKey: outlayerKey }), env.WARDY_POOL_DAILY_LIMIT || "1"),
     env: { WARDY_SIGNING_KEY: signingKey, ...(env.NEAR_TESTNET_RPC_URL ? { NEAR_TESTNET_RPC_URL: env.NEAR_TESTNET_RPC_URL } : {}) },
     ...(analyzer ? { analyzer } : {}),
     maxOwners: Number(env.WARDY_MAX_OWNERS || 500),
@@ -181,7 +213,13 @@ async function main() {
   const webUrl = (process.env.WARDY_PUBLIC_URL || `http://localhost:${port}`).replace(/\/$/, "");
   const dataRoot = process.env.WARDY_DATA_DIR || join(".data", "hosted");
   const owners = hostedOwners(process.env, dataRoot, webUrl);
-  const { app, tenancy } = await buildHostedApp({ dataRoot, webUrl, indexHtml: readFileSync(join(DIST, "index.html"), "utf8"), ...(owners ? { owners } : {}) });
+  const { app, tenancy } = await buildHostedApp({
+    dataRoot,
+    webUrl,
+    indexHtml: readFileSync(join(DIST, "index.html"), "utf8"),
+    proxyHops: Number(process.env.WARDY_PROXY_HOPS || 1),
+    ...(owners ? { owners } : {}),
+  });
 
   const sweep = setInterval(() => tenancy.sweep(), 10 * 60_000);
   const stop = async () => {

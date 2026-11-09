@@ -80,9 +80,16 @@ export interface Stats {
   heldNow: number;
   paidToday: number;
   saved: { asset: string; amount: string }[];
+  /** Settled in the last 24 hours, the window the daily budget uses. */
+  spentLast24h?: { asset: string; amount: string }[];
   checksForOthers: number;
   earned: { checksSold: number; revenue: { currency: string; amount: string }[] };
 }
+
+/** Who this browser is on a hosted server: a signed-in account, or a visitor's sandbox. */
+export type Me =
+  | { kind: "owner"; ownerId: string; signedUpAt?: string; agent: { tokenMadeAt?: string; lastSeenAt?: string }; signInAvailable: boolean }
+  | { kind: "sandbox"; signInAvailable: boolean };
 
 export interface PolicyView {
   policy: OwnerPolicy;
@@ -128,7 +135,7 @@ export const api = {
     postJson<VerdictView>(`/v1/approve/${encodeURIComponent(id)}`, { action, ownerToken, ...(tenant ? { tenant } : {}) }),
   /** A hosted server's own demo for this visitor. Nothing real behind it. */
   sandbox: () => call<{ key: string; ownerToken: string; agentToken: string }>("/v1/sandbox", { method: "POST" }),
-  me: () => call<{ kind: "owner"; ownerId: string; signInAvailable: boolean } | { kind: "sandbox"; signInAvailable: boolean }>("/v1/me"),
+  me: () => call<Me>("/v1/me"),
   signInChallenge: () => call<{ message: string; recipient: string; nonce: string }>("/v1/auth/challenge", { method: "POST" }),
   signInVerify: (body: { accountId: string; publicKey: string; signature: string; nonce: string }) => postJson<{ ownerId: string; sessionToken: string; expiresAt: string }>("/v1/auth/verify", body),
   signOut: () => call<{ signedOut: boolean }>("/v1/auth/logout", { method: "POST" }),

@@ -5,6 +5,7 @@ import { ErrorNote, Page } from "./components/parts";
 import { VerdictPanel } from "./components/VerdictPanel";
 import { DashboardProvider, useDashboard } from "./lib/dashboard";
 import { useLocation, withVerdict, navigate } from "./lib/router";
+import { Account } from "./screens/Account";
 import { Agents } from "./screens/Agents";
 import { Approve } from "./screens/Approve";
 import { AttackLab } from "./screens/AttackLab";
@@ -49,6 +50,8 @@ function Console() {
         return <Earnings />;
       case "/agents":
         return <Agents />;
+      case "/account":
+        return <Account />;
       default:
         return <NotFound />;
     }

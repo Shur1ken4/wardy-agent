@@ -6,7 +6,17 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import { SEED_FEED_FILE } from "@wardy-agent/attack-lab";
 import { type Tenancy, type Tenant, wire, type Wiring } from "@wardy-agent/api";
-import { type AccountFactsSource, type ContextAnalysis, type ContextAnalyzer, type CustodyProvider, OwnerPolicySchema, parseFeed } from "@wardy-agent/core";
+import {
+  type AccountFactsSource,
+  type ContextAnalysis,
+  type ContextAnalyzer,
+  type CustodyProvider,
+  type CustodyResult,
+  type CustodyTransfer,
+  OwnerPolicySchema,
+  parseDecimal,
+  parseFeed,
+} from "@wardy-agent/core";
 import type { WalletSignIn } from "./auth.js";
 import { demoTools } from "./demo-tools.js";
 
@@ -45,6 +55,45 @@ export class DailyCappedAnalyzer implements ContextAnalyzer {
   }
 }
 
+/**
+ * The shared test wallet, with a limit for the whole server each day. Each owner has their own limit, but testnet
+ * accounts are free to make, so many sign-ups together could otherwise empty it. Past the limit a payment fails before
+ * anything is sent, and it says so.
+ */
+export class PoolDailyCap implements CustodyProvider {
+  readonly name: string;
+  private day = "";
+  private spent = new Map<string, bigint>();
+
+  constructor(
+    private readonly inner: CustodyProvider,
+    private readonly perDay: string,
+    private readonly now: () => number = Date.now,
+  ) {
+    this.name = inner.name;
+  }
+
+  async transfer(request: CustodyTransfer): Promise<CustodyResult> {
+    const today = new Date(this.now()).toISOString().slice(0, 10);
+    if (today !== this.day) {
+      this.day = today;
+      this.spent = new Map();
+    }
+    const amount = parseDecimal(request.amount);
+    const before = this.spent.get(request.asset) ?? 0n;
+    if (before + amount > parseDecimal(this.perDay)) return { status: "failed", provider: this.name, failureCode: "server_daily_limit" };
+    // Counted before it's sent, so two at once can't both slip under the limit. Only a proven failure gives it back.
+    this.spent.set(request.asset, before + amount);
+    const result = await this.inner.transfer(request);
+    if (result.status === "failed") this.spent.set(request.asset, (this.spent.get(request.asset) ?? amount) - amount);
+    return result;
+  }
+
+  balanceNearEquivalent(): Promise<number> {
+    return this.inner.balanceNearEquivalent?.() ?? Promise.resolve(0);
+  }
+}
+
 export interface HostedOwners {
   signIn: WalletSignIn;
   /** One pooled testnet wallet. Each owner's own small limits keep any one of them from emptying it. */
@@ -71,7 +120,21 @@ export interface HostedOptions {
 interface OwnerRecord {
   ownerId: string;
   agentTokenHash?: string;
+  signedUpAt?: string;
+  agentTokenMadeAt?: string;
+  /** When this owner's agent last called, to the minute. */
+  agentLastSeenAt?: string;
 }
+
+/** What the dashboard shows a signed-in owner about their account. Never a token or its hash. */
+export interface OwnerAccount {
+  kind: "owner";
+  ownerId: string;
+  signedUpAt?: string;
+  agent: { tokenMadeAt?: string; lastSeenAt?: string };
+}
+
+const SEEN_EVERY_MS = 60_000;
 
 export interface SandboxCredentials {
   key: string;
@@ -122,6 +185,10 @@ export class HostedTenancy implements Tenancy {
     return tenancy;
   }
 
+  hasOwner(ownerId: string): boolean {
+    return this.owners.has(ownerId);
+  }
+
   get ownerCount(): number {
     return this.owners.size;
   }
@@ -161,7 +228,7 @@ export class HostedTenancy implements Tenancy {
     const known = this.owners.get(ownerId);
     if (known) return known.tenant;
     if (this.owners.size >= (this.options.owners?.maxOwners ?? 500)) throw new Error("This server is full right now. Try the demo instead.");
-    const record: OwnerRecord = { ownerId };
+    const record: OwnerRecord = { ownerId, signedUpAt: new Date(this.now()).toISOString() };
     this.saveOwner(record);
     return this.loadOwner(record);
   }
@@ -175,7 +242,8 @@ export class HostedTenancy implements Tenancy {
       const owner = this.owners.get(ownerId);
       if (!owner) return undefined;
       if (owner.record.agentTokenHash) this.ownerByAgentHash.delete(owner.record.agentTokenHash);
-      owner.record = { ...owner.record, agentTokenHash: hash(token) };
+      const { agentLastSeenAt: _old, ...rest } = owner.record;
+      owner.record = { ...rest, agentTokenHash: hash(token), agentTokenMadeAt: new Date(this.now()).toISOString() };
       this.saveOwner(owner.record);
       this.ownerByAgentHash.set(hash(token), ownerId);
       return token;
@@ -190,9 +258,17 @@ export class HostedTenancy implements Tenancy {
   }
 
   /** Who a credential is, for the dashboard: a signed-in account, or a visitor's sandbox. */
-  whoIs(token: string): { kind: "owner"; ownerId: string } | { kind: "sandbox" } | undefined {
+  whoIs(token: string): OwnerAccount | { kind: "sandbox" } | undefined {
     const ownerId = this.options.owners?.signIn.session(token);
-    if (ownerId && this.owners.has(ownerId)) return { kind: "owner", ownerId };
+    const owner = ownerId ? this.owners.get(ownerId) : undefined;
+    if (owner) {
+      const { record } = owner;
+      const agent = {
+        ...(record.agentTokenHash && record.agentTokenMadeAt ? { tokenMadeAt: record.agentTokenMadeAt } : {}),
+        ...(record.agentLastSeenAt ? { lastSeenAt: record.agentLastSeenAt } : {}),
+      };
+      return { kind: "owner", ownerId: record.ownerId, ...(record.signedUpAt ? { signedUpAt: record.signedUpAt } : {}), agent };
+    }
     return this.byOwnerHash.has(hash(token)) ? { kind: "sandbox" } : undefined;
   }
 
@@ -272,8 +348,20 @@ export class HostedTenancy implements Tenancy {
   forAgent(token: string): Tenant | undefined {
     if (!token) return undefined;
     const ownerId = this.ownerByAgentHash.get(hash(token));
-    if (ownerId) return this.owners.get(ownerId)?.tenant;
+    if (ownerId) {
+      const owner = this.owners.get(ownerId);
+      if (owner) this.agentSeen(owner);
+      return owner?.tenant;
+    }
     return this.touch(this.byAgentHash.get(hash(token)));
+  }
+
+  /** Written at most once a minute, so a busy agent doesn't rewrite the file on every call. */
+  private agentSeen(owner: { record: OwnerRecord }) {
+    const last = owner.record.agentLastSeenAt ? Date.parse(owner.record.agentLastSeenAt) : 0;
+    if (this.now() - last < SEEN_EVERY_MS) return;
+    owner.record = { ...owner.record, agentLastSeenAt: new Date(this.now()).toISOString() };
+    this.saveOwner(owner.record);
   }
 
   byKey(key: string): Tenant | undefined {

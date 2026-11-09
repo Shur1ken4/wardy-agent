@@ -1,7 +1,7 @@
 // What every screen shares: who's signed in, the mode, the live feed, and the mascot's reaction to it.
 import type { AnchorSummary, VerdictView } from "@wardy-agent/core";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, type Health, liveFeed, type PolicyView, OFFLINE_OWNER_CREDENTIAL, savedCredential, saveCredential, setApiCredential, type Stats } from "./api";
+import { api, ApiError, type Health, liveFeed, type Me, type PolicyView, OFFLINE_OWNER_CREDENTIAL, savedCredential, saveCredential, setApiCredential, type Stats } from "./api";
 
 export interface MascotReaction {
   kind: "BLOCK" | "HOLD" | "ALLOW";
@@ -24,6 +24,8 @@ export interface Dashboard {
   signedIn: boolean;
   signOut(): void;
   signInError: string | null;
+  /** On a hosted server: the signed-in account, or this visitor's sandbox. Null elsewhere. */
+  account: Me | null;
   stats: Stats | null;
   policy: PolicyView | null;
   network: { anchor: AnchorSummary | null } | null;
@@ -66,6 +68,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [live, setLive] = useState(false);
   const [reaction, setReaction] = useState<MascotReaction | null>(null);
   const [frozen, setFrozenState] = useState(false);
+  const [account, setAccount] = useState<Me | null>(null);
   const seen = useRef(new Set<string>());
 
   // It's public, so a visitor sees it before signing in.
@@ -83,6 +86,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const [nextStats, nextHolds, nextHealth, nextPolicy] = await Promise.all([api.stats(), api.approvals(), api.health(), api.policy()]);
+    setAccount(nextHealth.hosted ? await api.me().catch(() => null) : null);
     setStats(nextStats);
     setPolicy(nextPolicy);
     setHolds(nextHolds.approvals as Hold[]);
@@ -266,6 +270,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         });
       },
       signInError,
+      account,
       stats,
       policy,
       network,
@@ -277,7 +282,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setFrozen,
       refresh,
     }),
-    [health, apiError, credential, signInError, stats, policy, network, verdicts, holds, live, reaction, frozen, setFrozen, refresh],
+    [health, apiError, credential, signInError, account, stats, policy, network, verdicts, holds, live, reaction, frozen, setFrozen, refresh],
   );
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }

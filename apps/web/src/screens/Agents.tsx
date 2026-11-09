@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { Chip, ErrorNote, Page } from "../components/parts";
 import { api } from "../lib/api";
 import { useDashboard } from "../lib/dashboard";
+import { Link } from "../lib/router";
 
 const CONNECT_COMMAND = "npm run mcp:config";
 
@@ -119,11 +120,11 @@ function TryCheck() {
 }
 
 /** On a hosted server: this owner's own agent token, made on request and shown once, and where to send requests. */
-function HostedConnect() {
-  const { policy } = useDashboard();
+export function HostedConnect() {
+  const { policy, refresh } = useDashboard();
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const origin = window.location.origin;
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
   return (
     <section className="card card-pad">
       <h2 className="block-title">Connect your agent to this server</h2>
@@ -135,7 +136,13 @@ function HostedConnect() {
         className="btn btn-secondary"
         onClick={() => {
           setError(null);
-          api.newAgentToken().then(({ agentToken }) => setToken(agentToken), (caught: Error) => setError(caught.message));
+          api.newAgentToken().then(
+            ({ agentToken }) => {
+              setToken(agentToken);
+              void refresh().catch(() => undefined);
+            },
+            (caught: Error) => setError(caught.message),
+          );
         }}
       >
         {token ? "Make another token" : "Make an agent token"}
@@ -157,9 +164,10 @@ function HostedConnect() {
 }
 
 export function Agents() {
-  const { health } = useDashboard();
+  const { health, account } = useDashboard();
   const offline = health?.mode === "offline";
   const hosted = health?.hosted === true;
+  const owner = account?.kind === "owner";
   return (
     <Page>
       <header className="page-head">
@@ -170,7 +178,15 @@ export function Agents() {
 
       <div className="agents-grid section">
         <div style={{ display: "grid", gap: 14 }}>
-          {hosted ? <HostedConnect /> : null}
+          {hosted && owner ? (
+            <section className="card card-pad">
+              <h2 className="block-title">Connect your agent to this server</h2>
+              <p className="note">
+                Your agent's token, and whether it's connected, are on <Link className="link" to="/account">Your account</Link>.
+              </p>
+            </section>
+          ) : null}
+          {hosted && !owner ? <HostedConnect /> : null}
           <section className="card card-pad" hidden={hosted}>
             <h2 className="block-title">Connect in one command</h2>
             <p className="note" style={{ marginBottom: 12 }}>While <code>npm run dev</code> is running, this prints the setup for Claude Code, Claude Desktop or any MCP client.</p>

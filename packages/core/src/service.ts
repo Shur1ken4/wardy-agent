@@ -5,7 +5,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { type AuditEntry, type AuditRecord, verifyAuditLines } from "./audit.js";
 import { type CheckerDeps, PaymentChecker } from "./checker.js";
-import { SIGNALS, type SignalCode } from "./config.js";
+import { SIGNALS, type SignalCode, THRESHOLDS } from "./config.js";
 import { formatDecimal, parseDecimal } from "./decimal.js";
 import { type NextStep, nextStepFor } from "./nextStep.js";
 import { type OwnerPolicy, policySignals } from "./policy.js";
@@ -414,12 +414,20 @@ export class PaymentService extends EventEmitter<ServiceEvents> {
       if (verdict.mode !== "pay" || !isScamStopped(verdict)) continue;
       saved.set(verdict.asset, (saved.get(verdict.asset) ?? 0n) + parseDecimal(verdict.amount));
     }
+    // Counted the way the daily budget counts it: settled payments in the last 24 hours.
+    const windowStart = this.now().getTime() - THRESHOLDS.dailyBudgetWindowHours * 3_600_000;
+    const spent = new Map<string, bigint>();
+    for (const payment of this.deps.ledger.snapshot(this.deps.fleetOwnerId).settled) {
+      if (Date.parse(payment.settledAt) < windowStart) continue;
+      spent.set(payment.asset, (spent.get(payment.asset) ?? 0n) + parseDecimal(payment.amount));
+    }
     return {
       checkedToday: today.length,
       blockedToday: today.filter((verdict) => verdict.decision === "BLOCK").length,
       heldNow: verdicts.filter((verdict) => verdict.execution?.status === "pending_owner").length,
       paidToday: today.filter((verdict) => verdict.execution?.status === "executed").length,
       saved: [...saved].map(([asset, amount]) => ({ asset, amount: formatDecimal(amount) })),
+      spentLast24h: [...spent].map(([asset, amount]) => ({ asset, amount: formatDecimal(amount) })),
       checksForOthers: verdicts.filter((verdict) => verdict.mode === "check").length,
     };
   }

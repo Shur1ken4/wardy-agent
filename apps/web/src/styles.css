@@ -73,6 +73,39 @@ button { font: inherit; color: inherit; }
 .sign-in-near { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .sign-in-near .btn { white-space: nowrap; }
 .sign-in-near .note { max-width: 260px; text-align: right; }
+/* Account menu */
+.account-menu { position: relative; }
+.account-button { max-width: 220px; gap: 8px; }
+.account-button .account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 13px var(--code); }
+.account-short { display: none; }
+.account-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--muted); }
+.account-dot-connected { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.account-dot-waiting { background: var(--hold-fg); }
+.account-popover { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 300px; padding: 16px; display: grid; gap: 12px; background: var(--surface-solid); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5); }
+.account-popover .account-full { font: 500 14px var(--code); overflow-wrap: anywhere; }
+.account-popover .facts { font-size: 13px; }
+.account-popover-actions { display: flex; gap: 8px; }
+.account-popover-actions .btn { flex: 1; min-height: 40px; padding: 0 12px; font-size: 14px; }
+.sandbox-chip { color: var(--hold-fg); border-color: rgba(247, 203, 111, 0.35); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Your account */
+.account-title { font-family: var(--code); overflow-wrap: anywhere; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.step { display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: start; }
+.step-mark { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #3b4a4c; display: grid; place-items: center; font-size: 13px; color: var(--ground, #050809); }
+.step-done .step-mark { background: var(--accent); border-color: var(--accent); }
+.step-title { display: block; font-weight: 500; }
+.step-done .step-title { color: var(--muted); }
+.agent-state { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.agent-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.agent-connected::before { background: var(--accent); }
+.agent-waiting::before { background: var(--hold-fg); }
+.budget { display: grid; gap: 8px; margin-bottom: 16px; }
+.budget-numbers { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.budget-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.budget-bar span { display: block; height: 100%; background: var(--accent); }
+
 .policy-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--radius-button); color: var(--muted); font: 400 12px var(--code); white-space: nowrap; }
 .owner { max-width: 120px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-family: var(--code); font-size: 12px; white-space: nowrap; }
 .frozen-bar { background: var(--block-bg); color: var(--block-fg); }
@@ -344,6 +377,8 @@ details > summary:hover { color: var(--ink); }
 }
 
 @media (max-width: 420px) {
+  /* The logo stays; the name gives way to the account menu and Freeze. */
+  .header:has(.account-menu) .brand-name { display: none; }
   .nav { margin: 0 -8px; }
   .nav a { padding: 0 8px; font-size: 13px; }
 }
@@ -351,6 +386,10 @@ details > summary:hover { color: var(--ink); }
 @media (max-width: 760px) {
   :root { --gutter: 16px; }
   .brand-tag, .policy-chip, .owner { display: none; }
+  .account-button { padding: 0 12px; }
+  .account-button .account-name { display: none; }
+  .account-short { display: inline; }
+  .account-popover { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; }
   .header-inner { padding-top: 8px; padding-bottom: 8px; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile-dark { grid-column: 1 / -1; }

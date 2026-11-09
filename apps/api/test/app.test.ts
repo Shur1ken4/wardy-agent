@@ -487,6 +487,16 @@ describe("for an agent", () => {
     expect(response.body).not.toContain("SECRET-WORDS");
   });
 
+  it("an agent can ask to pay only so often, counted per agent", async () => {
+    const { app, pay } = await harness({ payRateLimitPerMinute: 2 });
+    expect((await pay()).statusCode).toBe(200);
+    expect((await pay()).statusCode).toBe(200);
+    expect((await pay()).statusCode).toBe(429);
+    // Someone else's token isn't held back by this agent's spree.
+    const other = await app.inject({ method: "POST", url: "/v1/pay", headers: { authorization: "Bearer not-a-token" }, payload: {} });
+    expect(other.statusCode).toBe(401);
+  });
+
   it("too many requests says to wait, instead of a code", async () => {
     const { app, body } = await harness({ checkRateLimitPerMinute: 1 });
     await app.inject({ method: "POST", url: "/v1/check", payload: body({ ownerId: "someone-else.near" }) });
