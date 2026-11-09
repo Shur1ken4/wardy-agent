@@ -68,6 +68,43 @@ These are real gaps, not edge cases.
 8. **The offline signing key is public on purpose.** It's for demos only: seed reports never count in testnet or live decisions.
 9. **`--lan` isn't encrypted.** It's refused in live mode, but on testnet the owner's credential crosses your Wi-Fi in the clear.
 
+## The hosted server
+
+`npm run serve` runs Wardy Agent for strangers on the internet (the Fly.io deploy). It only ever uses testnet: free test
+tokens, from one shared OutLayer testnet wallet. A visitor gets an offline sandbox; a visitor who signs in with a NEAR
+wallet gets a testnet agent of their own.
+
+**More assets here:** the shared test wallet, the NEAR AI credit (each private check spends a little of it), the server's
+disk and memory, and each owner's session and agent token.
+
+**More attackers here:** anyone on the internet, with as many free testnet accounts and as many IP addresses as they like.
+
+| Attack | What stops it | Where |
+|---|---|---|
+| A real mainnet key or payee ends up on the server | It refuses to start with mainnet keys. A payee must be a `.testnet` or implicit account, so no report can name a real mainnet account | `scripts/serve.ts`, `app.ts` |
+| Strangers' verdicts signed with the key that signed real mainnet ones | It refuses to start with `WARDY_SIGNING_KEY` and makes its own key, kept on its disk | `scripts/serve.ts` |
+| Signing in as someone else | The wallet signs a one-time challenge (NEP-413) naming this site, and the key must be a full-access key of that account, checked on NEAR RPC. Each challenge works once, within 5 minutes | `scripts/auth.ts` |
+| One owner reads or approves another's payments | Each session and agent token maps to one owner's own data folder. Tests try it both ways | `scripts/hosted.ts` |
+| Faking your address to skip every rate limit | The server believes only the address added by Fly's own proxy (`WARDY_PROXY_HOPS=1`), not one a visitor writes into `X-Forwarded-For` | `scripts/serve.ts`, `app.ts` |
+| Emptying the shared test wallet with many free accounts | Each owner may pay 0.02 at a time and 0.1 a day, and the whole server 1 a day (`WARDY_POOL_DAILY_LIMIT`). Past that, a payment fails before anything is sent | `config/policy.hosted.json`, `PoolDailyCap` |
+| Sign-up spam | 3 new owners per address a day, 500 owners in all, 10 sessions per owner | `scripts/serve.ts`, `scripts/auth.ts` |
+| Burning the NEAR AI credit | 500 private checks a day for the whole server (`WARDY_AI_DAILY_LIMIT`) | `scripts/hosted.ts` |
+| Filling the disk or memory | `/v1/pay` 120 a minute per agent, 5 live feeds per owner, 200 sandboxes that are cleared after 2 idle hours | `app.ts`, `scripts/hosted.ts` |
+| A broken address crashing a request | Bad paths get "not found", never a server error | `scripts/serve.ts` |
+| The page being framed, or loading someone else's script | Strict security headers: CSP, no framing, no referrer, HTTPS only | `scripts/serve.ts` |
+
+**Known limits of the hosted server:**
+
+1. **Relay phishing.** A fake site could pass along our sign-in challenge and get a visitor to sign it, then use their
+   session. The wallet shows which site the message is for, and the most it can reach is that visitor's test agent.
+2. **Many addresses beat per-address limits.** Someone with many IPs can still fill the 500 owner places, or churn
+   sandboxes. The money limits don't depend on addresses, so the test wallet stays safe.
+3. **Sessions live in memory.** A restart signs everyone out. Owners' data and agent tokens stay on the disk.
+4. **One shared wallet.** Owners' limits are enforced by Wardy Agent, not by the custody provider, so on this server the
+   operator is trusted for them too.
+5. **The operator can see everything.** Whoever runs the server can read every owner's payments and private text. That's
+   why it carries test tokens only.
+
 ## Out of scope
 
 - **A compromised Wardy Agent operator.** Whoever runs it holds the grant and the signing key, so they can spend within the provider's limits and sign anything. Running it in a TEE is on the roadmap.

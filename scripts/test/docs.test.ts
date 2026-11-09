@@ -18,6 +18,7 @@ describe("the README", () => {
       "The problem",
       "What Wardy Agent does",
       "Try it in 2 minutes (no keys, no funds)",
+      "Try it online",
       "Do X, see Y",
       "Live mode setup",
       "How it works",

@@ -55,6 +55,23 @@ npm run dev
 
 Open <http://localhost:5173> and press **Play demo traffic**.
 
+## Try it online
+
+<!-- TODO-VERIFY: the address below is filled in after the first deploy. -->
+The same app runs on a public server, on NEAR **testnet** only: free test tokens, never real money.
+
+| Do this | You see this |
+|---|---|
+| Open the site | Your own demo sandbox, labelled **Demo sandbox**. Nobody else sees what you do in it |
+| Press **Play demo traffic** | The same live demo as offline, in your sandbox only |
+| Press **Sign in with NEAR**, and approve in your Meteor wallet with a `.testnet` account | Your account in the top right. Signing can't move money |
+| Open **Your account**, press **Make an agent token**, and give your agent the settings line it shows ([docs/MCP_SETUP.md](docs/MCP_SETUP.md)) | The steps tick off as your agent connects and its first payment is checked |
+| Have your agent pay a `.testnet` account | A real testnet payment that's held for you, then paid with an explorer link after you approve |
+| Have it pay a `.near` account | Refused: this server only pays testnet accounts |
+
+Limits there: 0.02 test NEAR per payment and 0.1 a day per owner. What the server defends, and what it doesn't:
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#the-hosted-server). To run it yourself: `npm run build:web && npm run serve`.
+
 ## Do X, see Y
 
 Everything here is offline, with no keys, unless it says otherwise.
@@ -269,6 +286,9 @@ Read the holdout honestly. **The set that counts is E and HE: all 5 attacks took
 | The provider enforces limits, assets and budget | **Trusted**: the custody provider. **Wardy Agent alone** checks the payee | [`custody/`](packages/providers/src/custody) |
 | The invoice stayed private | **Proven only with a verified attestation**, shown as a tick on the verdict. The hardware evidence verifies live (`npm run hello:attestation`, no key needed), but that alone doesn't tie an answer to the hardware. The recorded answers each passed the full check when they were made, but a replay can't show it, so offline verdicts never have the tick. A live testnet verdict does: [the saved verdict](docs/evidence/attested-verdict.testnet.json), `ai.attested: true`, level `full`, and its signature verifies. So does [one from a real mainnet payment](docs/evidence/attested-verdict.live.json). They show what our code checked at the time, and repeating it needs a key | [`nearAiCloud.ts`](packages/providers/src/ai/nearAiCloud.ts) |
 | It catches every attack | **False.** See the holdout | [Results](#attack-lab-results) |
+| On the hosted server, you are who your wallet says | **Proven** for each sign-in: the wallet's signature over a one-time challenge, from a full-access key checked on NEAR | [`scripts/auth.ts`](scripts/auth.ts) |
+| On the hosted server, owners can't see each other's payments | **Enforced** by the server, and tested. The operator can see everything, which is why it holds test tokens only | [Threat model](docs/THREAT_MODEL.md#the-hosted-server) |
+| On the hosted server, each owner's limits hold | **Trusted**: all owners share one test wallet, so Wardy Agent enforces them, not the provider | [`policy.hosted.json`](config/policy.hosted.json) |
 
 ## Threat model summary
 
