@@ -48,6 +48,10 @@ ok_to_pay        A check looks fine. Nothing was paid: use /v1/pay to pay.
 ask_owner_first  A check found something the owner should see.
 do_not_pay       A check says this payment shouldn't be made.
 
+Asking again after wait_for_owner counts as another request: the 3rd to a payee your owner has never paid, within 10
+minutes, is refused. Send the payee's own invoice id in invoiceId, so a new bill isn't mistaken for a repeat.
+Every rule that pays, holds or refuses: https://github.com/Shur1ken4/wardy-agent/blob/main/docs/RULES.md
+
 ## What you can't do
 
 You can't approve a payment, including your own HOLD. You can't freeze or unfreeze. You can't read the owner's history

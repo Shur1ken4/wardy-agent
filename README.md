@@ -78,7 +78,8 @@ makes one, and saves it as `apiKey` in `.data/outlayer-testnet.json`.
 | Have it pay a `.near` account | Refused: this server only pays testnet accounts |
 
 Limits there: 0.02 test NEAR per payment and 0.1 a day per owner. What the server defends, and what it doesn't:
-[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#the-hosted-server).
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#the-hosted-server). Every rule that pays, holds or refuses, with real
+answers from the server: [docs/RULES.md](docs/RULES.md).
 
 ## Do X, see Y
 
