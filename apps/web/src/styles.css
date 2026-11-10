@@ -376,6 +376,11 @@ details > summary:hover { color: var(--ink); }
   .policy-grid, .network-grid, .agents-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+@media (max-width: 480px) {
+  /* Sign in with NEAR and Freeze need about 250px, so the name gives way; the logo stays. */
+  .header:has(.sign-in-near) .brand-name { display: none; }
+}
+
 @media (max-width: 420px) {
   /* The logo stays; the name gives way to the account menu and Freeze. */
   .header:has(.account-menu) .brand-name { display: none; }
