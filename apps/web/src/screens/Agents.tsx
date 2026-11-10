@@ -29,21 +29,25 @@ const EXAMPLES = [
 ];
 
 function CopyLine({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"no" | "yes" | "failed">("no");
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      setCopied("yes");
+      setTimeout(() => setCopied("no"), 1600);
     } catch {
-      setCopied(false);
+      // Some browsers, and embedded ones, don't allow it. Saying nothing would leave an old value on the clipboard.
+      setCopied("failed");
     }
   };
   return (
-    <div className="copy-line">
-      <code>{text}</code>
-      <button type="button" className="btn btn-secondary btn-small" onClick={() => void copy()}>{copied ? "Copied" : "Copy"}</button>
-    </div>
+    <>
+      <div className="copy-line">
+        <code>{text}</code>
+        <button type="button" className="btn btn-secondary btn-small" onClick={() => void copy()}>{copied === "yes" ? "Copied" : "Copy"}</button>
+      </div>
+      {copied === "failed" ? <p className="note note-error" role="alert">This browser didn't allow copying. Select the text and copy it yourself.</p> : null}
+    </>
   );
 }
 
