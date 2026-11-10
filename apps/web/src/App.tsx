@@ -1,6 +1,7 @@
 import { AnimatePresence } from "motion/react";
 import { BlockBackdrop } from "./components/BlockBackdrop";
 import { Header, FrozenBar } from "./components/Header";
+import { HoldAlert } from "./components/HoldAlert";
 import { ErrorNote, Page } from "./components/parts";
 import { VerdictPanel } from "./components/VerdictPanel";
 import { DashboardProvider, useDashboard } from "./lib/dashboard";
@@ -69,6 +70,7 @@ function Console() {
         </div>
       ) : null}
       {screen}
+      {locked ? null : <HoldAlert />}
       <AnimatePresence>
         {openVerdict && !locked ? (
           <VerdictPanel key={openVerdict} verdictId={openVerdict} onClose={() => navigate(`${withVerdict(`${path}${window.location.search}`, null)}`)} />

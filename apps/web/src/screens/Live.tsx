@@ -6,7 +6,8 @@ import { Spelled } from "../components/Spelled";
 import { api } from "../lib/api";
 import { type Hold, useDashboard } from "../lib/dashboard";
 import { assetLabel, formatAmount, lookalikeSignal, payeeParts, shortHash, timeOf } from "../lib/format";
-import { Link, navigate, withVerdict } from "../lib/router";
+import { openReview } from "../lib/holdAlerts";
+import { Link, withVerdict } from "../lib/router";
 import type { VerdictView } from "@wardy-agent/core";
 
 const TRAFFIC_SECONDS = 15;
@@ -89,9 +90,7 @@ function HeldRow({ hold }: { hold: Hold }) {
   const [error, setError] = useState<string | null>(null);
   const review = async () => {
     try {
-      const { approvalUrl } = await api.approvalLink(hold.verdict.verdictId);
-      const url = new URL(approvalUrl);
-      navigate(`${url.pathname}${url.hash}`);
+      await openReview(hold.verdict.verdictId);
     } catch (caught) {
       setError((caught as Error).message);
     }
