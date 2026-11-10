@@ -70,7 +70,7 @@ export function resultsBlock(): string {
     "",
     `**Holdout (written after a rule freeze, with no expected answers):** ${missed.length} of ${attacks.length} attacks still took money (${money(holdout.totals.lostWith)}). Honest messages passed: ${holdout.totals.honestPassed}/${holdout.totals.honestTotal}. False blocks: ${holdout.totals.falseBlocks}.`,
     "",
-    `**Only the newest set is blind to today's rules:** ${newest(/^E/, /^HE/, holdout.scenarios)}`,
+    `**Only the newest set was never used to tune the rules:** ${newest(/^E/, /^HE/, holdout.scenarios)}`,
     "",
     ...table(holdout.scenarios),
     END,

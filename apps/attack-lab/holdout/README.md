@@ -47,3 +47,11 @@ threshold could be dodged the same way.
 began leading its reasons with that fact, instead of with a small note. It came from a real mainnet payment whose ALLOW
 began "This account has never been funded", not from a holdout result. No decision, score or rule changed: in the
 results, the only difference is the first reason on two ALLOWs.
+
+**And `detectors/duplicate.ts`, for one real rule change.** On 2026-11-10 Shurik asked for it after testing the hosted
+server as an agent: an API that charges the same price for every call had its second call within 15 minutes held, even
+with a new invoice id. Now two payments that each carry their own, different invoice id aren't treated as the same
+payment, unless what the agent read says the first one failed. A payment with no invoice id, after one with none, or
+with the same id, is still held. It came from using the product, not from a holdout result, and every result in
+[`../results/latest.md`](../results/latest.md) stayed byte for byte the same. Still, E and HE were written before it, so
+they're no longer strictly blind to the rules as they are now.

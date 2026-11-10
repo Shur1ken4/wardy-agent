@@ -19,7 +19,8 @@ A payment is paid with no one asked only when **all** of these are true:
 2. It's **at or under the owner's approval threshold**, and under the per-payment limit and the 24-hour budget.
 3. It's in an **asset the owner allows**, and payments aren't frozen.
 4. It isn't a repeat: not the **same invoice id** as one already paid to this payee, and not the **same amount** to the
-   same payee within the last **15 minutes** (see [known gaps](#known-gaps)).
+   same payee within the last **15 minutes**. The same price twice is fine when both payments carry their own,
+   different invoice ids, as an API charging per call does.
 5. Nothing the agent read **claims an earlier payment failed** while one to this payee settled in the last 24 hours.
 6. Nothing it read tries to **get around the rules**, asks to **pay a different account**, names **another payee**, or
    bills **less than the agent asked for**.
@@ -38,7 +39,7 @@ Any one of these, and nothing that blocks:
 |---|---|
 | A payee the owner has never paid (`POLICY_NEW_PAYEE_REQUIRES_APPROVAL`) | The owner chose to approve new payees |
 | Above the approval threshold (`POLICY_ABOVE_APPROVAL_THRESHOLD`) | The owner chose to approve bigger payments |
-| The same invoice id, or the same amount within 15 minutes, to a payee the owner really pays (`DUPLICATE_INVOICE`, `DUPLICATE_PAYMENT_WINDOW`) | It may be a fake "please pay again", or the owner may truly want to pay twice |
+| The same invoice id, or the same amount within 15 minutes without two different invoice ids, to a payee the owner really pays (`DUPLICATE_INVOICE`, `DUPLICATE_PAYMENT_WINDOW`) | It may be a fake "please pay again", or the owner may truly want to pay twice |
 | What the agent read says a payment failed, but one settled in the last 24 hours (`RETRY_PRESSURE`) | The classic way agents get fooled into paying twice |
 | The document bills less than the agent asked for (`CONTEXT_AMOUNT_MISMATCH`) | An inflated bill |
 | Far more than this payee usually gets (`AMOUNT_UNUSUAL_FOR_PAYEE`), far more in a day than their busiest day (`AMOUNT_UNUSUAL_DAY_FOR_PAYEE`), more than double the most paid with under 3 payments (`AMOUNT_HIGH_FOR_LITTLE_HISTORY`), or a first payment in a new asset (`AMOUNT_FIRST_IN_THIS_ASSET`). None of these apply below 0.5 | Only the owner knows if a big bill is real, so these never refuse |
@@ -120,9 +121,8 @@ transactions.
 
 ## Known gaps
 
-- **The same price, again and again.** An API that charges the same amount for every call gets its second call within 15
-  minutes held, even with a new invoice id. This is the window that stops a double payment, and it can't yet tell a
-  metered API from a repeat.
+- **The same price without invoice ids.** An agent that pays the same amount twice in 15 minutes without an invoice id
+  on both gets the second one held, because nothing tells a new bill from a repeat. Send the payee's invoice id.
 - **Account age on testnet.** There's no index of testnet account ages we trust, so every testnet payee shows "Couldn't
   check this account's age right now" (5 points). On mainnet, the age and history come from NearBlocks.
 - **Quiet fraud from a real payee** gets through: see [THREAT_MODEL.md](THREAT_MODEL.md#known-limits).

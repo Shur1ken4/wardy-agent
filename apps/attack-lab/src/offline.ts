@@ -26,7 +26,7 @@ export interface OfflineRun {
   network: ReportStore;
 }
 
-/** The set written after the latest rule freeze. Older sets have been seen, so only this one is blind to today's rules. */
+/** The set written after the latest rule freeze. Older sets have been seen and used to tune, so only this one wasn't. */
 export const isNewestHoldout = (id: string) => /^H?E\d/.test(id);
 
 /** How the newest set went on its own, so the older sets can't hide it. */
@@ -36,7 +36,7 @@ export function newestHoldoutLine(holdout: LabRun): string {
   const missed = attacks.filter((scenario) => Object.keys(scenario.with.lost).length > 0);
   const honest = newest.filter((scenario) => scenario.kind === "honest");
   const passed = honest.filter((scenario) => scenario.with.steps.every((step) => step.decision === "ALLOW"));
-  return `Only the newest set is blind to today's rules: ${missed.length} of ${attacks.length} attacks took money, and ${passed.length} of ${honest.length} honest payments passed.`;
+  return `Only the newest set was never used to tune the rules: ${missed.length} of ${attacks.length} attacks took money, and ${passed.length} of ${honest.length} honest payments passed.`;
 }
 
 /** A plain statement of how the holdout went, computed from the run. */

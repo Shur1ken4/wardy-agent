@@ -65,11 +65,15 @@ export function duplicateSignals(
   }
 
   const windowStart = now.getTime() - THRESHOLDS.duplicateWindowMinutes * MINUTE_MS;
+  const retried = claimsPaymentFailed(request) || Boolean(options.aiClaimsPaymentFailed);
   const sameAmount = toThisPayee.find(
     (payment) =>
       payment.asset === request.asset &&
       parseDecimal(payment.amount) === parseDecimal(request.amount) &&
-      Date.parse(payment.settledAt) >= windowStart,
+      Date.parse(payment.settledAt) >= windowStart &&
+      // An API that charges the same price for every call sends a new bill each time. Two payments that each carry
+      // their own, different invoice id are two bills, unless something says the first one failed.
+      !(request.invoiceId && payment.invoiceId && payment.invoiceId !== request.invoiceId && !retried),
   );
   if (sameAmount) {
     signals.push(
@@ -79,7 +83,7 @@ export function duplicateSignals(
 
   const recentStart = now.getTime() - THRESHOLDS.retryRecentHours * 60 * MINUTE_MS;
   const recent = toThisPayee.find((payment) => Date.parse(payment.settledAt) >= recentStart);
-  if (recent && (claimsPaymentFailed(request) || options.aiClaimsPaymentFailed)) {
+  if (recent && retried) {
     signals.push(
       makeSignal("RETRY_PRESSURE", `The agent read that a payment failed, but one to this payee settled ${ago(recent)} ago${shortTx(recent)}.`, settledEvidence(recent, now)),
     );

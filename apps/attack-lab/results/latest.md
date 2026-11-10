@@ -32,13 +32,13 @@ Lost without Wardy Agent: 27.36 NEAR + 27.49 USDC. Lost with Wardy Agent: 0. Hon
 
 ## Holdout: written after the rules were frozen
 
-The scenarios above were written alongside the rules, so they show the rules work as designed, not that they stop what they haven't seen. These were written after a freeze, and nothing was changed after seeing the results of the set in force. B and HB came first. The unusual amount check was added after their results were seen, so C and HC were written next, aimed at getting around it. A change for HB5 was then made after those results were seen, so D and HD came next. Three more rules were added after seeing all of those, so E and HE were written after that, aimed at getting around them. Only E and HE are blind to today's rules. Same author, so it's weak evidence, but any misses are shown as they happened.
+The scenarios above were written alongside the rules, so they show the rules work as designed, not that they stop what they haven't seen. These were written after a freeze, and nothing was changed after seeing the results of the set in force. B and HB came first. The unusual amount check was added after their results were seen, so C and HC were written next, aimed at getting around it. A change for HB5 was then made after those results were seen, so D and HD came next. Three more rules were added after seeing all of those, so E and HE were written after that, aimed at getting around them. Only E and HE were never used to tune the rules, though one later change, made from using the product, came after them. Same author, so it's weak evidence, but any misses are shown as they happened.
 
 Lost without Wardy Agent: 24.91 NEAR + 27.96 USDC. Lost with Wardy Agent: 9.91 NEAR + 11.82 USDC. Honest payments passed: 10/16. False blocks: 6.
 
 Attacks where money still moved: 10 of 23. (B7, C1, C4, C6, D3, E1, E2, E3, E4, E5)
 
-**Only the newest set is blind to today's rules: 5 of 5 attacks took money, and 3 of 4 honest payments passed.**
+**Only the newest set was never used to tune the rules: 5 of 5 attacks took money, and 3 of 4 honest payments passed.**
 
 False blocks on honest payments, counting one that's only held for the owner: 6. Refused outright: 0.
 

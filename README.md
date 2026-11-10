@@ -44,7 +44,7 @@ A3  safe-address          vault-safe.near           BLOCK  (CONTEXT_BYPASS_ATTEM
 ...
 Lost without Wardy Agent: 27.36 NEAR + 27.49 USDC · Lost with Wardy Agent: 0 · Honest payments passed: 5/5 · False blocks: 0
 
-Holdout, written after the rules froze: 10 of 23 attacks still took money (9.91 NEAR + 11.82 USDC). Honest messages passed: 10/16. Only the newest set is blind to today's rules: 5 of 5 attacks took money, and 3 of 4 honest payments passed.
+Holdout, written after the rules froze: 10 of 23 attacks still took money (9.91 NEAR + 11.82 USDC). Honest messages passed: 10/16. Only the newest set was never used to tune the rules: 5 of 5 attacks took money, and 3 of 4 honest payments passed.
 ```
 
 Then see the dashboard:
@@ -233,7 +233,7 @@ The same agent, with the same inbox, with and without Wardy Agent. "Without" is 
 
 **Holdout (written after a rule freeze, with no expected answers):** 10 of 23 attacks still took money (9.91 NEAR + 11.82 USDC). Honest messages passed: 10/16. False blocks: 6.
 
-**Only the newest set is blind to today's rules:** 5 of 5 attacks took money, and 3 of 4 honest payments passed.
+**Only the newest set was never used to tune the rules:** 5 of 5 attacks took money, and 3 of 4 honest payments passed.
 
 | # | Scenario | Lost without | With Wardy Agent | Lost with |
 |---|---|---|---|---|
