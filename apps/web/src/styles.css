@@ -124,6 +124,11 @@ button { font: inherit; color: inherit; }
 .btn-freeze:hover:not(:disabled) { background: var(--block-bg); border-color: var(--block-bg); color: var(--block-fg); }
 .btn-on-orange { background: var(--block-fg); color: var(--on-block); }
 .btn-block { width: 100%; min-height: 54px; font-size: 16px; }
+/* The approval page: green pays, orange refuses. Neither is white, so neither looks like "the usual button". */
+.btn-approve { background: var(--allow-bg); border-color: var(--allow-fg); color: var(--allow-fg); font-weight: 600; }
+.btn-approve:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--on-ink); box-shadow: 0 0 28px var(--accent-glow); }
+.btn-reject { background: rgba(194, 65, 12, 0.16); border-color: var(--block-bg); color: #ffb48a; font-weight: 600; }
+.btn-reject:hover:not(:disabled) { background: var(--block-bg); color: var(--block-fg); }
 .link { color: var(--allow-fg); text-underline-offset: 2px; }
 .link:hover { text-decoration-thickness: 2px; }
 
@@ -354,6 +359,7 @@ details > summary:hover { color: var(--ink); }
 .approve-facts { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .approve-actions { display: grid; gap: 10px; margin-top: auto; }
 .approve-result { padding: 26px 20px; text-align: center; }
+.decision-mark { display: block; margin: 0 auto; max-width: 100%; }
 .approve-result-title { margin-top: 14px; font: 500 24px/1.15 var(--head); letter-spacing: -0.02em; }
 
 /* Sign in */

@@ -290,6 +290,14 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
     const onType = () => {
       exciteRef.current = Math.max(exciteRef.current, 0.5);
     };
+    // A double click on the shield itself, not on anything on top of it, shows what a BLOCK looks like. Just for fun.
+    const onDouble = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.("a, button, input, textarea, select, summary, label, .card, .tile, .stream-panel, .feed-row, .hold-alert, .header, table, code, pre")) return;
+      pulseRef.current = { kind: "BLOCK", start: performance.now() };
+      exciteRef.current = 1;
+      redrawRef.current();
+    };
     window.addEventListener("resize", onResize);
     window.addEventListener("pointermove", onMove, { passive: true });
     document.documentElement.addEventListener("pointerleave", onLeave);
@@ -298,6 +306,7 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
     document.addEventListener("focusin", onFocus);
     document.addEventListener("focusout", onBlur);
     document.addEventListener("input", onType);
+    document.addEventListener("dblclick", onDouble);
     document.addEventListener("visibilitychange", refresh);
     calm.addEventListener("change", refresh);
     size();
@@ -315,6 +324,7 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
       document.removeEventListener("focusin", onFocus);
       document.removeEventListener("focusout", onBlur);
       document.removeEventListener("input", onType);
+      document.removeEventListener("dblclick", onDouble);
       document.removeEventListener("visibilitychange", refresh);
       calm.removeEventListener("change", refresh);
     };

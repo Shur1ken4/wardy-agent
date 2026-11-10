@@ -213,7 +213,7 @@ describe("the phone", () => {
     const html = card({ signals: [repeat], reasons: ["Already paid."] });
     expect(html).toContain("again?");
     expect(html).toContain("Reject — don&#x27;t pay twice");
-    expect(html).toContain("Approve anyway");
+    expect(html).toContain("Approve — pay again");
     expect(html).toContain("FIRSTTXHASH");
   });
 
@@ -222,6 +222,16 @@ describe("the phone", () => {
     expect(html).not.toContain("again?");
     expect(html).not.toContain("twice");
     expect(html).toContain("Reject — don&#x27;t pay");
+  });
+
+  it("each button wears its meaning: green pays, first, and orange refuses", () => {
+    const html = card({ reasons: ["You've never paid this payee."] });
+    const approve = html.indexOf("btn-approve");
+    const reject = html.indexOf("btn-reject");
+    expect(approve).toBeGreaterThan(-1);
+    expect(reject).toBeGreaterThan(approve);
+    expect(html).toContain("Approve and pay");
+    expect(html).not.toContain("btn-primary");
   });
 
   it("buttons stop working while a decision is on its way: no double tap", () => {
@@ -242,6 +252,13 @@ describe("the phone", () => {
     const failed = renderToStaticMarkup(<Outcome verdict={verdict({ execution: { status: "failed", provider: "mock", note: "No funds." } })} />);
     expect(failed).toContain("Nothing was paid");
     expect(failed).not.toContain("Approved");
+  });
+
+  it("the picture above it matches: through the shield when paid, stopped by it when not", () => {
+    expect(renderToStaticMarkup(<Outcome verdict={verdict({ execution: { status: "executed", provider: "mock", txHash: "T" } })} />)).toContain("The payment went through the shield");
+    const refused = renderToStaticMarkup(<Outcome verdict={verdict({ execution: { status: "refused", provider: "mock", note: "You rejected this payment." } })} />);
+    expect(refused).toContain("The shield stopped the payment");
+    expect(refused).not.toContain("went through");
   });
 
   describe("the link's token", () => {

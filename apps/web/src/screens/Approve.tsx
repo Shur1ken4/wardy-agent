@@ -2,6 +2,7 @@
 import type { VerdictView } from "@wardy-agent/core";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { DecisionMark } from "../components/DecisionMark";
 import { Chip, Payee } from "../components/parts";
 import { WardyShield } from "../components/WardyShield";
 import { api, ApiError } from "../lib/api";
@@ -94,11 +95,14 @@ export function HoldCard({ verdict, expiresAt, busy, mode, onDecide }: { verdict
           <dd>{timeOf(expiresAt)}</dd>
         </dl>
       </section>
+      {/* Each button wears the colour of what it does, green pays and orange refuses, so neither is tapped by mistake. */}
       <div className="approve-actions">
-        <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => onDecide("reject")}>
+        <button type="button" className="btn btn-approve btn-block" disabled={busy} onClick={() => onDecide("approve")}>
+          {isRepeat ? "Approve — pay again" : "Approve and pay"}
+        </button>
+        <button type="button" className="btn btn-reject btn-block" disabled={busy} onClick={() => onDecide("reject")}>
           {isRepeat ? "Reject — don't pay twice" : "Reject — don't pay"}
         </button>
-        <button type="button" className="btn btn-secondary btn-block" disabled={busy} onClick={() => onDecide("approve")}>Approve anyway</button>
       </div>
     </>
   );
@@ -109,7 +113,7 @@ export function Outcome({ verdict }: { verdict: VerdictView }) {
   const open = verdict.execution?.status === "pending_owner";
   return (
     <section className="card approve-result">
-      <WardyShield size={44} tone="light" />
+      {open ? <WardyShield size={44} tone="light" /> : <DecisionMark paid={paid} />}
       <h1 className="approve-result-title">{paid ? "Approved and paid" : open ? "Still waiting" : "Nothing was paid"}</h1>
       <p className="note" style={{ marginTop: 10 }}>
         {formatAmount(verdict.amount, verdict.asset)} to <span className="mono">{verdict.payee}</span>. {paid ? "" : executionWords(verdict.execution)}
