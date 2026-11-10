@@ -5,7 +5,7 @@
 import type { Decision } from "@wardy-agent/core";
 import { useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { PULSE_COLORS, PULSE_MS, pulseStrength, veilOpacity } from "../lib/backdrop";
+import { easeInOut, PULSE_COLORS, PULSE_MS, pulseStrength, SHOW_MS, showSpread, veilOpacity } from "../lib/backdrop";
 import { blockLevel, eyeBlocks, project, ramp, shieldBlocks } from "../lib/blockShield";
 import { pushFrom } from "../lib/stream";
 
@@ -40,6 +40,7 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
   const pulseRef = useRef<{ kind: Decision; start: number } | null>(null);
   const redrawRef = useRef<() => void>(() => {});
   const exciteRef = useRef(0);
+  const showRef = useRef<number | null>(null);
   const frozenRef = useRef(frozen);
   frozenRef.current = frozen;
 
@@ -140,6 +141,16 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
       const isFrozen = frozenRef.current;
       const rippleAge = ripple ? (now - ripple.start) / RIPPLE_MS : 1;
       if (rippleAge >= 1) ripple = null;
+      const showAt = showRef.current === null ? 1 : (now - showRef.current) / SHOW_MS;
+      if (showRef.current !== null && showAt >= 1) {
+        // Built back: a green sweep says it's whole again.
+        showRef.current = null;
+        pulseRef.current = { kind: "ALLOW", start: now };
+        exciteRef.current = 1;
+      }
+      const spread = showSpread(showAt);
+      const spin = easeInOut(Math.min(1, Math.max(0, showAt))) * Math.PI * 2;
+      const showRamps = [RAMPS.ALLOW, RAMPS.HOLD, RAMPS.BLOCK];
 
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
@@ -170,6 +181,15 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
           by += Math.sin(angle) * distance;
           bz += (block.seed - 0.5) * burst * 0.5;
         }
+        if (spread > 0) {
+          // Each block has its own orbit, and the ones further out go round a little faster, like a whirlpool.
+          const turn = block.seed * 7.3 + index * 0.61;
+          const radius = 0.32 + ((index * 0.37) % 1) * 0.62;
+          const angle = turn + spin * (1.1 + radius * 0.9);
+          bx += (Math.cos(angle) * radius * 1.25 - bx) * spread;
+          by += (Math.sin(angle) * radius * 0.85 - by) * spread;
+          bz += ((block.seed - 0.5) * 0.8 - bz) * spread;
+        }
         const seen = project(bx, by, bz, yaw, pitch);
         let x = centerX + seen.x * unit;
         let y = centerY - seen.y * unit;
@@ -194,7 +214,8 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
         const level = Math.min(1, blockLevel(block, time) + (isFront ? excite * 0.22 : 0) + (push && (push.x || push.y) ? 0.25 : 0));
         const inWave = Boolean(pulse) && strength > 0.02 && Math.hypot(block.x, block.y) < front;
         context.globalAlpha = isFront ? 1 : 0.45;
-        context.fillStyle = (inWave ? swept : normal)[Math.round(level * top)] as string;
+        const showColours = spread > 0.5 ? showRamps[Math.floor((block.seed + showAt * 1.6) * 3) % 3] : undefined;
+        context.fillStyle = (showColours ?? (inWave ? swept : normal))[Math.round(Math.max(level, spread * 0.8) * top)] as string;
         const side = BLOCK_SIZE * unit * seen.near * (isFront ? 1.5 : 1.1);
         context.fillRect(x - side / 2, y - side / 2, side, side);
       }
@@ -203,7 +224,8 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
       const blinking = (now - startedAt) % BLINK_EVERY_MS < BLINK_FOR_MS;
       const glaring = isFrozen || burst > 0;
       const rows = watching?.type === "password" || blinking ? 1 : glaring ? 2 : 3;
-      context.globalAlpha = 1;
+      // The eyes fade while the shield is in pieces, and open again once it's whole.
+      context.globalAlpha = 1 - spread;
       context.fillStyle = isFrozen ? "#ff8a5c" : pulse && strength > 0.02 ? (swept[top] as string) : "#5dffbe";
       context.shadowColor = `rgb(${glowColor})`;
       context.shadowBlur = 10;
@@ -290,13 +312,15 @@ export function BlockBackdrop({ signal, dimmed, frozen }: { signal: { kind: Deci
     const onType = () => {
       exciteRef.current = Math.max(exciteRef.current, 0.5);
     };
-    // A double click on the shield itself, not on anything on top of it, shows what a BLOCK looks like. Just for fun.
+    // A double click on the shield itself, not on anything on top of it, puts on a short show. Just for fun.
     const onDouble = (event: MouseEvent) => {
       const target = event.target as Element | null;
       if (target?.closest?.("a, button, input, textarea, select, summary, label, .card, .tile, .stream-panel, .feed-row, .hold-alert, .header, table, code, pre")) return;
+      if (!running || showRef.current !== null) return;
+      window.getSelection()?.removeAllRanges();
+      showRef.current = performance.now();
       pulseRef.current = { kind: "BLOCK", start: performance.now() };
       exciteRef.current = 1;
-      redrawRef.current();
     };
     window.addEventListener("resize", onResize);
     window.addEventListener("pointermove", onMove, { passive: true });

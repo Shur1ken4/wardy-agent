@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PULSE_MS, pulseStrength, veilOpacity } from "../src/lib/backdrop";
+import { PULSE_MS, pulseStrength, SHOW_MS, showSpread, veilOpacity } from "../src/lib/backdrop";
 import { dots, funnel, GATE_AT, pushFrom, SETTLE_MS, tokenAt, TRAVEL_MS, VERDICT_MS } from "../src/lib/stream";
 
 describe("a payment at the gate", () => {
@@ -54,5 +54,26 @@ describe("the background", () => {
     expect(veilOpacity(0, 900, true)).toBeGreaterThan(0.4);
     expect(veilOpacity(5000, 900, false)).toBeCloseTo(0.8);
     expect(veilOpacity(5000, 900, true)).toBeCloseTo(0.8);
+  });
+});
+
+describe("the double-click show", () => {
+  it("starts and ends with the shield whole, so it never stops in pieces", () => {
+    expect(showSpread(0)).toBe(0);
+    expect(showSpread(1)).toBe(0);
+    expect(showSpread(1.5)).toBe(0);
+  });
+
+  it("breaks apart fast, stays apart for a while, and builds back gently", () => {
+    expect(showSpread(0.1)).toBeGreaterThan(0.8);
+    expect(showSpread(0.4)).toBe(1);
+    expect(showSpread(0.8)).toBeGreaterThan(0);
+    expect(showSpread(0.8)).toBeLessThan(1);
+    expect(showSpread(0.99)).toBeLessThan(0.01);
+  });
+
+  it("lasts long enough to watch, and not so long it gets in the way", () => {
+    expect(SHOW_MS).toBeGreaterThanOrEqual(2500);
+    expect(SHOW_MS).toBeLessThanOrEqual(5000);
   });
 });
