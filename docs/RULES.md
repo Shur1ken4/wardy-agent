@@ -91,7 +91,7 @@ transactions.
 | Payment | Answer |
 |---|---|
 | First payment to `wardy-agent-reporter.testnet`, 0.005 | HOLD (new payee). Approved by the owner, then paid |
-| Same payee, same 0.005, a minute later, new invoice id | HOLD (same amount within 15 minutes) |
+| Same payee, same 0.005, a minute later, new invoice id | **ALLOW, paid** (two bills, each with its own invoice id) |
 | Same payee, 0.004 | **ALLOW, paid** |
 | Same payee, 0.003, with an honest invoice | **ALLOW, paid** |
 | Same payee, 0.015 | HOLD (above the 0.01 threshold) |
