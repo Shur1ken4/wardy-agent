@@ -57,8 +57,15 @@ Open <http://localhost:5173> and press **Play demo traffic**.
 
 ## Try it online
 
-<!-- TODO-VERIFY: the address below is filled in after the first deploy. -->
-The same app runs on a public server, on NEAR **testnet** only: free test tokens, never real money.
+Wardy Agent also runs as a server for many people at once, on NEAR **testnet** only: free test tokens, never real money.
+There's no public address yet. To run it on your machine, with no keys it serves the sandboxes only:
+
+```bash
+npm run build:web && npm run serve
+```
+
+Then open <http://localhost:8080>. Signing in also needs an OutLayer testnet key in `OUTLAYER_API_KEY`: `npm run setup:testnet`
+makes one, and saves it as `apiKey` in `.data/outlayer-testnet.json`.
 
 | Do this | You see this |
 |---|---|
@@ -70,7 +77,7 @@ The same app runs on a public server, on NEAR **testnet** only: free test tokens
 | Have it pay a `.near` account | Refused: this server only pays testnet accounts |
 
 Limits there: 0.02 test NEAR per payment and 0.1 a day per owner. What the server defends, and what it doesn't:
-[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#the-hosted-server). To run it yourself: `npm run build:web && npm run serve`.
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#the-hosted-server).
 
 ## Do X, see Y
 
