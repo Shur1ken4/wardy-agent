@@ -58,7 +58,8 @@ Open <http://localhost:5173> and press **Play demo traffic**.
 ## Try it online
 
 Wardy Agent also runs as a server for many people at once, on NEAR **testnet** only: free test tokens, never real money.
-There's no public address yet. To run it on your machine, with no keys it serves the sandboxes only:
+It's online at **<https://wardy-agent.fly.dev>**. To run the same server on your machine, with no keys it serves the
+sandboxes only:
 
 ```bash
 npm run build:web && npm run serve
