@@ -5,6 +5,8 @@ import { readEvents, type ServerEvent } from "./events";
 
 const CREDENTIAL_KEY = "wardy-agent-owner-credential";
 export const OFFLINE_OWNER_CREDENTIAL = "offline-owner-token";
+/** On your own machine the API is a terminal you can check; on a hosted server it's the connection. */
+const UNREACHABLE = typeof window !== "undefined" && window.location.port === "5173" ? "Can't reach the Wardy Agent API. Is npm run dev still running?" : "Can't reach Wardy Agent right now. Check your connection, then try again.";
 
 export class ApiError extends Error {
   constructor(
@@ -48,7 +50,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(path, { ...init, headers: { ...authHeaders(), ...(init.headers ?? {}) } });
   } catch {
-    throw new ApiError(0, "unreachable", "Can't reach the Wardy Agent API. Is npm run dev still running?");
+    throw new ApiError(0, "unreachable", UNREACHABLE);
   }
   const text = await response.text();
   let body: { error?: string; message?: string } = {};
@@ -56,7 +58,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     body = text ? JSON.parse(text) : {};
   } catch {
     // Not JSON means something else answered, such as a proxy with no server behind it.
-    if (!response.ok) throw new ApiError(response.status, "unreachable", "Can't reach the Wardy Agent API. Is npm run dev still running?");
+    if (!response.ok) throw new ApiError(response.status, "unreachable", UNREACHABLE);
   }
   if (!response.ok) throw new ApiError(response.status, body.error ?? "error", body.message ?? "That didn't work.");
   return body as T;

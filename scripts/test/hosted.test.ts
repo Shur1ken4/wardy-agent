@@ -163,6 +163,12 @@ describe("the hosted server", () => {
     rmSync(join(root, "..", "secret.txt"), { force: true });
   });
 
+  it("answers a missing file with not found, and a page path with the dashboard", async () => {
+    const { app } = await server();
+    expect((await app.inject({ method: "GET", url: "/favicon.ico" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "GET", url: "/no-such-page" })).body).toContain("<!doctype html>");
+  });
+
   it("gives a browser the dashboard and an agent the JSON, with safety headers", async () => {
     const { app } = await server();
     const page = await app.inject({ method: "GET", url: "/", headers: { accept: "text/html" } });

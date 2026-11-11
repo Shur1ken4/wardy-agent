@@ -25,6 +25,7 @@ function NotFound() {
     <Page>
       <header className="page-head">
         <h1 className="page-title">There's nothing at this address.</h1>
+        <p className="page-lead"><a className="link" href="/">Open the dashboard</a></p>
       </header>
     </Page>
   );

@@ -171,6 +171,9 @@ export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST,
         const path = request.url.split("?")[0] ?? "/";
         if (request.method !== "GET" || path.startsWith("/v1/")) return reply.status(404).send({ error: "not_found", message: "No such route." });
         const file = staticFile(path, dist);
+        // A page the browser router draws gets the dashboard. A missing file, such as a favicon.ico nobody shipped, is
+        // "not found", so a crawler or a browser doesn't get a web page where it asked for an image.
+        if (!file && extname(path)) return reply.status(404).type("text/plain; charset=utf-8").send("Not found");
         if (!file) return reply.type("text/html; charset=utf-8").send(indexHtml);
         if (path.startsWith("/assets/")) reply.header("cache-control", "public, max-age=31536000, immutable");
         return reply.type(TYPES[extname(file)] ?? "application/octet-stream").send(readFileSync(file));
