@@ -18,3 +18,6 @@ export { type AgentApiLike, AgentConnectCustody, type AgentConnectOptions, findT
 export { MockCustody } from "./custody/mock.js";
 export { OutLayerCustody, type OutLayerOptions } from "./custody/outlayer.js";
 export { OFFLINE_ACCOUNTS, RECORDED_AI_FINDINGS, seedOfflineHistory } from "./fixtures.js";
+export { AgentMarketClient, AgentMarketError, type AgentMarketLike, type AgentMarketOptions, type AssignmentItem } from "./market/agentMarket.js";
+export { EarningsLog, type EarningsSummary, type Sale } from "./market/earnings.js";
+export { ASK_BACK, type BriefAsk, type CheckRequest, deliverable, MarketWorker, type MarketWorkerOptions, readBrief } from "./market/worker.js";

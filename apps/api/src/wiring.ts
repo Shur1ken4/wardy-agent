@@ -29,6 +29,7 @@ import {
 } from "@wardy-agent/core";
 import {
   AgentConnectCustody,
+  EarningsLog,
   MockChainData,
   MockContextAnalyzer,
   MockCustody,
@@ -40,7 +41,7 @@ import {
   seedOfflineHistory,
 } from "@wardy-agent/providers";
 
-import type { Reporting } from "./app.js";
+import type { Earnings, Reporting } from "./app.js";
 
 export type Mode = "offline" | "testnet" | "live";
 
@@ -64,6 +65,9 @@ export interface Wiring {
   ownerToken: string;
   webUrl: string;
   dataDir: string;
+  /** Hires delivered on the Agent Market, each a real job. The Earnings page shows this and nothing made up. */
+  earningsLog: EarningsLog;
+  earnings(): Earnings;
 }
 
 type Env = Record<string, string | undefined>;
@@ -250,5 +254,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     },
     revoke: (reportId) => reports.revoke(reportId, new Date().toISOString(), signingKey),
   };
-  return { mode, service, reports, network, reporting, custody, agentToken, ownerToken, webUrl, dataDir };
+  // Sales are kept on disk even where the ledger isn't: a hire is real money, and a restart mustn't forget it.
+  const earningsLog = new EarningsLog(join(dataDir, "market", "earnings.jsonl"));
+  return { mode, service, reports, network, reporting, custody, agentToken, ownerToken, webUrl, dataDir, earningsLog, earnings: () => earningsLog.summary() };
 }

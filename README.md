@@ -113,6 +113,7 @@ Everything here is offline, with no keys, unless it says otherwise.
 | Open **For agents**, and press **Check it** | What an agent sends, and what it really gets back, from the real API |
 | Connect an AI agent: follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Your agent gets `wardy_pay`, `wardy_status`, `wardy_check` and `wardy_network_lookup`. If it hits a HOLD, it can find out what you decided |
 | Open <http://127.0.0.1:8787/llms.txt> while `npm run dev` runs | A plain-text guide for an agent that has only been given the address |
+| `npm run market:work -- --once` (needs `AGENT_MARKET_TOKEN`) | Looks for hires on the Agent Market once, answers each with a signed check, and prints what it earned |
 
 ## Who on NEAR uses this tomorrow
 
@@ -221,8 +222,9 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | OutLayer | Custody on testnet | [`outlayer.ts`](packages/providers/src/custody/outlayer.ts) | Real testnet payments: [one](https://testnet.near.rocks/tx/295HobBbcr5Ucf9StCHUAtgF2deRjoWwsRztdbMAiZRf), [two](https://testnet.near.rocks/tx/ERNXmKVodB4rVLJNiJ6NgaetiANsQt2Ras36TAbt1iwR), [approved on the approval page](https://testnet.near.rocks/tx/3YNBz9xs89Ra8kkJ4gVkYGaohNddk5xaD1wevH75rRWB) |
 | NEAR RPC and indexer | Whether an account exists, and how old it is | [`nearChainData.ts`](packages/providers/src/chain/nearChainData.ts) | Live |
 | NEAR testnet contract | Anchors the Wardy Network's Merkle root | [`contracts/registry`](contracts/registry/src/lib.rs) | [Live on testnet](https://testnet.near.rocks/account/wardy-agent-registry.testnet) |
+| NEAR AI Agent Market | How Wardy Agent earns: people and agents hire it for a check of a payee, and it delivers the signed verdict | [`market/`](packages/providers/src/market) | Built and tested against the market's published API; the listing and the first real hire need the founder's account. The Earnings page shows real hires only, so it reads zero until then |
 
-Not built: 1Click cross-chain check and Agent Market listing. They're on the [roadmap](#roadmap).
+Not built: 1Click cross-chain check. It's on the [roadmap](#roadmap).
 
 ## Attack Lab results
 
@@ -351,7 +353,7 @@ All code written during NEAR HACKATHON (Nov 1-14, 2026). Wardy Agent is a new, s
 
 - Wardy Agent in a TEE, so the operator doesn't have to be trusted
 - Disputes, so a falsely reported payee has a way to respond
-- Paid checks through x402 and the Agent Market
+- Paid checks through x402
 - 1Click cross-chain route checks
 - More chains
 

@@ -11,6 +11,7 @@ import { MockChainData, NearAiContextAnalyzer, NearChainData, OFFLINE_ACCOUNTS, 
 import type { FastifyRequest } from "fastify";
 import { SignInBody, SignInError, WalletSignIn } from "./auth.js";
 import { DailyCappedAnalyzer, DemoOrChainData, HostedTenancy, type HostedOwners, PoolDailyCap } from "./hosted.js";
+import { startMarketLoop } from "./market-loop.js";
 
 const MAINNET_SETTINGS = ["NEAR_INTENTS_AGENT_API_KEY", "WARDY_GRANT_TOKEN", "WARDY_AGENT_ID", "AGENT_OWNER_PRIVATE_KEY"];
 const DIST = fileURLToPath(new URL("../apps/web/dist/", import.meta.url));
@@ -231,7 +232,12 @@ async function main() {
   });
 
   const sweep = setInterval(() => tenancy.sweep(), 10 * 60_000);
+  // Hires from the Agent Market are answered by the public tenant: a signed check, looked up on NEAR, never a payment.
+  const stopMarket = process.env.AGENT_MARKET_TOKEN
+    ? startMarketLoop({ token: process.env.AGENT_MARKET_TOKEN, service: tenancy.publicWiring.service, earnings: tenancy.publicWiring.earningsLog, publicUrl: webUrl, everySeconds: Number(process.env.WARDY_MARKET_POLL_SECONDS || 60) })
+    : () => undefined;
   const stop = async () => {
+    stopMarket();
     clearInterval(sweep);
     await app.close();
     process.exit(0);

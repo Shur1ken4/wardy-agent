@@ -147,6 +147,8 @@ export interface HostedOptions {
   owners?: HostedOwners;
 }
 
+export type { Wiring };
+
 interface OwnerRecord {
   ownerId: string;
   agentTokenHash?: string;
@@ -206,12 +208,14 @@ export class HostedTenancy implements Tenancy {
     private readonly publicTenant: Tenant,
     /** The Network everyone looks up: the demo's anchored seed reports. */
     readonly network: Wiring["network"],
+    /** The public tenant's wiring: what answers strangers' checks and Agent Market hires. */
+    readonly publicWiring: Wiring,
   ) {}
 
   /** The public tenant answers checks from agents with no credential, against the demo's history only. */
   static async create(options: HostedOptions): Promise<HostedTenancy> {
     const wiring = await HostedTenancy.offlineWiring(options, "public");
-    const tenancy = new HostedTenancy(options, { key: "public", service: wiring.service, mode: "offline" }, wiring.network);
+    const tenancy = new HostedTenancy(options, { key: "public", service: wiring.service, mode: "offline", earnings: wiring.earnings }, wiring.network, wiring);
     // Owners who signed in before a restart keep their agent, history and agent token.
     const root = join(options.dataRoot, "owners");
     if (options.owners && existsSync(root)) {
@@ -354,7 +358,8 @@ export class HostedTenancy implements Tenancy {
     const agentToken = newToken();
     const wiring = await HostedTenancy.offlineWiring(this.options, key);
     const demo = demoTools({ ...wiring, agentToken }, (request) => this.inject(request));
-    const tenant: Tenant = { key, service: wiring.service, reporting: wiring.reporting, mode: "offline", ...(demo ? { demo } : {}) };
+    // The server's own sales, the same for every visitor: Wardy Agent is one agent on the market, whoever is looking.
+    const tenant: Tenant = { key, service: wiring.service, reporting: wiring.reporting, mode: "offline", earnings: this.publicWiring.earnings, ...(demo ? { demo } : {}) };
     const sandbox: Sandbox = { tenant, agentToken, lastUsed: this.now(), address, agentRequests: 0 };
     this.byOwnerHash.set(hash(ownerToken), sandbox);
     this.byAgentHash.set(hash(agentToken), sandbox);

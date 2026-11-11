@@ -221,3 +221,15 @@ describe("sandboxes under abuse", () => {
     expect((await app.inject({ method: "GET", url: `/v1/verdicts/${check.json().verdictId}/verify` })).json().valid).toBe(true);
   });
 });
+
+describe("earnings on the hosted server", () => {
+  it("every visitor's Earnings page shows the server's own sales, which start at zero", async () => {
+    const { app, tenancy, sandbox, as } = await server();
+    const one = await sandbox();
+    const before = (await app.inject({ method: "GET", url: "/v1/stats", headers: as(one.ownerToken) })).json().earned;
+    expect(before).toEqual({ checksSold: 0, revenue: [] });
+    tenancy.publicWiring.earningsLog.record({ assignmentId: "a", jobId: "j", amount: "1", currency: "USDC", verdictId: "v", deliveredAt: "t" });
+    const after = (await app.inject({ method: "GET", url: "/v1/stats", headers: as(one.ownerToken) })).json().earned;
+    expect(after).toEqual({ checksSold: 1, revenue: [{ currency: "USDC", amount: "1" }], lastSale: { amount: "1", currency: "USDC" } });
+  });
+});

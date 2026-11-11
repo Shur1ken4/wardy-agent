@@ -13,6 +13,7 @@ import { buildApp, wire } from "@wardy-agent/api";
 import { parseFeed } from "@wardy-agent/core";
 import { createServer } from "vite";
 import { demoTools } from "./demo-tools.js";
+import { startMarketLoop } from "./market-loop.js";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
@@ -67,6 +68,7 @@ try {
     agentToken: wiring.agentToken,
     ownerToken: wiring.ownerToken,
     mode: wiring.mode,
+    earnings: wiring.earnings,
     corsOrigins: [webUrl, `http://localhost:${webPort}`, `http://127.0.0.1:${webPort}`],
     ...(demo ? { demo } : {}),
     logger: {
@@ -75,6 +77,12 @@ try {
       serializers: { req: (request: { method: string; routeOptions?: { url?: string } }) => ({ method: request.method, route: request.routeOptions?.url }) },
     },
   });
+
+  // With a market token, hires are answered here too, and the Earnings page shows them.
+  const stopMarket = process.env.AGENT_MARKET_TOKEN
+    ? startMarketLoop({ token: process.env.AGENT_MARKET_TOKEN, service, earnings: wiring.earningsLog, publicUrl: webUrl, everySeconds: Number(process.env.WARDY_MARKET_POLL_SECONDS || 60) })
+    : () => undefined;
+  process.on("exit", stopMarket);
 
   service.on("hold", ({ verdict, approvalUrl, expiresAt }) => {
     console.log(`\nHOLD ${verdict.amount} to ${verdict.payee}: ${verdict.reasons[0]}`);

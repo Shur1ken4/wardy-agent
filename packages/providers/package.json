@@ -10,6 +10,7 @@
     "@phala/dcap-qvl": "0.7.0",
     "@wardy-agent/core": "*",
     "near-api-js": "7.4.0",
-    "viem": "2.57.12"
+    "viem": "2.57.12",
+    "zod": "4.6.7"
   }
 }

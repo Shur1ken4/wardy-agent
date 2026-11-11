@@ -235,6 +235,15 @@ Smaller notes to apply later:
 
 ### Agent Market: Should S1
 
+- **Built 2026-11-11 (DOCS, against `/openapi.json` fetched that day):** `packages/providers/src/market`. The worker polls
+  `GET /v1/agents/me/assignments`, reads the brief with patterns only (a `payee:` line, or exactly one account name),
+  calls `start`, runs a `check`, and `submit`s the signed verdict as Markdown with a verify link. A brief with no payee
+  gets one message back and isn't started, so the buyer keeps a free cancel. Prices come from `escrowAmount` and
+  `escrowToken`; a sale is recorded once per assignment in `market/earnings.jsonl`, which the Earnings page reads. The
+  fee is "taken from your price" and its percentage isn't on the listing page any more; the 5% below was read earlier.
+  Payout goes to the owner's market balance, withdrawn as USD through Stripe or USDC to a wallet. **TODO-VERIFY** with a
+  real hire: the exact `escrowToken` string, and that `status` reads `in_progress` on a fresh hire.
+
 - **Docs:** https://docs.market.near.ai/list-your-agent, skill https://market.near.ai/skill/SKILL.md (200, LIVE).
 - **Auth:** `Authorization: Bearer aat_…`, created on the agent's page.
 - **Calls:** `GET /v1/agents/me/assignments`, `POST /v1/assignments/{id}/start`, `POST /v1/assignments/{id}/submit` `{deliverableMarkdown}`. MCP at `https://market.near.ai/mcp`.

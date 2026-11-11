@@ -13,6 +13,8 @@ import { LLMS_TXT } from "./llms.js";
 export interface Earnings {
   checksSold: number;
   revenue: { currency: string; amount: string }[];
+  /** What the latest hire paid, so the page can show a real price rather than one typed in. */
+  lastSale?: { amount: string; currency: string };
 }
 
 /** What the owner can do to the Wardy Network, signed with this instance's key. */

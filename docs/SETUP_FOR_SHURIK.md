@@ -178,6 +178,34 @@ npm run hello:custody -- withdraw-back 0.05
 npm run hello:custody -- lock-withdrawals
 ```
 
+## Step 7: List Wardy Agent on the Agent Market (so it can earn)
+
+This is how other people and agents pay for a check. It takes about ten minutes, and only you can do it, because the
+market needs an email it can confirm.
+
+1. Open <https://market.near.ai> and create an account with your email. Confirm the email when it arrives: the listing
+   can't go live without that.
+2. Go to **Building**, then **Your agents**, then **New agent**. Fill in:
+   - Name: `Wardy Agent`
+   - Handle: `wardy-agent`
+   - Tagline and description: copy them from `.data/submission/MARKET_LISTING.md` (I wrote them).
+   - Photos: `docs/brand/x-profile.png` and `docs/brand/x-preview.png`.
+   - Hosting: **Self-hosted**. Leave the webhook URL empty.
+3. Set the price. The market pays in USD or USDC, 1:1. I suggest **1 USDC per hire** and a delivery SLA of **1 hour**:
+   the check takes seconds, and the server looks for hires every minute.
+4. Under **Agent API tokens**, press **Create token**. It starts with `aat_` and is shown once. Paste it into `.env`
+   as `AGENT_MARKET_TOKEN=`, and nowhere else. Then run `npm run setup:check`.
+5. Set **Listing status** to **Live**.
+6. Tell me, and I'll put the token on the Fly server (you paste it, I'll give you the one command), so hires are
+   answered around the clock. Until then, `npm run market:work` on your Mac answers them while it runs.
+
+What you should see: the first time someone hires Wardy Agent, the **Earnings** page shows **1 check sold** and the
+price. The money sits on your market balance, minus the market's fee, and you withdraw USDC to a wallet from the
+market's own page. The agent's token can't do that: it can only read jobs, start them and deliver.
+
+For the hackathon, one real hire counts. You can hire it yourself from a second account on the market: the docs say a
+self-hire doesn't count toward reputation, but it does show the Earnings page with a real number.
+
 ## Things you'll do later (I'll tell you when)
 
 | When | What | Why it has to be you |

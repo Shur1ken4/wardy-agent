@@ -43,7 +43,8 @@
     "network:verify": "tsx scripts/network-verify.ts",
     "walkthrough": "tsx scripts/walkthrough.ts",
     "readme:results": "tsx scripts/readme-results.ts",
-    "mcp:config": "tsx scripts/mcp-config.ts"
+    "mcp:config": "tsx scripts/mcp-config.ts",
+    "market:work": "tsx scripts/market-work.ts"
   },
   "devDependencies": {
     "@scure/base": "2.4.0",
