@@ -1,5 +1,7 @@
 # Threat model
 
+The adversarial review of 2026-11-11, with every attack tried and what came of it: [SECURITY_REVIEW.md](SECURITY_REVIEW.md).
+
 What Wardy Agent protects, from whom, how, and where it stops. Where something isn't defended, this says so.
 
 ## Assets
@@ -51,6 +53,7 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 | Rewriting the feed's history | The contract refuses a shrinking count, or a new root at the same count | `contracts/registry` |
 | Dummy root replaces a real one | `hello:contract` refuses, and a test checks it | `scripts/registry.ts` |
 | A secret committed to git | Secret check in the pre-commit hook and CI | `scripts/check-secrets.mjs` |
+| A hijacked dependency release | Every direct dependency is pinned to one exact version, the lockfile carries every integrity hash, and CI checks that each pinned release has been on npm for two weeks (one documented exception) | `scripts/check-deps.mjs` |
 | Too much at stake in live mode | Refuses to start above 10 NEAR equivalent unless told otherwise | `wiring.ts` |
 | Abuse of the check endpoint | Rate limit on `/v1/check`, and on network lookups | `app.ts` |
 | A stranger reads the owner's payees and limits by asking as them | A check using this owner's id needs the agent's or owner's credential. A refusal does confirm that id is this server's owner, which is an account name and not a secret | `app.ts` |
