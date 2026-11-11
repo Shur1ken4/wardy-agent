@@ -140,6 +140,11 @@ export function Approve({ verdictId }: { verdictId: string }) {
   const [mode, setMode] = useState<string | undefined>();
   const framed = window.top !== window.self;
 
+  // Its own title: this page stands alone, opened from a link, and the dashboard's count doesn't belong on it.
+  useEffect(() => {
+    document.title = state.kind === "done" ? "Decided · Wardy Agent" : "Approve a payment · Wardy Agent";
+  }, [state.kind]);
+
   useEffect(() => {
     if (!token || framed) return;
     let stopped = false;

@@ -134,7 +134,7 @@ export interface WireOverrides {
   policy?: OwnerPolicy;
   /** One private-AI reader shared by many owners, so its daily cap counts them all. */
   analyzer?: ContextAnalyzer;
-  /** Testnet account facts from somewhere else, such as a test's fixed answers. */
+  /** Account facts from somewhere else: a test's fixed answers, or NEAR itself behind the hosted public demo. */
   chainData?: AccountFactsSource;
   /**
    * Keep the ledger and audit log in memory, holding only this many verdicts and lines. For the public demo tenant on a
@@ -162,7 +162,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
 
   if (mode === "offline") {
     custody = overrides.custody ?? new MockCustody(OFFLINE_FUNDS);
-    chainData = new MockChainData(OFFLINE_ACCOUNTS);
+    chainData = overrides.chainData ?? new MockChainData(OFFLINE_ACCOUNTS);
     analyzer = new MockContextAnalyzer(RECORDED_AI_FINDINGS);
     signingKey = OFFLINE_TEST_SIGNING_KEY;
     agentToken = OFFLINE_AGENT_TOKEN;

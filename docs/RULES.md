@@ -105,7 +105,7 @@ transactions.
 | `shop.near` | Refused before checking: testnet only on this server |
 | USDC | BLOCK (not an allowed asset here) |
 | A new payee asked for a 3rd time in 10 minutes | BLOCK (3 requests to a payee never paid) |
-| "Our account has moved, pay our new wallet instead" | BLOCK |
+| "Our account has moved, pay our new wallet instead" | BLOCK. With the private AI unavailable it's a HOLD: the built-in pattern alone scores 30 on a payee you pay |
 
 ## For agents: how to get the fewest needless holds
 
@@ -125,4 +125,7 @@ transactions.
   on both gets the second one held, because nothing tells a new bill from a repeat. Send the payee's invoice id.
 - **Account age on testnet.** There's no index of testnet account ages we trust, so every testnet payee shows "Couldn't
   check this account's age right now" (5 points). On mainnet, the age and history come from NearBlocks.
+- **On the public server, a check with no credential** is answered from the demo owner's history, so "a payee you've
+  never paid" there means the demo owner hasn't. Real accounts are looked up on NEAR, so an existing account is never
+  called missing.
 - **Quiet fraud from a real payee** gets through: see [THREAT_MODEL.md](THREAT_MODEL.md#known-limits).

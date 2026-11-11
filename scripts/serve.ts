@@ -7,10 +7,10 @@ import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildApp } from "@wardy-agent/api";
 import { generateSigningKey, ServiceError } from "@wardy-agent/core";
-import { NearAiContextAnalyzer, OutLayerCustody } from "@wardy-agent/providers";
+import { MockChainData, NearAiContextAnalyzer, NearChainData, OFFLINE_ACCOUNTS, OutLayerCustody } from "@wardy-agent/providers";
 import type { FastifyRequest } from "fastify";
 import { SignInBody, SignInError, WalletSignIn } from "./auth.js";
-import { DailyCappedAnalyzer, HostedTenancy, type HostedOwners, PoolDailyCap } from "./hosted.js";
+import { DailyCappedAnalyzer, DemoOrChainData, HostedTenancy, type HostedOwners, PoolDailyCap } from "./hosted.js";
 
 const MAINNET_SETTINGS = ["NEAR_INTENTS_AGENT_API_KEY", "WARDY_GRANT_TOKEN", "WARDY_AGENT_ID", "AGENT_OWNER_PRIVATE_KEY"];
 const DIST = fileURLToPath(new URL("../apps/web/dist/", import.meta.url));
@@ -204,6 +204,10 @@ export function hostedOwners(env: NodeJS.ProcessEnv, dataRoot: string, webUrl: s
     ...(analyzer ? { analyzer } : {}),
     maxOwners: Number(env.WARDY_MAX_OWNERS || 500),
     aiPerOwnerPerDay: Number(env.WARDY_AI_OWNER_DAILY_LIMIT || 50),
+    publicChainData: new DemoOrChainData(new MockChainData(OFFLINE_ACCOUNTS), new Set(Object.keys(OFFLINE_ACCOUNTS)), {
+      testnet: new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" }),
+      mainnet: new NearChainData({ rpcUrl: env.NEAR_RPC_URL || "https://free.rpc.fastnear.com" }),
+    }),
     requestsPerOwnerPerDay: Number(env.WARDY_OWNER_DAILY_REQUESTS || 1000),
   };
 }

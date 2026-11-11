@@ -266,6 +266,7 @@ async function main() {
 
     await goto(desktop, "/policy");
     check("the policy says who can spend", /Wardy Agent only/.test(await textOf(desktop)));
+    check("the tab's title names the page", /Policy · Wardy Agent$/.test(await desktop.title()), await desktop.title());
     await inspect(desktop, "desktop-04-policy");
 
     await goto(desktop, "/attack-lab");

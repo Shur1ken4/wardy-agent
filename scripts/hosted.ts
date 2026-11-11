@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { SEED_FEED_FILE } from "@wardy-agent/attack-lab";
 import { type Tenancy, type Tenant, wire, type Wiring } from "@wardy-agent/api";
 import {
+  type AccountFacts,
   type AccountFactsSource,
   type ContextAnalysis,
   type ContextAnalyzer,
@@ -30,6 +31,24 @@ export function testnetPayeeProblem(payee: unknown): string | undefined {
   if (typeof payee !== "string") return undefined; // The schema says what's wrong with it.
   if (payee.endsWith(".testnet") || /^[0-9a-f]{64}$/.test(payee)) return undefined;
   return "This server works on NEAR testnet only: pay a .testnet account, or an implicit one.";
+}
+
+/**
+ * What the public demo tenant on a hosted server knows about accounts. A stranger's check names a real account, and
+ * "doesn't exist" would be the wrong answer about a real one, so names the demo fixtures don't cover are asked of NEAR
+ * itself: testnet for `.testnet` names, mainnet for the rest. Existence only, since neither has an index we trust here.
+ */
+export class DemoOrChainData implements AccountFactsSource {
+  constructor(
+    private readonly demo: AccountFactsSource,
+    private readonly demoNames: ReadonlySet<string>,
+    private readonly chains: { testnet: AccountFactsSource; mainnet: AccountFactsSource },
+  ) {}
+
+  getAccountFacts(accountId: string): Promise<AccountFacts> {
+    if (this.demoNames.has(accountId)) return this.demo.getAccountFacts(accountId);
+    return (accountId.endsWith(".testnet") ? this.chains.testnet : this.chains.mainnet).getAccountFacts(accountId);
+  }
 }
 
 /** The private AI costs real credit per call, so a server open to anyone reads only so many invoices a day. */
@@ -109,6 +128,8 @@ export interface HostedOwners {
   maxOwners?: number;
   /** Testnet account facts. By default, NEAR testnet RPC. */
   chainData?: AccountFactsSource;
+  /** What the public demo tenant knows about accounts, for strangers' checks. By default the demo fixtures only. */
+  publicChainData?: AccountFactsSource;
 }
 
 export interface HostedOptions {
@@ -294,8 +315,9 @@ export class HostedTenancy implements Tenancy {
     const dataDir = join(options.dataRoot, "sandboxes", key);
     mkdirSync(dataDir, { recursive: true });
     // The public tenant answers anyone's checks, so it keeps nothing on disk and only its latest verdicts in memory.
-    const inMemory = key === "public" ? { inMemory: { maxVerdicts: PUBLIC_TENANT_VERDICTS } } : {};
-    const wiring = await wire({ WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl }, { dataDir, tenantKey: key, ...inMemory });
+    const publicChainData = options.owners?.publicChainData;
+    const publicOnly = key === "public" ? { inMemory: { maxVerdicts: PUBLIC_TENANT_VERDICTS }, ...(publicChainData ? { chainData: publicChainData } : {}) } : {};
+    const wiring = await wire({ WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl }, { dataDir, tenantKey: key, ...publicOnly });
     // So the Network screen has anchored reports to show. They're labelled as seed, and only count offline.
     wiring.reports.merge(parseFeed(readFileSync(SEED_FEED_FILE, "utf8")));
     return wiring;

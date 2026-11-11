@@ -2,6 +2,7 @@
 import type { AnchorSummary, VerdictView } from "@wardy-agent/core";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, type Health, liveFeed, type Me, type PolicyView, OFFLINE_OWNER_CREDENTIAL, savedCredential, saveCredential, setApiCredential, type Stats } from "./api";
+import { useLocation } from "./router";
 
 export interface MascotReaction {
   kind: "BLOCK" | "HOLD" | "ALLOW";
@@ -47,6 +48,14 @@ export function useDashboard(): Dashboard {
 }
 
 const FEED_SIZE = 100;
+export const PAGE_TITLES: Record<string, string> = {
+  "/policy": "Policy",
+  "/attack-lab": "Attack Lab",
+  "/network": "Wardy Network",
+  "/earnings": "Earnings",
+  "/agents": "For agents",
+  "/account": "Your account",
+};
 const HIDDEN_REFRESH_MS = 30_000;
 
 export function upsertVerdict(list: readonly VerdictView[], verdict: VerdictView): VerdictView[] {
@@ -79,10 +88,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // So a payment waiting for you shows in the tab's title, even when you're in another tab.
+  // The tab's title names the page, and a payment waiting for you shows in it even when you're in another tab.
+  const { path } = useLocation();
   useEffect(() => {
-    document.title = holds.length > 0 ? `(${holds.length}) Waiting for you · Wardy Agent` : "Wardy Agent";
-  }, [holds.length]);
+    const page = PAGE_TITLES[path];
+    const name = page ? `${page} · Wardy Agent` : "Wardy Agent";
+    document.title = holds.length > 0 ? `(${holds.length}) Waiting for you · ${name}` : name;
+  }, [holds.length, path]);
 
   const refresh = useCallback(async () => {
     const [nextStats, nextHolds, nextHealth, nextPolicy] = await Promise.all([api.stats(), api.approvals(), api.health(), api.policy()]);

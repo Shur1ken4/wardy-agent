@@ -163,7 +163,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       }));
       // Says what to fix, so an agent can correct its own call. These are the schema's words, not what was sent.
       const message = issues.map(({ path, message: why }) => (path ? `${path}: ${why}` : why)).join("; ");
-      return reply.status(400).send({ error: "invalid_request", message, issues });
+      // So an agent that only has this address can find the request format without reading the source.
+      return reply.status(400).send({ error: "invalid_request", message, issues, help: "/llms.txt" });
     }
     if (error instanceof ServiceError) return reply.status(error.status).send({ error: error.code, message: error.message });
     if (error instanceof RequestIdConflictError) return reply.status(409).send({ error: "request_id_conflict", message: error.message });

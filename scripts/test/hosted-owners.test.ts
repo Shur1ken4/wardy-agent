@@ -9,7 +9,7 @@ import { base64 } from "@scure/base";
 import { KeyPair, KeyPairSigner } from "near-api-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { MAX_SESSIONS_PER_ACCOUNT, SIGN_IN_MESSAGE, WalletSignIn } from "../auth.js";
-import { DailyCappedAnalyzer, type HostedOwners, ownerKey, PoolDailyCap, testnetPayeeProblem } from "../hosted.js";
+import { DailyCappedAnalyzer, DemoOrChainData, type HostedOwners, ownerKey, PoolDailyCap, testnetPayeeProblem } from "../hosted.js";
 import { buildHostedApp } from "../serve.js";
 
 const dirs: string[] = [];
@@ -272,5 +272,21 @@ describe("one owner can't use up what's shared", () => {
       expect(answer.statusCode).toBe(200);
     }
     expect(reads).toBe(2);
+  });
+});
+
+describe("a stranger's check on the hosted server", () => {
+  it("asks NEAR about a real account instead of calling it missing, and keeps the demo's own names as they are", async () => {
+    const asked: string[] = [];
+    const chain = (exists: boolean) => ({ getAccountFacts: async (accountId: string) => { asked.push(accountId); return { accountId, available: true, exists, implicit: false, createdAt: null, txCount: null }; } });
+    const publicChainData = new DemoOrChainData(new MockChainData({ "acme-shop.near": { ageHours: 24 * 400, txCount: 300 } }), new Set(["acme-shop.near"]), { testnet: chain(true), mainnet: chain(false) });
+    const { app } = await server(temp(), { ...owners(), publicChainData });
+    const check = (payee: string) =>
+      app.inject({ method: "POST", url: "/v1/check", payload: { requestId: crypto.randomUUID(), agentId: "x", ownerId: "stranger.near", payee, asset: "wNEAR", amount: "0.005", purpose: "t", createdAt: new Date().toISOString() } });
+    const real = (await check("some-real-account.testnet")).json();
+    expect(real.signals.map((signal: { code: string }) => signal.code)).not.toContain("ACCOUNT_NOT_FOUND");
+    expect((await check("nobody-here.near")).json().signals.map((signal: { code: string }) => signal.code)).toContain("ACCOUNT_NOT_FOUND");
+    expect((await check("acme-shop.near")).json().signals.map((signal: { code: string }) => signal.code)).not.toContain("ACCOUNT_NOT_FOUND");
+    expect(asked).toEqual(["some-real-account.testnet", "nobody-here.near"]);
   });
 });
