@@ -105,6 +105,18 @@ async function guarded(name: string, run: () => Promise<Line>): Promise<Line> {
   }
 }
 
+/** Optional: Wardy Agent earns without it, but not on the market. A read of its own assignments proves the token. */
+async function checkAgentMarket(): Promise<Line> {
+  const name = "Agent Market token";
+  const token = process.env.AGENT_MARKET_TOKEN;
+  if (!token) return { status: "MISSING", name, note: "AGENT_MARKET_TOKEN is empty (Step 7, optional: skip it for now)" };
+  const { status, json } = await getJson("https://market.near.ai/v1/agents/me/assignments", { authorization: `Bearer ${token}` });
+  if (status === 401 || status === 403) return { status: "FAILED", name, note: "the token was rejected: make a new one under Agent API tokens" };
+  if (status !== 200) return { status: "FAILED", name, note: `the market answered HTTP ${status}` };
+  const count = Array.isArray(json?.assignments) ? json.assignments.length : 0;
+  return { status: "OK", name, note: `${count} hire(s) in progress` };
+}
+
 async function main() {
   if (!existsSync(".env")) {
     console.log("No .env file yet. Run: npm run setup:keys");
@@ -127,9 +139,11 @@ async function main() {
     owner.line,
     merchant.line,
     checkOwnKeys(),
+    await guarded("Agent Market token", checkAgentMarket),
   ];
   for (const { status, name, note } of lines) console.log(`${status.padEnd(8)}${name.padEnd(20)}${note}`);
-  const ready = lines.every((line) => line.status === "OK");
+  // The market is optional, so an empty token doesn't hold the rest back.
+  const ready = lines.every((line) => line.status === "OK" || (line.name === "Agent Market token" && line.status === "MISSING"));
   console.log(ready ? "\nAll set for Phase 1." : "\nNot ready yet. Fix the lines above (see docs/SETUP_FOR_SHURIK.md).");
   process.exit(ready ? 0 : 1);
 }
