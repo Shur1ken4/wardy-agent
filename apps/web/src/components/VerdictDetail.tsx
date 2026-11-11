@@ -1,5 +1,7 @@
 // What a verdict says, in plain words first. This part only displays: it fetches nothing and decides nothing.
-import { ATTESTATION_CHECKS, type AttestationCheck, type AttestationChecks, type Signal, type VerdictAi, type VerdictView } from "@wardy-agent/core";
+import type { AttestationCheck, AttestationChecks, Signal, VerdictAi, VerdictView } from "@wardy-agent/core";
+// A value import, from the one file with no Node-only code, so the browser bundle never pulls the whole package.
+import { ATTESTATION_CHECKS } from "@wardy-agent/core/types";
 import type { ReactNode } from "react";
 import { executionWords, formatAmount, lookalikeSignal, SEVERITY_WORDS, shortHash, timeOf, txUrl } from "../lib/format";
 import { Payee } from "./parts";

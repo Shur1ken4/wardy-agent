@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./merkle": "./src/network/merkle.ts",
-    "./sign": "./src/sign.ts"
+    "./sign": "./src/sign.ts",
+    "./types": "./src/types.ts"
   },
   "dependencies": {
     "@noble/ed25519": "3.2.0",
