@@ -55,3 +55,10 @@ payment, unless what the agent read says the first one failed. A payment with no
 with the same id, is still held. It came from using the product, not from a holdout result, and every result in
 [`../results/latest.md`](../results/latest.md) stayed byte for byte the same. Still, E and HE were written before it, so
 they're no longer strictly blind to the rules as they are now.
+
+**And, on 2026-11-11, three changes from a security review**, none from a holdout result, and every result in
+[`../results/latest.md`](../results/latest.md) stayed byte for byte the same: the built-in text patterns now read a folded
+copy of the text (`text.ts`), so a zero-width character or a Cyrillic look-alike letter can't hide "ignore previous
+instructions" from them; a paid payee's whole name run into another name (`acmeshop-pay.near`) is now a suffix trick
+(`lookalike.ts`, `config.ts`); and a public report now needs one kind of evidence about the account itself, not only
+about what the invoice said and how often it was sent (`network/report.ts`).

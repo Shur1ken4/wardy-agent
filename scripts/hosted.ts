@@ -16,6 +16,7 @@ import {
   OwnerPolicySchema,
   parseDecimal,
   parseFeed,
+  ServiceError,
 } from "@wardy-agent/core";
 import type { WalletSignIn } from "./auth.js";
 import { demoTools } from "./demo-tools.js";
@@ -96,6 +97,10 @@ export class PoolDailyCap implements CustodyProvider {
 
 export interface HostedOwners {
   signIn: WalletSignIn;
+  /** Private checks one owner may have read for them in a day, so one agent can't use up the whole server's AI credit. */
+  aiPerOwnerPerDay?: number;
+  /** Payment requests one owner's agent may make in a day. The money limits are far smaller; this bounds the disk. */
+  requestsPerOwnerPerDay?: number;
   /** One pooled testnet wallet. Each owner's own small limits keep any one of them from emptying it. */
   custody: CustodyProvider;
   /** Settings for each owner's testnet wiring, such as the shared Wardy signing key and RPC. Never a mainnet key. */
@@ -111,6 +116,10 @@ export interface HostedOptions {
   dataRoot: string;
   webUrl: string;
   maxSandboxes?: number;
+  /** Sandboxes one address may hold at once. Past it, that address's oldest makes room, not someone else's. */
+  maxSandboxesPerAddress?: number;
+  /** Agent requests one sandbox may make in its life. It's a demo, and past this it's cleared away like an idle one. */
+  maxSandboxRequests?: number;
   sandboxIdleMs?: number;
   now?: () => number;
   /** Signed-in owners, each with a real testnet agent. Without it, the server has sandboxes only. */
@@ -146,7 +155,15 @@ interface Sandbox {
   tenant: Tenant;
   agentToken: string;
   lastUsed: number;
+  /** Who made it, so one address can't crowd everyone else out. */
+  address: string;
+  agentRequests: number;
 }
+
+const DEFAULT_MAX_SANDBOX_REQUESTS = 2_000;
+const DEFAULT_REQUESTS_PER_OWNER_PER_DAY = 1_000;
+const DEFAULT_AI_PER_OWNER_PER_DAY = 50;
+const PUBLIC_TENANT_VERDICTS = 2_000;
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 const newToken = () => randomBytes(24).toString("hex");
@@ -157,7 +174,7 @@ export class HostedTenancy implements Tenancy {
   private readonly byOwnerHash = new Map<string, Sandbox>();
   private readonly byAgentHash = new Map<string, Sandbox>();
   private readonly byTenantKey = new Map<string, Sandbox>();
-  private readonly owners = new Map<string, { tenant: Tenant; record: OwnerRecord }>();
+  private readonly owners = new Map<string, { tenant: Tenant; record: OwnerRecord; requests: { day: string; count: number } }>();
   private readonly ownerByAgentHash = new Map<string, string>();
   private inject: Inject = async () => {
     throw new Error("The server isn't listening yet.");
@@ -207,12 +224,13 @@ export class HostedTenancy implements Tenancy {
         custody: owners.custody,
         seedHistory: false,
         policy: OwnerPolicySchema.parse(JSON.parse(readFileSync(HOSTED_POLICY, "utf8"))),
-        ...(owners.analyzer ? { analyzer: owners.analyzer } : {}),
+        // Each owner gets a slice of the server's daily AI reads, inside the server-wide cap.
+        ...(owners.analyzer ? { analyzer: new DailyCappedAnalyzer(owners.analyzer, owners.aiPerOwnerPerDay ?? DEFAULT_AI_PER_OWNER_PER_DAY, () => this.now()) } : {}),
         ...(owners.chainData ? { chainData: owners.chainData } : {}),
       },
     );
     const tenant: Tenant = { key, service: wiring.service, reporting: wiring.reporting, mode: "testnet", acceptPayee: testnetPayeeProblem };
-    this.owners.set(record.ownerId, { tenant, record });
+    this.owners.set(record.ownerId, { tenant, record, requests: { day: "", count: 0 } });
     if (record.agentTokenHash) this.ownerByAgentHash.set(record.agentTokenHash, record.ownerId);
     return tenant;
   }
@@ -275,7 +293,9 @@ export class HostedTenancy implements Tenancy {
   private static async offlineWiring(options: HostedOptions, key: string): Promise<Wiring> {
     const dataDir = join(options.dataRoot, "sandboxes", key);
     mkdirSync(dataDir, { recursive: true });
-    const wiring = await wire({ WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl }, { dataDir, tenantKey: key });
+    // The public tenant answers anyone's checks, so it keeps nothing on disk and only its latest verdicts in memory.
+    const inMemory = key === "public" ? { inMemory: { maxVerdicts: PUBLIC_TENANT_VERDICTS } } : {};
+    const wiring = await wire({ WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl }, { dataDir, tenantKey: key, ...inMemory });
     // So the Network screen has anchored reports to show. They're labelled as seed, and only count offline.
     wiring.reports.merge(parseFeed(readFileSync(SEED_FEED_FILE, "utf8")));
     return wiring;
@@ -290,12 +310,20 @@ export class HostedTenancy implements Tenancy {
     return this.options.now?.() ?? Date.now();
   }
 
-  async createSandbox(): Promise<SandboxCredentials> {
+  async createSandbox(address = ""): Promise<SandboxCredentials> {
     this.sweep();
+    const byAge = (sandboxes: Sandbox[]) => sandboxes.sort((a, b) => a.lastUsed - b.lastUsed);
+    // One address past its share makes room from its own sandboxes, so it can't push everyone else's out.
+    const perAddress = this.options.maxSandboxesPerAddress ?? 5;
+    while (address && [...this.byTenantKey.values()].filter((sandbox) => sandbox.address === address).length >= perAddress) {
+      const mine = byAge([...this.byTenantKey.values()].filter((sandbox) => sandbox.address === address))[0];
+      if (!mine) break;
+      this.remove(mine);
+    }
     const max = this.options.maxSandboxes ?? 200;
     // Full: the one used longest ago makes room, rather than refusing a new visitor.
     while (this.byTenantKey.size >= max) {
-      const oldest = [...this.byTenantKey.values()].sort((a, b) => a.lastUsed - b.lastUsed)[0];
+      const oldest = byAge([...this.byTenantKey.values()])[0];
       if (!oldest) break;
       this.remove(oldest);
     }
@@ -305,7 +333,7 @@ export class HostedTenancy implements Tenancy {
     const wiring = await HostedTenancy.offlineWiring(this.options, key);
     const demo = demoTools({ ...wiring, agentToken }, (request) => this.inject(request));
     const tenant: Tenant = { key, service: wiring.service, reporting: wiring.reporting, mode: "offline", ...(demo ? { demo } : {}) };
-    const sandbox: Sandbox = { tenant, agentToken, lastUsed: this.now() };
+    const sandbox: Sandbox = { tenant, agentToken, lastUsed: this.now(), address, agentRequests: 0 };
     this.byOwnerHash.set(hash(ownerToken), sandbox);
     this.byAgentHash.set(hash(agentToken), sandbox);
     this.byTenantKey.set(key, sandbox);
@@ -350,10 +378,25 @@ export class HostedTenancy implements Tenancy {
     const ownerId = this.ownerByAgentHash.get(hash(token));
     if (ownerId) {
       const owner = this.owners.get(ownerId);
-      if (owner) this.agentSeen(owner);
-      return owner?.tenant;
+      if (!owner) return undefined;
+      this.agentSeen(owner);
+      // Every request is a line on the disk, and the disk is shared. The money limits are far below this.
+      const day = new Date(this.now()).toISOString().slice(0, 10);
+      if (owner.requests.day !== day) owner.requests = { day, count: 0 };
+      if (owner.requests.count >= (this.options.owners?.requestsPerOwnerPerDay ?? DEFAULT_REQUESTS_PER_OWNER_PER_DAY)) {
+        throw new ServiceError(429, "daily_request_limit", "This agent has made all the requests it may today on this server. Try again tomorrow.");
+      }
+      owner.requests.count += 1;
+      return owner.tenant;
     }
-    return this.touch(this.byAgentHash.get(hash(token)));
+    const sandbox = this.byAgentHash.get(hash(token));
+    if (!sandbox) return undefined;
+    sandbox.agentRequests += 1;
+    if (sandbox.agentRequests > (this.options.maxSandboxRequests ?? DEFAULT_MAX_SANDBOX_REQUESTS)) {
+      this.remove(sandbox);
+      return undefined;
+    }
+    return this.touch(sandbox);
   }
 
   /** Written at most once a minute, so a busy agent doesn't rewrite the file on every call. */

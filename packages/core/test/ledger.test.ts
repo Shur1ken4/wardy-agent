@@ -121,3 +121,22 @@ describe("Ledger", () => {
     expect(() => new Ledger(path)).toThrow(/damaged at line 2/);
   });
 });
+
+describe("a capped, in-memory ledger", () => {
+  it("keeps only the newest verdicts, and forgets their request ids with them", async () => {
+    const ledger = new Ledger(undefined, { maxVerdicts: 2 });
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const verdict = await signVerdict(makeUnsignedVerdict(), generateSigningKey());
+      ids.push(verdict.verdictId);
+      ledger.saveVerdict(verdict);
+    }
+    expect(ledger.verdictById(ids[0] as string)).toBeUndefined();
+    expect(ledger.verdictById(ids[2] as string)).toBeDefined();
+    expect(ledger.allVerdicts()).toHaveLength(2);
+  });
+
+  it("can't be given a file: a file is never cut", () => {
+    expect(() => new Ledger("/tmp/never-written.jsonl", { maxVerdicts: 1 })).toThrow(/in memory/);
+  });
+});

@@ -24,6 +24,14 @@ const FAMILY: Readonly<Record<string, string>> = {
 
 const MIN_FAMILIES = 2;
 
+/**
+ * Evidence about the account itself. Whoever sends the invoice writes its text and chooses how often to ask, so the
+ * "context" and "behaviour" families together are still one party's word. A report that names an account for every
+ * agent needs something the sender can't write: a name made to look like a payee, or an account that doesn't exist or
+ * was made hours ago.
+ */
+const ABOUT_THE_ACCOUNT: ReadonlySet<string> = new Set(["lookalike", "new_account"]);
+
 function familiesOf(codes: readonly string[]): string[] {
   const families = new Set<string>();
   for (const code of codes) {
@@ -31,6 +39,11 @@ function familiesOf(codes: readonly string[]): string[] {
     if (family) families.add(family);
   }
   return [...families];
+}
+
+/** Two independent kinds of evidence, at least one of them about the account and not about what was said. */
+function enoughEvidence(families: readonly string[]): boolean {
+  return families.length >= MIN_FAMILIES && families.some((family) => ABOUT_THE_ACCOUNT.has(family));
 }
 
 export function evidenceFamilies(verdict: Verdict): string[] {
@@ -50,7 +63,7 @@ export function whyOwnerCantReport(verdict: Verdict): string | null {
 export function shouldPublishReport(verdict: Verdict): boolean {
   if (verdict.mode !== "pay" || verdict.decision !== "BLOCK") return false;
   if (verdict.signals.some((signal) => signal.code === "KNOWN_PAYEE")) return false;
-  return evidenceFamilies(verdict).length >= MIN_FAMILIES;
+  return enoughEvidence(evidenceFamilies(verdict));
 }
 
 /** What goes into the Merkle tree. A revocation isn't in it: that's a later event with its own leaf, not a rewrite. */
@@ -88,8 +101,8 @@ export async function createNetworkReport(verdict: Verdict, options: { signingKe
  * field was changed in transit, and the signed verdict inside really backs up what the report claims. The second
  * stops a reporter, or a bug, from attaching real evidence about one payee to a report about another, or from
  * publishing what the rules wouldn't: a report needs a real BLOCK from a real payment, two independent kinds of
- * evidence, and a payee the owner has never paid. A report the owner confirmed can rest on a held payment and one kind
- * of evidence, and it says so: `ownerConfirmed` is signed, so a reader can weigh it differently.
+ * evidence, one of them about the account itself, and a payee the owner has never paid. A report the owner confirmed
+ * can rest on a held payment and one kind of evidence, and it says so: `ownerConfirmed` is signed, so a reader can weigh it differently.
  */
 export async function verifyReportEvidence(report: NetworkReport): Promise<boolean> {
   const { merkleLeaf, reportSignature, revokedAt: _revokedAt, revocationSignature: _revocationSignature, ...fields } = report;
@@ -105,7 +118,9 @@ export async function verifyReportEvidence(report: NetworkReport): Promise<boole
   if (publicVerdict.payee !== report.payee || publicVerdict.chain !== report.chain) return false;
   if (publicVerdict.lookalikeOf !== lookalikeOf || publicVerdict.attestationRef !== attestationRef) return false;
   if (canonicalJson(publicVerdict.codes) !== canonicalJson(report.codes)) return false;
-  if (publicVerdict.codes.includes("KNOWN_PAYEE") || familiesOf(publicVerdict.codes).length < (confirmed ? 1 : MIN_FAMILIES)) return false;
+  if (publicVerdict.codes.includes("KNOWN_PAYEE")) return false;
+  const families = familiesOf(publicVerdict.codes);
+  if (confirmed ? families.length < 1 : !enoughEvidence(families)) return false;
   return verifyPublicVerdict(publicVerdict, report.reporter);
 }
 

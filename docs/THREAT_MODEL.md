@@ -32,6 +32,7 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 | Worker agent skips the check | It has no keys or grant, so there's no other path to the money | Setup, [MCP_SETUP.md](MCP_SETUP.md) |
 | Lookalike payee | Lookalike detector, and new-account detector | `detectors/lookalike.ts`, `detectors/newAccount.ts` |
 | Fake "payment failed, please retry" | Duplicate detector compares with what really settled. Payments run one at a time | `detectors/duplicate.ts`, `service.ts` |
+| Invoice hides a phrase with invisible or look-alike characters | The built-in patterns read a folded copy: zero-width and format characters removed, full-width letters and Cyrillic look-alikes mapped to Latin | `text.ts` |
 | Invoice tries to instruct the model | Text is data: it's never in a system prompt as instructions. The AI can only add risk, and rules decide | `decision.ts`, `ai/nearAiAnalyzer.ts` |
 | Invoice swaps the payee | Context tamper detector | `detectors/contextTamper.ts` |
 | Splitting into small payments | Velocity check on payees never paid | `detectors/duplicate.ts` |
@@ -59,14 +60,15 @@ What Wardy Agent protects, from whom, how, and where it stops. Where something i
 These are real gaps, not edge cases.
 
 1. **Quiet fraud from a real payee gets through.** The newest holdout shows it: all 5 of its attacks took money, by staying just inside the thresholds (E1 to E5). Across every set, 10 of 23 did. Each paid a payee the owner really pays, under every limit, so a scammer has to be that payee or control its account. The amount checks catch big jumps and big totals, but anyone who knows the numbers can stay under them. Checks only hold, so they also interrupt honest payments: a real yearly plan (HC1), a first payment in a new asset (HC3), a busy API day (HE1), and an ordinary "your admin approved this", which on such a payee holds and doesn't block (HB5, HD1). An owner who believes a fake claim can approve and pay it (C6). A public `check` skips the amount checks on purpose, so a `check` can say ALLOW where the payment is then held.
-2. **Smearing an innocent account.** An attacker can send an invoice naming a brand-new or lookalike account, and it could get reported. A `check` can't publish, a report needs two kinds of evidence, and it can be withdrawn. But there's no dispute process.
+2. **Smearing an innocent account.** An attacker can send an invoice naming a brand-new or lookalike account, and it could get reported. A `check` can't publish, a report needs two kinds of evidence, one of them about the account itself (so an injected invoice sent three times can't get an old, honest account reported: that was possible until 2026-11-11), and it can be withdrawn. But there's no dispute process.
 3. **A patient scammer.** An old, active account that doesn't resemble anyone only reaches HOLD, and is safe only if the owner rejects it (B2, B5).
 4. **An owner who approves everything.** HOLD asks a person, and a person can be fooled or tired.
 5. **A withdrawal can be missed.** Someone holding one report and its proof can't tell if it was later withdrawn. Only the whole feed shows that, up to the last anchor.
 6. **Reports are public.** They name the payee, the imitated name, the score, the codes, the time and the reporter's key. That key can link an owner's reports together.
 7. **The audit log is local.** Its chain shows tampering after its head is shared, but whoever holds the file could rewrite it all before that.
 8. **The offline signing key is public on purpose.** It's for demos only: seed reports never count in testnet or live decisions.
-9. **`--lan` isn't encrypted.** It's refused in live mode, but on testnet the owner's credential crosses your Wi-Fi in the clear.
+9. **An agent learns the numbers it broke.** A refusal says which limit it crossed, so a hijacked agent can learn the limits by asking. It can't change them, and the owner's own payment history still needs the owner's credential.
+10. **`--lan` isn't encrypted.** It's refused in live mode, but on testnet the owner's credential crosses your Wi-Fi in the clear.
 
 ## The hosted server
 
@@ -88,8 +90,8 @@ disk and memory, and each owner's session and agent token.
 | Faking your address to skip every rate limit | The server believes only the address added by Fly's own proxy (`WARDY_PROXY_HOPS=1`), not one a visitor writes into `X-Forwarded-For` | `scripts/serve.ts`, `app.ts` |
 | Emptying the shared test wallet with many free accounts | Each owner may pay 0.02 at a time and 0.1 a day, and the whole server 1 a day (`WARDY_POOL_DAILY_LIMIT`). Past that, a payment fails before anything is sent | `config/policy.hosted.json`, `PoolDailyCap` |
 | Sign-up spam | 3 new owners per address a day, 500 owners in all, 10 sessions per owner | `scripts/serve.ts`, `scripts/auth.ts` |
-| Burning the NEAR AI credit | 500 private checks a day for the whole server (`WARDY_AI_DAILY_LIMIT`) | `scripts/hosted.ts` |
-| Filling the disk or memory | `/v1/pay` 120 a minute per agent, 5 live feeds per owner, 200 sandboxes that are cleared after 2 idle hours | `app.ts`, `scripts/hosted.ts` |
+| Burning the NEAR AI credit | 500 private checks a day for the whole server (`WARDY_AI_DAILY_LIMIT`), and 50 per owner (`WARDY_AI_OWNER_DAILY_LIMIT`) | `scripts/hosted.ts` |
+| Filling the disk or memory | `/v1/pay` 120 a minute per agent and 1,000 a day per owner (`WARDY_OWNER_DAILY_REQUESTS`), 5 live feeds per owner, 200 sandboxes (5 per address, 2,000 requests each) cleared after 2 idle hours, and the public demo keeps nothing on disk and only its last 2,000 verdicts | `app.ts`, `scripts/hosted.ts` |
 | A broken address crashing a request | Bad paths get "not found", never a server error | `scripts/serve.ts` |
 | The page being framed, or loading someone else's script | Strict security headers: CSP, no framing, no referrer, HTTPS only | `scripts/serve.ts` |
 

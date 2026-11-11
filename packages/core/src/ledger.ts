@@ -65,6 +65,14 @@ export function samePayee(a: { payee: string; chain: Chain }, b: { payee: string
   return isEvmChain(a.chain) ? a.payee.toLowerCase() === b.payee.toLowerCase() : a.payee === b.payee;
 }
 
+export interface LedgerOptions {
+  /**
+   * Keep only this many verdicts, oldest out first. For a ledger anyone on the internet can write to, such as the public
+   * demo's: without a cap, free checks would fill memory. A ledger that keeps the owner's money record has no cap.
+   */
+  maxVerdicts?: number;
+}
+
 export class Ledger {
   private readonly requests: RequestRecord[] = [];
   private readonly settled: SettledPayment[] = [];
@@ -73,7 +81,11 @@ export class Ledger {
   private readonly approvals = new Map<string, ApprovalRecord>();
   private frozen = false;
 
-  constructor(private readonly path?: string) {
+  constructor(
+    private readonly path?: string,
+    private readonly options: LedgerOptions = {},
+  ) {
+    if (options.maxVerdicts !== undefined && path) throw new Error("A capped ledger must stay in memory: it can't drop lines from a file.");
     if (!path) return;
     mkdirSync(dirname(path), { recursive: true });
     if (existsSync(path)) this.load(path);
@@ -103,6 +115,20 @@ export class Ledger {
     else {
       this.verdicts.set(line.verdict.verdictId, line.verdict);
       this.verdictIdByRequest.set(`${line.verdict.mode}:${line.verdict.requestId}`, line.verdict.verdictId);
+      this.trim();
+    }
+  }
+
+  /** Drops the oldest verdicts past the cap, with their request-id index entries and their approvals. */
+  private trim() {
+    const max = this.options.maxVerdicts;
+    if (max === undefined) return;
+    while (this.verdicts.size > max) {
+      const oldest = this.verdicts.keys().next().value as string;
+      const verdict = this.verdicts.get(oldest) as Verdict;
+      this.verdicts.delete(oldest);
+      this.verdictIdByRequest.delete(`${verdict.mode}:${verdict.requestId}`);
+      this.approvals.delete(oldest);
     }
   }
 

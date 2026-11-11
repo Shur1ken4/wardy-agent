@@ -26,6 +26,8 @@ export const THRESHOLDS = {
   editDistanceLongNameLength: 6,
   editDistanceShort: 1,
   editDistanceLong: 2,
+  /** A paid payee's whole name inside another name counts only from this length, so a short name can't flag everyone. */
+  wrappedNameMinLength: 6,
   /** Below this, an AI finding is ignored. That can only ever mean less added risk, never less existing risk. */
   aiMinConfidence: 0.5,
 } as const;

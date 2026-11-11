@@ -139,3 +139,17 @@ describe("verifyAuditLines", () => {
     expect((await verifyAuditLines(log.lines())).publicKeys).toHaveLength(2);
   });
 });
+
+describe("a capped, in-memory audit log", () => {
+  it("keeps only the newest lines, while the head still chains through the dropped ones", () => {
+    const log = new AuditLog(undefined, { keep: 2 });
+    const records = [1, 2, 3].map(() => log.append({ type: "freeze", at: NOW.toISOString() }));
+    expect(log.lines()).toHaveLength(2);
+    expect(log.headHash()).toBe(records[2]?.hash);
+    expect(JSON.parse(log.lines()[0] as string).prevHash).toBe(records[0]?.hash);
+  });
+
+  it("can't be given a file", () => {
+    expect(() => new AuditLog("/tmp/never-written-audit.jsonl", { keep: 1 })).toThrow(/in memory/);
+  });
+});

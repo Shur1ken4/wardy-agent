@@ -1,5 +1,5 @@
 // The hosted server, run in-process: visitors' sandboxes can't reach each other, and it won't hold a mainnet key.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -173,5 +173,45 @@ describe("the hosted server", () => {
     expect((await app.inject({ method: "GET", url: "/v1/nothing" })).statusCode).toBe(404);
     // A broken address is just a page that isn't there, not a server error.
     expect((await app.inject({ method: "GET", url: "/%E0%A4%A" })).statusCode).toBeLessThan(500);
+  });
+});
+
+describe("sandboxes under abuse", () => {
+  it("one address keeps only a few: past its share, its own oldest goes, and nobody else's", async () => {
+    let now = 1_000;
+    const tenancy = await HostedTenancy.create({ dataRoot: temp(), webUrl: "https://wardy.example", maxSandboxes: 100, maxSandboxesPerAddress: 2, now: () => now });
+    const other = await tenancy.createSandbox("10.0.0.2");
+    const first = await tenancy.createSandbox("10.0.0.1");
+    now += 10;
+    await tenancy.createSandbox("10.0.0.1");
+    now += 10;
+    await tenancy.createSandbox("10.0.0.1");
+    expect(tenancy.sandboxCount).toBe(3);
+    expect(tenancy.forOwner(first.ownerToken)).toBeUndefined();
+    expect(tenancy.forOwner(other.ownerToken)).toBeDefined();
+  });
+
+  it("a sandbox that has made all the requests a demo could need is cleared away, files and all", async () => {
+    const dataRoot = temp();
+    const tenancy = await HostedTenancy.create({ dataRoot, webUrl: "https://wardy.example", maxSandboxRequests: 3 });
+    const one = await tenancy.createSandbox("10.0.0.1");
+    for (let i = 0; i < 3; i += 1) expect(tenancy.forAgent(one.agentToken)).toBeDefined();
+    expect(tenancy.forAgent(one.agentToken)).toBeUndefined();
+    expect(tenancy.forOwner(one.ownerToken)).toBeUndefined();
+    expect(existsSync(join(dataRoot, "sandboxes", one.key))).toBe(false);
+  });
+
+  it("the public demo, which anyone can send checks to, keeps nothing on disk", async () => {
+    const dataRoot = temp();
+    const { app } = await buildHostedApp({ dataRoot, webUrl: "https://wardy.example", indexHtml: "<!doctype html>", dist: temp() });
+    const check = await app.inject({
+      method: "POST",
+      url: "/v1/check",
+      payload: { requestId: crypto.randomUUID(), agentId: "x", ownerId: "someone-else.near", payee: "acme-sh0p.near", asset: "wNEAR", amount: "1", purpose: "t", createdAt: new Date().toISOString() },
+    });
+    expect(check.statusCode).toBe(200);
+    expect(existsSync(join(dataRoot, "sandboxes", "public", "ledger.jsonl"))).toBe(false);
+    expect(existsSync(join(dataRoot, "sandboxes", "public", "audit.jsonl"))).toBe(false);
+    expect((await app.inject({ method: "GET", url: `/v1/verdicts/${check.json().verdictId}/verify` })).json().valid).toBe(true);
   });
 });

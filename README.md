@@ -188,7 +188,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 **Anti-poisoning rules for the Wardy Network**
 
 - **Evidence, not votes.** One valid report is enough, and nothing is counted, so a thousand fake reports weigh as much as none.
-- **A report has to earn it.** It needs a real BLOCK from a real payment, plus two independent kinds of evidence, or the owner's confirmation, which is labelled and signed. It's never about a payee the owner has really paid, and a `check` can't create one, because anyone can send a check.
+- **A report has to earn it.** It needs a real BLOCK from a real payment, plus two independent kinds of evidence, at least one about the account itself (a lookalike name, or an account that doesn't exist or is hours old), or the owner's confirmation, which is labelled and signed. It's never about a payee the owner has really paid, and a `check` can't create one, because anyone can send a check.
 - **Anyone can check those rules** using only the report.
 - **Only trusted reporter keys count**, and a reader chooses which to trust.
 - **Reports reveal as little as they can.** No invoice text, amount, or payment history. The verdict's signature covers those facts through a hash, so a report shows the public part and can still be verified. It does name the payee and the name it imitated.

@@ -251,3 +251,26 @@ describe("the private AI's daily cap", () => {
     await expect(capped.analyze("d")).resolves.toBeDefined();
   });
 });
+
+describe("one owner can't use up what's shared", () => {
+  it("an owner's agent may make only so many requests a day, long before the disk minds", async () => {
+    const { signIn, pay } = await server(temp(), { ...owners(), requestsPerOwnerPerDay: 3 });
+    const alice = await signIn("alice.near");
+    for (let i = 0; i < 3; i += 1) expect((await pay(alice.agentToken, "alice.near")).statusCode).toBe(200);
+    const refused = await pay(alice.agentToken, "alice.near");
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json().error).toBe("daily_request_limit");
+  });
+
+  it("an owner's agent gets only a slice of the server's private AI reads", async () => {
+    let reads = 0;
+    const inner = { analyze: async () => { reads += 1; return { findings: null, attested: false }; } };
+    const { signIn, pay } = await server(temp(), { ...owners(), analyzer: inner, aiPerOwnerPerDay: 2 });
+    const alice = await signIn("alice.near");
+    for (let i = 0; i < 4; i += 1) {
+      const answer = await pay(alice.agentToken, "alice.near", { context: { invoiceText: "Invoice 42" } });
+      expect(answer.statusCode).toBe(200);
+    }
+    expect(reads).toBe(2);
+  });
+});

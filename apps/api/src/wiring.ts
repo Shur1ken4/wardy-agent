@@ -136,6 +136,12 @@ export interface WireOverrides {
   analyzer?: ContextAnalyzer;
   /** Testnet account facts from somewhere else, such as a test's fixed answers. */
   chainData?: AccountFactsSource;
+  /**
+   * Keep the ledger and audit log in memory, holding only this many verdicts and lines. For the public demo tenant on a
+   * hosted server, which anyone can send checks to: nothing of it is anyone's money, and a file it appends to would only
+   * grow. Reports still go to disk.
+   */
+  inMemory?: { maxVerdicts: number };
 }
 
 export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wiring> {
@@ -196,7 +202,8 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
   }
 
   const reports = new ReportStore(join(dataDir, "network", "reports.jsonl"));
-  const ledger = new Ledger(join(dataDir, "ledger.jsonl"));
+  const ledger = overrides.inMemory ? new Ledger(undefined, { maxVerdicts: overrides.inMemory.maxVerdicts }) : new Ledger(join(dataDir, "ledger.jsonl"));
+  const audit = overrides.inMemory ? new AuditLog(undefined, { keep: overrides.inMemory.maxVerdicts * 2 }) : new AuditLog(join(dataDir, "audit.jsonl"));
   // The offline demo is always the demo owner. A real account in .env would make the public demo credentials fail.
   const fleetOwnerId = env.WARDY_OWNER_ID || (mode !== "offline" && env.AGENT_OWNER_ACCOUNT_ID) || DEFAULT_OWNER;
   if (mode === "offline" && overrides.seedHistory !== false && ledger.knownPayees(fleetOwnerId).length === 0) {
@@ -214,7 +221,7 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
   const webUrl = env.WARDY_WEB_URL || "http://localhost:5173";
   const service = new PaymentService({
     ledger,
-    audit: new AuditLog(join(dataDir, "audit.jsonl")),
+    audit,
     seedPayees,
     chainData,
     ...(analyzer ? { analyzer } : {}),

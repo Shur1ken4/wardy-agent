@@ -62,6 +62,9 @@ describe("shouldPublishReport", () => {
     ["a merely young account, with a payee change", ["ACCOUNT_NEW", "CONTEXT_PAYEE_CHANGE"]],
     ["urgency, which isn't evidence", ["CONTEXT_URGENCY", "ACCOUNT_VERY_NEW"]],
     ["a network report alone: no amplifying our own feed", ["NETWORK_REPORTED_SCAM", "NETWORK_REPORTED_LOOKALIKE_OF_YOUR_PAYEE"]],
+    // Whoever sends the invoice writes its text and chooses how often to ask, so these two are one party's word.
+    ["suspicious text and three quick requests, with nothing about the account itself", ["CONTEXT_BYPASS_ATTEMPT", "VELOCITY_NEW_PAYEE"]],
+    ["a payee change and split payments to an old, busy account", ["CONTEXT_PAYEE_CHANGE", "VELOCITY_NEW_PAYEE", "CONTEXT_URGENCY"]],
   ])("doesn't publish %s", async (_name, codes) => {
     expect(shouldPublishReport(await blocked(codes))).toBe(false);
   });
@@ -316,5 +319,21 @@ describe("publishIfWarranted", () => {
     const store = new ReportStore();
     expect(await publishIfWarranted(store, await blocked(["LOOKALIKE_HOMOGLYPH"]), { signingKey: KEY, createdAt: AT })).toBeUndefined();
     expect(store.all()).toEqual([]);
+  });
+});
+
+describe("a report needs evidence about the account, not only about what was said", () => {
+  it("a report resting on text and behaviour alone doesn't verify, even when signed by a trusted reporter", async () => {
+    // A hijacked agent could get an innocent old account named by sending an injected invoice three times.
+    const smear = await report(["CONTEXT_BYPASS_ATTEMPT", "VELOCITY_NEW_PAYEE"]);
+    expect(await verifyReportEvidence(smear)).toBe(false);
+    const rules: ReportRules = { trustedReporters: new Set([smear.reporter]), verifyEvidence: verifyReportEvidence, allowSeedReports: false };
+    expect(await isValidReport(smear, rules)).toBe(false);
+  });
+
+  it("the owner's confirmation still stands in for the second kind", async () => {
+    const verdict = await blocked(["CONTEXT_BYPASS_ATTEMPT"]);
+    const confirmed = await createNetworkReport(verdict, { signingKey: KEY, createdAt: AT, ownerConfirmed: true });
+    expect(await verifyReportEvidence(confirmed)).toBe(true);
   });
 });

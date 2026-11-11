@@ -26,12 +26,25 @@ function chainHash(entry: AuditEntry, prevHash: string): string {
   return sha256Hex(canonicalJson({ entry, prevHash }));
 }
 
+export interface AuditLogOptions {
+  /**
+   * In memory only: keep this many lines, oldest out first. The chain still runs through the head hash, so later lines
+   * still commit to the dropped ones, but the kept lines alone no longer verify from the start. For a log anyone on the
+   * internet can append to, such as the public demo's, which no owner ever audits.
+   */
+  keep?: number;
+}
+
 /** Writes to `path` when given; otherwise keeps lines in memory, for tests and one-shot runs. */
 export class AuditLog {
   private readonly memory: string[] = [];
   private head = GENESIS_HASH;
 
-  constructor(private readonly path?: string) {
+  constructor(
+    private readonly path?: string,
+    private readonly options: AuditLogOptions = {},
+  ) {
+    if (options.keep !== undefined && path) throw new Error("A capped audit log must stay in memory: a file is never cut.");
     if (!path) return;
     mkdirSync(dirname(path), { recursive: true });
     if (!existsSync(path)) return;
@@ -48,7 +61,10 @@ export class AuditLog {
     const record: AuditRecord = { entry, prevHash: this.head, hash: chainHash(entry, this.head) };
     const line = JSON.stringify(record);
     if (this.path) appendFileSync(this.path, `${line}\n`);
-    else this.memory.push(line);
+    else {
+      this.memory.push(line);
+      if (this.options.keep !== undefined && this.memory.length > this.options.keep) this.memory.splice(0, this.memory.length - this.options.keep);
+    }
     this.head = record.hash;
     return record;
   }

@@ -109,7 +109,7 @@ export async function buildHostedApp({ dataRoot, webUrl, indexHtml, dist = DIST,
       });
 
       // A visitor's own sandbox. Limited, so nobody can make thousands of them.
-      server.post("/v1/sandbox", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async () => tenancy.createSandbox());
+      server.post("/v1/sandbox", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request) => tenancy.createSandbox(request.ip));
 
       // Who this credential is, so the dashboard can say "signed in as" or offer sign-in.
       server.get("/v1/me", async (request) => {
@@ -203,6 +203,8 @@ export function hostedOwners(env: NodeJS.ProcessEnv, dataRoot: string, webUrl: s
     env: { WARDY_SIGNING_KEY: signingKey, ...(env.NEAR_TESTNET_RPC_URL ? { NEAR_TESTNET_RPC_URL: env.NEAR_TESTNET_RPC_URL } : {}) },
     ...(analyzer ? { analyzer } : {}),
     maxOwners: Number(env.WARDY_MAX_OWNERS || 500),
+    aiPerOwnerPerDay: Number(env.WARDY_AI_OWNER_DAILY_LIMIT || 50),
+    requestsPerOwnerPerDay: Number(env.WARDY_OWNER_DAILY_REQUESTS || 1000),
   };
 }
 

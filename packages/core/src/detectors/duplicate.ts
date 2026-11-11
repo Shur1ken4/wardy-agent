@@ -5,6 +5,7 @@ import { formatAgo, makeSignal, THRESHOLDS } from "../config.js";
 import { parseDecimal } from "../decimal.js";
 import { sha256Hex } from "../hash.js";
 import { type LedgerSnapshot, samePayee, type SettledPayment } from "../ledger.js";
+import { foldText } from "../text.js";
 import type { PaymentRequest, Signal } from "../types.js";
 
 const MINUTE_MS = 60_000;
@@ -20,14 +21,14 @@ const RETRY_PATTERNS = [
   /\b(?:never|not)\s+(?:arrived|received\s+(?:your|the)\s+(?:payment|funds|transfer))\b/i,
 ];
 
-/** Two copies of an invoice that differ only in spacing or case are the same invoice. */
+/** Two copies of an invoice that differ only in spacing, case or invisible characters are the same invoice. */
 export function invoiceTextHash(text: string): string {
-  return sha256Hex(text.toLowerCase().replace(/\s+/g, " ").trim());
+  return sha256Hex(foldText(text).replace(/\s+/g, " ").trim());
 }
 
 export function claimsPaymentFailed(request: PaymentRequest): boolean {
   const texts = [request.context?.toolResultText, request.context?.emailText, request.context?.invoiceText];
-  return texts.some((text) => text !== undefined && RETRY_PATTERNS.some((pattern) => pattern.test(text)));
+  return texts.some((text) => text !== undefined && RETRY_PATTERNS.some((pattern) => pattern.test(foldText(text))));
 }
 
 function settledEvidence(payment: SettledPayment, now: Date) {

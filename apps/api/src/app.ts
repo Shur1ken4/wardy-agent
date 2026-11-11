@@ -155,7 +155,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.setErrorHandler((error: Error & { statusCode?: number; code?: string }, request, reply) => {
     if (error instanceof ZodError) {
-      const issues = error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message }));
+      // An unknown field's name is text the sender chose, so it isn't repeated back: a tool that shows errors to an
+      // agent must never carry a field name that reads as an instruction.
+      const issues = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.code === "unrecognized_keys" ? "has a field that isn't part of the request. Send only the fields in the request format." : issue.message,
+      }));
       // Says what to fix, so an agent can correct its own call. These are the schema's words, not what was sent.
       const message = issues.map(({ path, message: why }) => (path ? `${path}: ${why}` : why)).join("; ");
       return reply.status(400).send({ error: "invalid_request", message, issues });
@@ -250,8 +255,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/v1/verdicts/:id", async (request) => verdictOr404(ownerOf(request), VerdictIdParams.parse(request.params).id));
 
-  // Open, because checking a signature is for anyone. It says nothing about the payment.
-  app.get("/v1/verdicts/:id/verify", async (request) => {
+  // Open, because checking a signature is for anyone. It says nothing about the payment. Limited, because each answer
+  // is a signature check, and that costs real time.
+  app.get("/v1/verdicts/:id/verify", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request) => {
     const tenant = credentialed(request) ?? tenancy.fallback();
     const verdict = verdictOr404(tenant, VerdictIdParams.parse(request.params).id);
     return { valid: await tenant.service.verify(verdict), publicKey: await tenant.service.publicKey() };

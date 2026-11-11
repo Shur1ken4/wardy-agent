@@ -25,4 +25,5 @@ export * from "./policy.js";
 export * from "./seed.js";
 export * from "./service.js";
 export * from "./sign.js";
+export * from "./text.js";
 export * from "./types.js";

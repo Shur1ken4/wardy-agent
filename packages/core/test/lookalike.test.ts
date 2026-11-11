@@ -236,3 +236,21 @@ describe("which known payee a match points to", () => {
     expect(lookalikeSignals({ payee: "acme-sh0p.near", chain: "near" }, [paid("acme-shop.near")], seed)).toHaveLength(1);
   });
 });
+
+describe("a paid payee's whole name run into another name", () => {
+  it.each(["acmeshop-pay.near", "acmeshoppay.near", "pay-acmeshop.near", "payacmeshop.near", "acmeshop-invoices.testnet"])("flags %s against acme-shop.near", (payee) => {
+    expect(codes(payee)).toEqual(["LOOKALIKE_SUFFIX_TRICK"]);
+  });
+
+  it("only for payees the owner really paid, never for the seed list", () => {
+    expect(codes("myrefinance-pay.near", [], ["ref-finance.near"])).toEqual([]);
+  });
+
+  it("not for short names, where any account might contain them", () => {
+    expect(codes("bishop-pay.near", [paid("shop.near")])).toEqual([]);
+  });
+
+  it("a different name that merely shares a word stays silent", () => {
+    expect(codes("acme-store.near")).toEqual([]);
+  });
+});

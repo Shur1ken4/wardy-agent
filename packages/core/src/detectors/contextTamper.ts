@@ -4,6 +4,7 @@
 import { looksLikeAddress } from "../accounts.js";
 import { makeSignal, type SignalCode, THRESHOLDS } from "../config.js";
 import { isDecimal, parseDecimal } from "../decimal.js";
+import { foldText } from "../text.js";
 import { type AiFindings, AiFindingsSchema, type ContextAnalysis, type PaymentRequest, type Signal } from "../types.js";
 
 type Pattern = { id: string; pattern: RegExp };
@@ -111,8 +112,10 @@ export function contextSignals(request: PaymentRequest, analysis: ContextAnalysi
   };
 
   for (const field of TEXT_FIELDS) {
-    const text = request.context?.[field];
-    if (!text) continue;
+    const raw = request.context?.[field];
+    if (!raw) continue;
+    // Folded, so an invisible character or a look-alike letter can't hide a phrase from the patterns.
+    const text = foldText(raw);
     const groups: [SignalCode, Pattern[]][] = [
       ["CONTEXT_PAYEE_CHANGE", PAYEE_CHANGE],
       ["CONTEXT_BYPASS_ATTEMPT", BYPASS],

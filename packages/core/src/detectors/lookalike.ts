@@ -77,7 +77,18 @@ function allowedEditDistance(knownName: string): number {
 
 type Match = "homoglyph" | "suffix" | "edit";
 
-function matchAgainst(payeeId: string, knownId: string): Match | null {
+/**
+ * acmeshop-pay.near, or payacmeshop.near, for an owner who pays acme-shop.near: the whole known name, run into something
+ * else. Only against payees the owner really paid, and only names long enough to mean something, so a seed service
+ * such as a short exchange name can't flag every account that happens to contain it.
+ */
+function wrapsName(payee: Parts, known: Parts): boolean {
+  const knownName = normalizeName(known.name);
+  const payeeName = normalizeName(payee.name);
+  return knownName.length >= THRESHOLDS.wrappedNameMinLength && payeeName !== knownName && payeeName.includes(knownName);
+}
+
+function matchAgainst(payeeId: string, knownId: string, paidByOwner: boolean): Match | null {
   if (payeeId === knownId) return null;
   // Only the parent account can create a child, so pay.shop.near really does belong to shop.near.
   if (payeeId.endsWith(`.${knownId}`)) return null;
@@ -87,6 +98,8 @@ function matchAgainst(payeeId: string, knownId: string): Match | null {
   if (isSuffixTrick(payee, known)) return "suffix";
   const allowed = allowedEditDistance(known.name);
   if (allowed > 0 && editDistance(payee.name, known.name) <= allowed) return "edit";
+  // Last, so a near-miss such as acme-shops.near keeps its own, more exact name.
+  if (paidByOwner && wrapsName(payee, known)) return "suffix";
   return null;
 }
 
@@ -133,7 +146,7 @@ export function lookalikeSignals(
 
   let best: { match: Match; accountId: string; paidCount: number } | null = null;
   for (const candidate of candidates) {
-    const match = matchAgainst(request.payee, candidate.accountId);
+    const match = matchAgainst(request.payee, candidate.accountId, candidate.paidCount > 0);
     if (match && (!best || PRIORITY.indexOf(match) < PRIORITY.indexOf(best.match))) best = { match, ...candidate };
   }
   if (!best) return [];
