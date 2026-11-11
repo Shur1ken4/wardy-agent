@@ -20,6 +20,7 @@ describe("the README", () => {
       "Try it in 2 minutes (no keys, no funds)",
       "Try it online",
       "Do X, see Y",
+      "Who on NEAR uses this tomorrow",
       "Live mode setup",
       "How it works",
       "NEAR tech used",
