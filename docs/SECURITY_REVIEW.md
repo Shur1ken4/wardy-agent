@@ -26,7 +26,7 @@ with a test. Attack Lab results did not change by a byte.
 | 16 | Fill the public demo's ledger with free checks | Grew 0.4 KB per check, on disk, forever | **Yes, medium** | The public tenant keeps nothing on disk and only its last 2,000 verdicts |
 | 17 | Evict every visitor's sandbox by making 200 of your own | Worked | **Yes, medium** | An address past its share evicts its own oldest, never anyone else's |
 | 18 | Burn the shared NEAR AI credit from one owner | One owner could use all 500 daily reads | **Yes, low** | 50 per owner a day, inside the server-wide 500 |
-| 19 | CPU: `/v1/verdicts/{id}/verify` had no rate limit | A signature check per call, unlimited | **Yes, low** | 120 a minute per address |
+| 19 | CPU: `/v1/verdicts/{id}/verify` had no rate limit, and Attack Lab runs had no cap on how many at once | A signature check per call, unlimited; a quarter second of work per run, 10 a minute per address | **Yes, low** | 120 a minute per address; 3 lab runs at once for the whole server |
 | 20 | X-Forwarded-For spoofing, oversized bodies, bad JSON, odd amounts (`1e3`, `0x10`, Arabic digits, 49 digits), extra fields, path traversal in the static server | All refused with a plain message; traversal gets the dashboard page, never a file outside it | No | |
 | 21 | An unknown field name echoed in the error (`Unrecognized keys: "..."`) | The sender's text came back in an error an agent reads | **Yes, low** | Says a field isn't part of the request, without naming it |
 | 22 | XSS: anything rendered as HTML, eval, innerHTML | None in the source; React escapes; CSP `script-src 'self'` | No | |

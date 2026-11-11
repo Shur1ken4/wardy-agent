@@ -75,6 +75,8 @@ export interface AppOptions {
   trustProxy?: boolean | number;
   /** How many live feeds one owner may hold open at once. Each is a connection the server keeps. */
   maxStreamsPerOwner?: number;
+  /** Attack Lab runs at once, across every visitor. */
+  maxLabRuns?: number;
   /** The dashboard, for a browser that opens `/`. An agent asking for `/` still gets the JSON. */
   indexHtml?(): string;
   corsOrigins?: string[];
@@ -415,14 +417,20 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       return reply.status(202).send({ started: true });
     });
 
+    // A run is a burst of work for the whole server, so only a few happen at once, whoever asks.
+    let labsRunning = 0;
     app.post("/v1/lab/run", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
       const { demo } = demoOf(request);
+      if (labsRunning >= (options.maxLabRuns ?? 3)) throw new ServiceError(503, "busy", "The Attack Lab is busy for other visitors right now. Try again in a moment.");
+      labsRunning += 1;
       const { raw, send } = openEventStream(request, reply);
       try {
         await demo.runLab(send);
       } catch (error) {
         request.log.error({ errorName: (error as Error).name }, "attack lab failed");
         send("error", { message: "The Attack Lab couldn't finish." });
+      } finally {
+        labsRunning -= 1;
       }
       raw.end();
     });

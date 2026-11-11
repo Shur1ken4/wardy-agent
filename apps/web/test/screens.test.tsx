@@ -591,3 +591,19 @@ describe("stat tiles", () => {
     expect(html).not.toContain(">0<");
   });
 });
+
+describe("the Read privately panel", () => {
+  const checks = { signatureValid: true, signedTextMatches: true, signedByModelTee: true, signerInReport: true, gpuVerified: true, tdxQuoteVerified: true, reportBindsSigner: true, reportBindsNonce: false };
+  it("lists every attestation check by name, with its own tick or cross, when a live call recorded them", () => {
+    const html = renderToStaticMarkup(<ReadPrivately ai={{ used: true, attested: false, attestationLevel: "partial", checks }} />);
+    expect(html).toContain("NVIDIA confirmed the GPU evidence");
+    expect(html).toContain("embeds our nonce");
+    expect((html.match(/tick-good/g) ?? []).length).toBe(7);
+    expect((html.match(/tick-bad/g) ?? []).length).toBe(2); // The headline cross, and the one failed check.
+  });
+
+  it("shows no checklist for a replayed answer, which has none", () => {
+    const html = renderToStaticMarkup(<ReadPrivately ai={{ used: true, attested: false, attestationLevel: "none" }} />);
+    expect(html).not.toContain("check-list");
+  });
+});

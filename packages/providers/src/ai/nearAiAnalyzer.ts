@@ -20,6 +20,7 @@ export class NearAiContextAnalyzer implements ContextAnalyzer {
       attestationRef: result.chatId ?? undefined,
       signatureKind: result.signatureKind,
       attestationLevel: result.attestationLevel,
+      checks: result.checks,
     };
   }
 }

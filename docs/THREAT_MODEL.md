@@ -94,7 +94,7 @@ disk and memory, and each owner's session and agent token.
 | Emptying the shared test wallet with many free accounts | Each owner may pay 0.02 at a time and 0.1 a day, and the whole server 1 a day (`WARDY_POOL_DAILY_LIMIT`). Past that, a payment fails before anything is sent | `config/policy.hosted.json`, `PoolDailyCap` |
 | Sign-up spam | 3 new owners per address a day, 500 owners in all, 10 sessions per owner | `scripts/serve.ts`, `scripts/auth.ts` |
 | Burning the NEAR AI credit | 500 private checks a day for the whole server (`WARDY_AI_DAILY_LIMIT`), and 50 per owner (`WARDY_AI_OWNER_DAILY_LIMIT`) | `scripts/hosted.ts` |
-| Filling the disk or memory | `/v1/pay` 120 a minute per agent and 1,000 a day per owner (`WARDY_OWNER_DAILY_REQUESTS`), 5 live feeds per owner, 200 sandboxes (5 per address, 2,000 requests each) cleared after 2 idle hours, and the public demo keeps nothing on disk and only its last 2,000 verdicts | `app.ts`, `scripts/hosted.ts` |
+| Filling the disk, memory or CPU | `/v1/pay` 120 a minute per agent and 1,000 a day per owner (`WARDY_OWNER_DAILY_REQUESTS`), 5 live feeds per owner, 3 Attack Lab runs at once for the whole server, 200 sandboxes (5 per address, 2,000 requests each) cleared after 2 idle hours, and the public demo keeps nothing on disk and only its last 2,000 verdicts | `app.ts`, `scripts/hosted.ts` |
 | A broken address crashing a request | Bad paths get "not found", never a server error | `scripts/serve.ts` |
 | The page being framed, or loading someone else's script | Strict security headers: CSP, no framing, no referrer, HTTPS only | `scripts/serve.ts` |
 

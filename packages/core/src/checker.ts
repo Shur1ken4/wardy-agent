@@ -109,6 +109,7 @@ export async function evaluatePayment(request: PaymentRequest, deps: CheckerDeps
         attestationRef: analysis.attestationRef,
         signatureKind: analysis.signatureKind,
         attestationLevel: analysis.attestationLevel,
+        ...(analysis.checks ? { checks: analysis.checks } : {}),
       }
     : { used: false, attested: false };
   return { ...decide(signals), signals, ai };

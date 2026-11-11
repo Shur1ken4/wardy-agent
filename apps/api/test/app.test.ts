@@ -808,3 +808,20 @@ describe("hardening against a hostile caller", () => {
     expect(response.json().message).toMatch(/isn't part of the request/);
   });
 });
+
+describe("the Attack Lab under load", () => {
+  it("runs only a few at once, whoever asks, and says it's busy to the rest", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const headers = { authorization: `Bearer ${OWNER_TOKEN}` };
+    const { app } = await harness({ maxLabRuns: 1, demo: { playTraffic: async () => undefined, labVerdict: () => undefined, runLab: async (send) => { await gate; send("done", {}); } } });
+    const url = await app.listen({ host: "127.0.0.1", port: 0 });
+    const first = fetch(`${url}/v1/lab/run`, { method: "POST", headers });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const second = await fetch(`${url}/v1/lab/run`, { method: "POST", headers });
+    expect(second.status).toBe(503);
+    expect(((await second.json()) as { error: string }).error).toBe("busy");
+    release();
+    expect((await (await first).text())).toContain("event: done");
+  });
+});

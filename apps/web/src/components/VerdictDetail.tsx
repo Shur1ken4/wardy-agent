@@ -1,5 +1,5 @@
 // What a verdict says, in plain words first. This part only displays: it fetches nothing and decides nothing.
-import type { Signal, VerdictAi, VerdictView } from "@wardy-agent/core";
+import { ATTESTATION_CHECKS, type AttestationCheck, type AttestationChecks, type Signal, type VerdictAi, type VerdictView } from "@wardy-agent/core";
 import type { ReactNode } from "react";
 import { executionWords, formatAmount, lookalikeSignal, SEVERITY_WORDS, shortHash, timeOf, txUrl } from "../lib/format";
 import { Payee } from "./parts";
@@ -30,6 +30,32 @@ function Compare({ verdict, signal }: { verdict: VerdictView; signal: Signal }) 
  * Says exactly what was proven. A tick appears only when every attestation check passed, because a model answering isn't
  * the same as proof of where it ran.
  */
+/** Each check in plain words, in the order they're made. */
+export const CHECK_WORDS: Record<AttestationCheck, string> = {
+  signatureValid: "The answer's signature matches the signer the service named",
+  signedTextMatches: "The signed text is exactly our request, the answer, and the model we asked for",
+  signedByModelTee: "Signed inside the model's TEE, not only by the gateway",
+  signerInReport: "The signer is listed in the hardware attestation report",
+  gpuVerified: "NVIDIA confirmed the GPU evidence, with our nonce",
+  tdxQuoteVerified: "The Intel TDX quote verifies against Intel's collateral",
+  reportBindsSigner: "The verified quote binds the signing address",
+  reportBindsNonce: "The verified quote embeds our nonce, so the evidence is fresh",
+};
+
+/** The eight checks, each with its own tick or cross, when a live call recorded them. */
+export function CheckList({ checks }: { checks: AttestationChecks }) {
+  return (
+    <ul className="check-list" aria-label="Attestation checks">
+      {ATTESTATION_CHECKS.map((name) => (
+        <li key={name} className={checks[name] ? "check-pass" : "check-fail"}>
+          <span className={checks[name] ? "tick tick-good" : "tick tick-bad"} aria-hidden="true">{checks[name] ? "✓" : "✗"}</span>
+          <span>{CHECK_WORDS[name]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ReadPrivately({ ai }: { ai: VerdictAi | undefined }) {
   let body: ReactNode;
   if (ai?.attested) {
@@ -45,14 +71,18 @@ export function ReadPrivately({ ai }: { ai: VerdictAi | undefined }) {
           {ai.signatureKind ? (<><dt>Signed in</dt><dd>{ai.signatureKind === "provider_tee" ? "the model's TEE" : "the gateway's TEE"}</dd></>) : null}
           {ai.attestationRef ? (<><dt>Reference</dt><dd className="mono">{shortHash(ai.attestationRef, 16)}</dd></>) : null}
         </dl>
+        {ai.checks ? <CheckList checks={ai.checks} /> : null}
       </>
     );
   } else if (ai?.used) {
     body = (
-      <p className="check-result">
-        <span className="tick tick-bad" aria-hidden="true">✗</span>
-        <span>A model read this{ai.model ? ` (${ai.model})` : ""}, but its attestation isn't verified, so nothing here proves it stayed private. A recorded answer replayed offline always looks like this.</span>
-      </p>
+      <>
+        <p className="check-result">
+          <span className="tick tick-bad" aria-hidden="true">✗</span>
+          <span>A model read this{ai.model ? ` (${ai.model})` : ""}, but its attestation isn't verified, so nothing here proves it stayed private. A recorded answer replayed offline always looks like this.</span>
+        </p>
+        {ai.checks ? <CheckList checks={ai.checks} /> : null}
+      </>
     );
   } else {
     body = <p className="note">The private AI check didn't run for this payment, so only the built-in rules read the text. The decision stands without it.</p>;

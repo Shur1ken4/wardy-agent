@@ -570,3 +570,17 @@ describe("signatures after a payment", () => {
     expect(await service.verify({ ...verdict, payee: "attacker.near" })).toBe(false);
   });
 });
+
+describe("what the verdict says about the private AI", () => {
+  it("carries each attestation check by name from a live call, and none from a replay", async () => {
+    const { evaluatePayment } = await import("../src/checker.js");
+    const checks = { signatureValid: true, signedTextMatches: true, signedByModelTee: false, signerInReport: true, gpuVerified: true, tdxQuoteVerified: true, reportBindsSigner: true, reportBindsNonce: true };
+    const findings = { payee_change_requested: false, urgency_or_pressure: false, asks_to_bypass_limits_or_rules: false, claims_previous_payment_failed: false, mentions_new_account_or_address: false, extracted_payee: null, extracted_amount: null, confidence: 0.9 };
+    const base = { ledger: new Ledger(), audit: new AuditLog(), seedPayees: [], chainData: { getAccountFacts: async (accountId: string): Promise<AccountFacts> => ({ accountId, available: true, exists: true, implicit: false, createdAt: "2023-01-01T00:00:00.000Z", txCount: 100 }) }, reportsFor: () => [], reportRules: { trustedReporters: new Set<string>(), verifyEvidence: () => false, allowSeedReports: false }, signingKey: generateSigningKey() };
+    const request = makeRequest({ context: { invoiceText: "Invoice 1" } });
+    const live = await evaluatePayment(request, { ...base, policyFor: () => null, analyzer: { analyze: async () => ({ findings, attested: false, attestationLevel: "partial" as const, checks }) } }, NOW);
+    expect(live.ai.checks).toEqual(checks);
+    const replay = await evaluatePayment(request, { ...base, policyFor: () => null, analyzer: { analyze: async () => ({ findings, attested: false, attestationLevel: "none" as const }) } }, NOW);
+    expect(replay.ai.checks).toBeUndefined();
+  });
+});

@@ -63,6 +63,20 @@ export interface Signal {
 export type SignatureKind = "provider_tee" | "gateway" | "none";
 export type AttestationLevel = "full" | "partial" | "none";
 
+/** The eight attestation checks, by name, so a verdict can show which passed instead of only a tick. */
+export const ATTESTATION_CHECKS = [
+  "signatureValid",
+  "signedTextMatches",
+  "signedByModelTee",
+  "signerInReport",
+  "gpuVerified",
+  "tdxQuoteVerified",
+  "reportBindsSigner",
+  "reportBindsNonce",
+] as const;
+export type AttestationCheck = (typeof ATTESTATION_CHECKS)[number];
+export type AttestationChecks = Record<AttestationCheck, boolean>;
+
 export interface VerdictAi {
   used: boolean;
   model?: string;
@@ -71,6 +85,8 @@ export interface VerdictAi {
   attestationRef?: string;
   signatureKind?: SignatureKind;
   attestationLevel?: AttestationLevel;
+  /** Each check's result, from a live call. A replayed answer has none. */
+  checks?: AttestationChecks;
 }
 
 export interface VerdictExecution {
@@ -204,6 +220,7 @@ export interface ContextAnalysis {
   attestationRef?: string;
   signatureKind?: SignatureKind;
   attestationLevel?: AttestationLevel;
+  checks?: AttestationChecks;
 }
 
 export interface ContextAnalyzer {
