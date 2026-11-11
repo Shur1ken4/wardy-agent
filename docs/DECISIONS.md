@@ -250,7 +250,8 @@ Bot API with inline buttons. Not re-checked today; verify in Phase 7.
 
 ## 4. Hackathon rules that bind us
 
-- Copy of the official file: `docs/HACKATHON.md` (sha256 `8482c2ca…17d90`, fetched today). Re-read the live file before submitting.
+- Copy of the official file: `docs/HACKATHON.md` (sha256 `6dd0c1ff…`, refreshed 2026-11-11; the earlier copy was `8482c2ca…`). Re-read the live file before submitting.
+- **Changed on 2026-11-11 (LIVE):** a saved submission can't be resent, but mistakes are fixed at https://nearhackathon.com/request-changes (email, NEAR account and repo link as submitted, then the fields to change). The $10 NEAR AI credit from NEAR Builders is a **separate API key** claimed at https://nearbuilders.org/dashboard, not a balance on cloud.near.ai: that's why the cloud.near.ai dashboard showed $0.00 on 2026-11-03.
 - **Never without Shurik's explicit confirmation:** send the submission, post on X, make the repo public, push or force-push, sign transactions, spend tokens, deploy to mainnet, commit secrets.
 - Submission API: `POST https://nearhackathon.com/api/applications`. Track ids `agents`, `security`, `privacy`. Team size is the exact string `1`. Print the payload and wait for a yes. One attempt per repository.
 - The payout account is Shurik's own mainnet account. I never create or invent it.

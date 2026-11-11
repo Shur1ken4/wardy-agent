@@ -8,6 +8,12 @@ A payment firewall and shared scam-payee network for AI agents on NEAR.
 
 Built at NEAR HACKATHON. Tracks: agents, security, privacy.
 
+**If you have one minute:** an AI agent reads an invoice saying "our account has moved" and pays a lookalike name,
+inside every spending limit. Wardy Agent is the only thing that can spend, so every payment is checked first: paid,
+held for the owner's one tap on their phone, or refused with a signed verdict. Run `npm run demo -- --offline` to
+watch 10 attacks and 5 honest payments go through it with and without, then read the holdout line: it says what it
+still misses. Or open <https://wardy-agent.fly.dev> and press **Play demo traffic**.
+
 ## The problem
 
 - **Limits don't check who gets paid.** [Clearance](https://github.com/Selliksss/clearance) crash-tested popular agent prompts on a NEAR sandbox. Agents paid lookalike payees, moved funds to a fake "owner's safe address", and paid twice after a fake "payment failed, retry". These are Clearance's findings, reported by its author. We didn't reproduce them, and we credit them.
@@ -107,6 +113,18 @@ Everything here is offline, with no keys, unless it says otherwise.
 | Open **For agents**, and press **Check it** | What an agent sends, and what it really gets back, from the real API |
 | Connect an AI agent: follow [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Your agent gets `wardy_pay`, `wardy_status`, `wardy_check` and `wardy_network_lookup`. If it hits a HOLD, it can find out what you decided |
 | Open <http://127.0.0.1:8787/llms.txt> while `npm run dev` runs | A plain-text guide for an agent that has only been given the address |
+
+## Who on NEAR uses this tomorrow
+
+- **Anyone running agents on NEAR Intents Agent Connect or OutLayer.** Those give an agent a policy-bound wallet with
+  limits. Wardy Agent sits in front of that wallet, holds its only grant, and checks who is being paid and why. The
+  provider's limits stay as the second lock.
+- **An agent listed on the Agent Market** that pays for APIs, data or other agents. Its payments go through `wardy_pay`,
+  so a poisoned job brief can't make it pay the wrong account twice.
+- **A NEAR AI Cloud app that spends.** The invoice is read in the same TEE the app already trusts, and the verdict comes
+  back signed, so the app can show its users why a payment went out or didn't.
+- **Every other agent on NEAR**, through the Wardy Network: one agent's blocked scam becomes a signed, anchored report
+  that another agent's `wardy_check` sees, with no vote and no reputation score to game.
 
 ## Live mode setup
 
