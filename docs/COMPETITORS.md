@@ -53,6 +53,31 @@ registry and the allow/warn/block answer are not claimed as original here. None 
 invoice behind a payment privately with the attestation verified, catches the second payment to the right merchant,
 publishes a holdout of what it misses, or refuses to count reports.
 
+### Scanned again on 2026-11-12
+
+Newer NEAR entries, from their READMEs and live pages only (not run):
+
+- [SIEGE](https://github.com/StarAtNyte/siege) is the closest to us. It reads the owner's instruction and what the
+  agent read, refuses payments nobody asked for (injection, lookalikes), and holds funds in a two-key vault. Its
+  strongest idea is an **evolutionary attacker** that searches for the worst loss against the guard's own code. Our
+  Attack Lab replays fixed and holdout sets instead. A search like theirs is the honest next step for us, credited to them.
+- [Probarion](https://github.com/probarion/probarion): owner-signed mandates enforced by a NEAR contract, with a signed,
+  hash-chained ledger anchored on chain and NEAR AI Cloud as an adviser. Strong on "prove every payment". It checks
+  the mandate, not who the payee really is.
+- [Safe Near](https://github.com/poppingbean/entity-tracker): live hack tracing, contract audits and an "is it safe?"
+  API, Telegram bot and MCP tools for all of NEAR. It looks at accounts and contracts, not at the owner's own payment
+  history or the invoice.
+- [Tapproved](https://github.com/manex-tech/tapproved): larger agent payments wait for a button on an ESP32 device.
+- [Fixseal](https://github.com/MorikiKamio/fixseal): AI-written fixes to a spending policy are accepted only after a
+  judge replays the exploit and checks a proof.
+- Also: [AgentGuard](https://github.com/Night-Etrenal/agentguard-near) and
+  [AgentFence](https://github.com/lisaaai200/agent-fence) (limits plus function-call keys), and about ten more projects
+  called Leash.
+
+What we still combine that we didn't find elsewhere: the owner's own payment history as the baseline for a lookalike,
+the duplicate payment to the right merchant, a private invoice read with attestation verified, reports that need
+evidence instead of votes, and a published list of misses. What they do better is in the table below.
+
 ## Where others are ahead
 
 Being honest about these is part of the pitch.
@@ -63,4 +88,5 @@ Being honest about these is part of the pitch.
 | **Setup needs a terminal** for your own instance. The hosted version at wardy-agent.fly.dev now has NEAR wallet sign-in and a real testnet agent per owner, so this is closed for trying it | Every commercial wallet | Done for the hosted server (2026-11-09) |
 | **Connecting an agent on testnet or live is manual:** `npm run mcp:config` only prints the demo credential | Most SDKs | A `--testnet` option |
 | **Other chains.** We enforce on NEAR. Competitors reach Solana, Base and more | Coinbase, Crossmint, Turnkey | Our check already spots an address from the wrong chain. Leave the rest: it's out of scope |
+| **A searched worst case.** We replay fixed attack sets. Nobody searches for the sequence that loses the most | [SIEGE](https://github.com/StarAtNyte/siege) runs a genetic search against its guard | After the hackathon: the same kind of search against our rules, credited to them |
 | **Token and contract scanning** | [Blockaid](https://blockaid.io/blog/prompt-injection-via-tokens-the-dark-side-of-agentic-commerce) | Don't chase it. We check payments, and it's their whole business |

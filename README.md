@@ -6,6 +6,10 @@ A payment firewall and shared scam-payee network for AI agents on NEAR.
 
 > Spending limits decide how much. Wardy Agent checks who, and why. [How that compares with everyone else](docs/COMPETITORS.md).
 
+**[Live site](https://wardy-agent.fly.dev)** · **[Video](https://www.youtube.com/watch?v=Q1q4O1kjtcY)** · **[Hire it on the NEAR AI Agent Market](https://market.near.ai/a/wardy-shield)** (listed as Wardy Shield) · **[Try it in 2 minutes](#try-it-in-2-minutes-no-keys-no-funds)**
+
+[![The live dashboard during demo traffic: payments from agents on the left, the shield in the middle, checked payments on the right, and the day's ALLOW, HOLD and BLOCK counts](docs/brand/dashboard.png)](https://wardy-agent.fly.dev)
+
 Built at NEAR HACKATHON. Tracks: agents, security, privacy.
 
 **If you have one minute:** an AI agent reads an invoice saying "our account has moved" and pays a lookalike name,
