@@ -210,7 +210,12 @@ export function hostedOwners(env: NodeJS.ProcessEnv, dataRoot: string, webUrl: s
     aiPerOwnerPerDay: Number(env.WARDY_AI_OWNER_DAILY_LIMIT || 50),
     publicChainData: new DemoOrChainData(new MockChainData(OFFLINE_ACCOUNTS), new Set(Object.keys(OFFLINE_ACCOUNTS)), {
       testnet: new NearChainData({ rpcUrl: env.NEAR_TESTNET_RPC_URL || "https://test.rpc.fastnear.com" }),
-      mainnet: new NearChainData({ rpcUrl: env.NEAR_RPC_URL || "https://free.rpc.fastnear.com" }),
+      // NearBlocks gives a mainnet account's age and activity. Testnet has no index we trust, so its age reads as unknown.
+      mainnet: new NearChainData({
+        rpcUrl: env.NEAR_RPC_URL || "https://free.rpc.fastnear.com",
+        nearblocksUrl: env.NEARBLOCKS_API_URL || "https://api.nearblocks.io",
+        ...(env.NEARBLOCKS_API_KEY ? { nearblocksApiKey: env.NEARBLOCKS_API_KEY } : {}),
+      }),
     }),
     requestsPerOwnerPerDay: Number(env.WARDY_OWNER_DAILY_REQUESTS || 1000),
   };
