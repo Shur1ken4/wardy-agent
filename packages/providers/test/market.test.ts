@@ -117,6 +117,15 @@ describe("the worker", () => {
 });
 
 describe("the earnings log", () => {
+  it("a hire that paid nothing, such as a test run, is answered but isn't a sale", () => {
+    const log = new EarningsLog();
+    log.record({ assignmentId: "t-1", jobId: "j", amount: "0", currency: "USD", verdictId: "v", deliveredAt: "now" });
+    log.record({ assignmentId: "p-1", jobId: "j", amount: "0.9", currency: "USDC", verdictId: "v", deliveredAt: "now" });
+    log.record({ assignmentId: "t-2", jobId: "j", amount: "0.000", currency: "USD", verdictId: "v", deliveredAt: "now" });
+    expect(log.summary()).toEqual({ checksSold: 1, revenue: [{ currency: "USDC", amount: "0.9" }], lastSale: { amount: "0.9", currency: "USDC" }, freeRuns: 2 });
+    expect(log.has("t-1")).toBe(true);
+  });
+
   it("adds up per currency without floats, and keeps sales across a restart", () => {
     const dir = mkdtempSync(join(tmpdir(), "wardy-earnings-"));
     dirs.push(dir);

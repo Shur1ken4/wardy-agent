@@ -85,7 +85,7 @@ export interface Stats {
   /** Settled in the last 24 hours, the window the daily budget uses. */
   spentLast24h?: { asset: string; amount: string }[];
   checksForOthers: number;
-  earned: { checksSold: number; revenue: { currency: string; amount: string }[]; lastSale?: { amount: string; currency: string } };
+  earned: { checksSold: number; revenue: { currency: string; amount: string }[]; lastSale?: { amount: string; currency: string }; freeRuns?: number };
 }
 
 /** Who this browser is on a hosted server: a signed-in account, or a visitor's sandbox. */

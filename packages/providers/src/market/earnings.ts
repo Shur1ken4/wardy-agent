@@ -17,6 +17,8 @@ export interface EarningsSummary {
   checksSold: number;
   revenue: { currency: string; amount: string }[];
   lastSale?: { amount: string; currency: string };
+  /** Hires that paid nothing, such as the market's free test runs. Answered, but not sales. Left out when there are none. */
+  freeRuns?: number;
 }
 
 /** Adds decimal strings without floats: enough for prices with up to 12 decimals, which is what the market sends. */
@@ -57,13 +59,17 @@ export class EarningsLog {
   }
 
   summary(): EarningsSummary {
+    // A hire that paid nothing isn't a sale: the market's own test runs come in at 0.
+    const paid = this.sales.filter((sale) => addDecimals(sale.amount, "0") !== "0");
+    const freeRuns = this.sales.length - paid.length;
     const byCurrency = new Map<string, string>();
-    for (const sale of this.sales) byCurrency.set(sale.currency, addDecimals(byCurrency.get(sale.currency) ?? "0", sale.amount));
-    const last = this.sales.at(-1);
+    for (const sale of paid) byCurrency.set(sale.currency, addDecimals(byCurrency.get(sale.currency) ?? "0", sale.amount));
+    const last = paid.at(-1);
     return {
-      checksSold: this.sales.length,
+      checksSold: paid.length,
       revenue: [...byCurrency].map(([currency, amount]) => ({ currency, amount })),
       ...(last ? { lastSale: { amount: last.amount, currency: last.currency } } : {}),
+      ...(freeRuns > 0 ? { freeRuns } : {}),
     };
   }
 }
