@@ -234,7 +234,7 @@ async function main() {
   const sweep = setInterval(() => tenancy.sweep(), 10 * 60_000);
   // Hires from the Agent Market are answered by the public tenant: a signed check, looked up on NEAR, never a payment.
   const stopMarket = process.env.AGENT_MARKET_TOKEN
-    ? startMarketLoop({ token: process.env.AGENT_MARKET_TOKEN, service: tenancy.publicWiring.service, earnings: tenancy.publicWiring.earningsLog, publicUrl: webUrl, everySeconds: Number(process.env.WARDY_MARKET_POLL_SECONDS || 60) })
+    ? startMarketLoop({ token: process.env.AGENT_MARKET_TOKEN, service: tenancy.publicWiring.service, earnings: tenancy.publicWiring.earningsLog, publicUrl: webUrl, isDemoPayee: (payee) => Object.hasOwn(OFFLINE_ACCOUNTS, payee), everySeconds: Number(process.env.WARDY_MARKET_POLL_SECONDS || 60) })
     : () => undefined;
   const stop = async () => {
     stopMarket();

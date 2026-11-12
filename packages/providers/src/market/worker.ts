@@ -25,6 +25,8 @@ export interface MarketWorkerOptions {
   check(request: CheckRequest): Promise<Verdict>;
   /** Where a buyer verifies the verdict's signature, such as https://wardy-agent.fly.dev. */
   publicUrl: string;
+  /** True for the server's demo names, whose account facts are made up so the public demo works. The deliverable says so. */
+  isDemoPayee?: (payee: string) => boolean;
   now?: () => Date;
   log?: (line: string) => void;
 }
@@ -60,7 +62,7 @@ export const ASK_BACK =
   "payee: example.near\namount: 2 wNEAR (optional)\nNothing has been charged: the job hasn't been started.";
 
 /** The deliverable. It names the payee and the verdict, and nothing from the brief beyond that. */
-export function deliverable(ask: BriefAsk, verdict: Verdict, publicUrl: string): string {
+export function deliverable(ask: BriefAsk, verdict: Verdict, publicUrl: string, demoPayee = false): string {
   const next = verdict.decision === "ALLOW" ? "Nothing here says don't pay. That isn't proof it's safe: this check read the Wardy Network and public account facts, not your own payment history." : verdict.decision === "HOLD" ? "Something here is worth a person's look before paying." : "Don't pay this payee.";
   return [
     `# Wardy Agent check: ${verdict.decision}`,
@@ -70,6 +72,12 @@ export function deliverable(ask: BriefAsk, verdict: Verdict, publicUrl: string):
     "",
     next,
     "",
+    ...(demoPayee
+      ? [
+          `> **Demo name.** \`${ask.payee}\` is one of Wardy Agent's demo accounts. Its account facts and Network report below are demo data, not looked up on NEAR. Send any other account and it's looked up on NEAR for real.`,
+          "",
+        ]
+      : []),
     "## Why",
     ...verdict.reasons.map((reason) => `- ${reason}`),
     "",
@@ -118,7 +126,7 @@ export class MarketWorker {
         purpose: `Agent Market job ${job.jobId}`,
         createdAt: (this.options.now?.() ?? new Date()).toISOString(),
       });
-      await market.submit(assignment.assignmentId, deliverable(ask, verdict, this.options.publicUrl));
+      await market.submit(assignment.assignmentId, deliverable(ask, verdict, this.options.publicUrl, this.options.isDemoPayee?.(ask.payee) ?? false));
       earnings.record({
         assignmentId: assignment.assignmentId,
         jobId: job.jobId,

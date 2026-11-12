@@ -99,6 +99,20 @@ describe("the worker", () => {
     expect(text).toContain("https://wardy.example/v1/verdicts/");
     expect(text).toContain("Nothing was paid");
     expect(text).not.toContain("IGNORE");
+    expect(text).not.toContain("Demo name");
+  });
+
+  it("a demo name's deliverable says its facts are demo data, not looked up on NEAR", async () => {
+    const sent: string[] = [];
+    const market = new (class extends FakeMarket {
+      override async submit(id: string, markdown: string) { sent.push(markdown); await super.submit(id, markdown); }
+    })();
+    market.items = [item({ description: "payee: acme-sh0p.near" })];
+    const worker = new MarketWorker({ market, earnings: new EarningsLog(), publicUrl: "https://wardy.example", check: () => verdict(), isDemoPayee: (payee) => payee === "acme-sh0p.near" });
+    await worker.poll();
+    const submitted = sent.join("\n");
+    expect(submitted).toContain("Demo name");
+    expect(submitted).toContain("not looked up on NEAR");
   });
 });
 

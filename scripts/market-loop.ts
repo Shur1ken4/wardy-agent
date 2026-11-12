@@ -10,6 +10,7 @@ export interface MarketLoopOptions {
   publicUrl: string;
   everySeconds?: number;
   apiUrl?: string;
+  isDemoPayee?: (payee: string) => boolean;
   log?: (line: string) => void;
 }
 
@@ -19,6 +20,7 @@ export function marketWorker(options: MarketLoopOptions): MarketWorker {
     earnings: options.earnings,
     check: (request): Promise<Verdict> => options.service.check(request),
     publicUrl: options.publicUrl,
+    ...(options.isDemoPayee ? { isDemoPayee: options.isDemoPayee } : {}),
     ...(options.log ? { log: options.log } : {}),
   });
 }
