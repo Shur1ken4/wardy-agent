@@ -19,6 +19,7 @@ import {
   parseFeed,
   ServiceError,
 } from "@wardy-agent/core";
+import { OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import type { WalletSignIn } from "./auth.js";
 import { demoTools } from "./demo-tools.js";
 
@@ -319,9 +320,15 @@ export class HostedTenancy implements Tenancy {
     const dataDir = join(options.dataRoot, "sandboxes", key);
     mkdirSync(dataDir, { recursive: true });
     // The public tenant answers anyone's checks, so it keeps nothing on disk and only its latest verdicts in memory.
+    const publicOnly = key === "public" ? { inMemory: { maxVerdicts: PUBLIC_TENANT_VERDICTS } } : {};
+    // Every demo tenant, the public one and each visitor's sandbox, asks NEAR about a name the demo doesn't know, so a
+    // real account isn't called missing. It still reports only its own demo names, never a real account.
     const publicChainData = options.owners?.publicChainData;
-    const publicOnly = key === "public" ? { inMemory: { maxVerdicts: PUBLIC_TENANT_VERDICTS }, ...(publicChainData ? { chainData: publicChainData } : {}) } : {};
-    const wiring = await wire({ WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl }, { dataDir, tenantKey: key, ...publicOnly });
+    const realLookups = publicChainData ? { chainData: publicChainData } : {};
+    const wiring = await wire(
+      { WARDY_MODE: "offline", WARDY_WEB_URL: options.webUrl },
+      { dataDir, tenantKey: key, ...publicOnly, ...realLookups, mayReport: (payee) => Object.hasOwn(OFFLINE_ACCOUNTS, payee) },
+    );
     // So the Network screen has anchored reports to show. They're labelled as seed, and only count offline.
     wiring.reports.merge(parseFeed(readFileSync(SEED_FEED_FILE, "utf8")));
     return wiring;

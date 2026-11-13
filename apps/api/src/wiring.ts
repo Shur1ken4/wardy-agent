@@ -141,6 +141,11 @@ export interface WireOverrides {
   /** Account facts from somewhere else: a test's fixed answers, or NEAR itself behind the hosted public demo. */
   chainData?: AccountFactsSource;
   /**
+   * Which payees this tenant may publish a Network report about. A hosted demo looks real accounts up on NEAR, but a
+   * demo must never publish a report about a real account, so there only the demo's own names can be reported.
+   */
+  mayReport?: (payee: string) => boolean;
+  /**
    * Keep the ledger and audit log in memory, holding only this many verdicts and lines. For the public demo tenant on a
    * hosted server, which anyone can send checks to: nothing of it is anyone's money, and a file it appends to would only
    * grow. Reports still go to disk.
@@ -231,7 +236,8 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     ...(analyzer ? { analyzer } : {}),
     reportsFor: (payee, chain) => reports.reportsFor(payee, chain),
     reportRules,
-    onBlocked: (verdict) => publishIfWarranted(reports, verdict, { signingKey, createdAt: new Date().toISOString() }),
+    onBlocked: async (verdict) =>
+      overrides.mayReport && !overrides.mayReport(verdict.payee) ? undefined : publishIfWarranted(reports, verdict, { signingKey, createdAt: new Date().toISOString() }),
     signingKey,
     custody,
     fleetOwnerId,
@@ -243,6 +249,9 @@ export async function wire(env: Env, overrides: WireOverrides = {}): Promise<Wir
     report: async (verdict) => {
       const refused = whyOwnerCantReport(verdict);
       if (refused) throw new ServiceError(409, "cannot_report", refused);
+      if (overrides.mayReport && !overrides.mayReport(verdict.payee)) {
+        throw new ServiceError(409, "cannot_report", "This demo reports only its own demo accounts, never a real NEAR account.");
+      }
       const reporter = await publicKeyOf(signingKey);
       if (reports.reportsFor(verdict.payee, verdict.chain).some((report) => report.reporter === reporter && !report.revokedAt)) {
         throw new ServiceError(409, "already_reported", "This payee already has a live report from you.");

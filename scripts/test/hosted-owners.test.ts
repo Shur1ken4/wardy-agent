@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateSigningKey } from "@wardy-agent/core";
-import { MockChainData, MockCustody } from "@wardy-agent/providers";
+import { MockChainData, MockCustody, OFFLINE_ACCOUNTS } from "@wardy-agent/providers";
 import { base64 } from "@scure/base";
 import { KeyPair, KeyPairSigner } from "near-api-js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -288,5 +288,31 @@ describe("a stranger's check on the hosted server", () => {
     expect((await check("nobody-here.near")).json().signals.map((signal: { code: string }) => signal.code)).toContain("ACCOUNT_NOT_FOUND");
     expect((await check("acme-shop.near")).json().signals.map((signal: { code: string }) => signal.code)).not.toContain("ACCOUNT_NOT_FOUND");
     expect(asked).toEqual(["some-real-account.testnet", "nobody-here.near"]);
+  });
+});
+
+describe("a visitor's sandbox on the hosted server", () => {
+  it("asks NEAR about a real account too, and never reports a real account to the Network", async () => {
+    // A real account made an hour ago that looks like a payee the demo owner paid: a BLOCK with plenty of evidence.
+    const chain = { getAccountFacts: async (accountId: string) => ({ accountId, available: true, exists: true, implicit: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), txCount: 1 }) };
+    const demo = new MockChainData(OFFLINE_ACCOUNTS);
+    const publicChainData = new DemoOrChainData(demo, new Set(Object.keys(OFFLINE_ACCOUNTS)), { testnet: chain, mainnet: chain });
+    const { app, pay } = await server(temp(), { ...owners(), publicChainData });
+    const sandbox = (await app.inject({ method: "POST", url: "/v1/sandbox" })).json() as { agentToken: string; ownerToken: string };
+    const codes = async (payee: string) => {
+      const answer = await pay(sandbox.agentToken, "demo-owner.near", { payee, amount: "2" });
+      expect(answer.statusCode).toBe(200);
+      return answer.json() as { decision: string; verdictId: string; signals: { code: string }[] };
+    };
+    const real = await codes("aurora.near");
+    expect(real.signals.map((signal) => signal.code)).not.toContain("ACCOUNT_NOT_FOUND");
+    const realLookalike = await codes("acme-sh0p-real.near");
+    expect(realLookalike.decision).toBe("BLOCK");
+    const lookup = (payee: string) => app.inject({ method: "GET", url: `/v1/network/payee/near/${payee}`, headers: { authorization: `Bearer ${sandbox.ownerToken}` } });
+    expect((await lookup("acme-sh0p-real.near")).json().reported).toBe(false);
+    const reported = await app.inject({ method: "POST", url: `/v1/verdicts/${realLookalike.verdictId}/report`, headers: { authorization: `Bearer ${sandbox.ownerToken}` } });
+    expect(reported.statusCode).toBe(409);
+    // The demo's own scam name is still reported, as before.
+    expect((await codes("acme-sh0p.near")).decision).toBe("BLOCK");
   });
 });
