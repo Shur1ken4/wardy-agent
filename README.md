@@ -229,6 +229,12 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | NEAR testnet contract | Anchors the Wardy Network's Merkle root | [`contracts/registry`](contracts/registry/src/lib.rs) | [Live on testnet](https://testnet.near.rocks/account/wardy-agent-registry.testnet) |
 | NEAR AI Agent Market | How Wardy Agent earns: people and agents hire it for a check of a payee, and it delivers the signed verdict | [`market/`](packages/providers/src/market) | Live: [listed as Wardy Shield](https://market.near.ai/a/wardy-shield), and the hosted server picks up hires by itself and delivers a signed verdict. Two free test hires were answered this way: `acme-sh0p.near` got BLOCK, `aurora.near` got HOLD. No paid hire yet, so the Earnings page shows none sold and lists the free runs apart |
 
+**Who holds which key.** The worker agent holds no key at all, not even a function-call key: it can only ask Wardy
+Agent to pay. Wardy Agent holds no NEAR account key for spending either. It holds the custody provider's grant
+(Agent Connect on mainnet, an OutLayer API key on testnet), and the provider enforces its own limits as a second lock,
+so a bug in Wardy Agent still can't go past them. The only NEAR account key Wardy Agent uses is a testnet one, to anchor
+the Network's Merkle root. Verdicts and reports are signed with Wardy Agent's own ed25519 key, which can't move money.
+
 Not built: 1Click cross-chain check. It's on the [roadmap](#roadmap).
 
 ## Attack Lab results
