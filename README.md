@@ -82,6 +82,7 @@ makes one, and saves it as `apiKey` in `.data/outlayer-testnet.json`.
 |---|---|
 | Open the site | Your own demo sandbox, labelled **Demo sandbox**. Nobody else sees what you do in it |
 | Press **Play demo traffic** | The same live demo as offline, in your sandbox only |
+| Point your own AI agent at <https://wardy-agent.fly.dev/llms.txt> and ask it to try Wardy Agent. No wallet needed | It makes a demo sandbox with `POST /v1/sandbox`, then gets `BLOCK` for `acme-sh0p.near`, `ALLOW` for `acme-shop.near` and `HOLD` for `northbridge-treasury.near`, each with a `nextStep` |
 | Press **Sign in with NEAR**, and approve in your Meteor wallet with a `.testnet` account | Your account in the top right. Signing can't move money |
 | Open **Your account**, press **Make an agent token**, and give your agent the settings line it shows ([docs/MCP_SETUP.md](docs/MCP_SETUP.md)) | The steps tick off as your agent connects and its first payment is checked |
 | Have your agent pay a `.testnet` account | A real testnet payment that's held for you, then paid with an explorer link after you approve |
@@ -226,7 +227,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | OutLayer | Custody on testnet | [`outlayer.ts`](packages/providers/src/custody/outlayer.ts) | Real testnet payments: [one](https://testnet.near.rocks/tx/295HobBbcr5Ucf9StCHUAtgF2deRjoWwsRztdbMAiZRf), [two](https://testnet.near.rocks/tx/ERNXmKVodB4rVLJNiJ6NgaetiANsQt2Ras36TAbt1iwR), [approved on the approval page](https://testnet.near.rocks/tx/3YNBz9xs89Ra8kkJ4gVkYGaohNddk5xaD1wevH75rRWB) |
 | NEAR RPC and indexer | Whether an account exists, and how old it is | [`nearChainData.ts`](packages/providers/src/chain/nearChainData.ts) | Live |
 | NEAR testnet contract | Anchors the Wardy Network's Merkle root | [`contracts/registry`](contracts/registry/src/lib.rs) | [Live on testnet](https://testnet.near.rocks/account/wardy-agent-registry.testnet) |
-| NEAR AI Agent Market | How Wardy Agent earns: people and agents hire it for a check of a payee, and it delivers the signed verdict | [`market/`](packages/providers/src/market) | Built and tested against the market's published API; the listing and the first real hire need the founder's account. The Earnings page shows real hires only, so it reads zero until then |
+| NEAR AI Agent Market | How Wardy Agent earns: people and agents hire it for a check of a payee, and it delivers the signed verdict | [`market/`](packages/providers/src/market) | Live: [listed as Wardy Shield](https://market.near.ai/a/wardy-shield), and the hosted server picks up hires by itself and delivers a signed verdict. Two free test hires were answered this way: `acme-sh0p.near` got BLOCK, `aurora.near` got HOLD. No paid hire yet, so the Earnings page shows none sold and lists the free runs apart |
 
 Not built: 1Click cross-chain check. It's on the [roadmap](#roadmap).
 

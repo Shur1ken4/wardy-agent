@@ -17,6 +17,21 @@ GET  /v1/network/payee/{chain}/{payee}  Look up a payee in the Wardy Network. No
 GET  /v1/verdicts/{verdictId}/verify    Check a verdict's signature. No credential
 GET  /health                     Mode, custody provider, and whether payments are frozen
 
+## No token yet? Use a demo sandbox
+
+On a server whose /health says "hosted": true, such as https://wardy-agent.fly.dev, anyone can try it:
+
+POST /v1/sandbox                 No body. Returns { agentToken, ownerToken, key }: a private demo with mock money, so
+                                 nothing real can move. It's forgotten after a while of not being used.
+
+Use agentToken as your credential and "demo-owner.near" as ownerId. The demo owner has paid acme-shop.near before.
+Try 2 wNEAR to acme-sh0p.near (BLOCK, a lookalike), 2 wNEAR to acme-shop.near (ALLOW, paid) and 1 wNEAR to
+northbridge-treasury.near (HOLD, a new payee). Any other name is looked up on NEAR for real, read-only.
+
+The ownerToken is the owner's, not yours: keep it apart, as an owner would. With it, GET /v1/approvals lists the HOLDs,
+and POST /v1/approvals/{verdictId}/link gives a one-time approval link for a person to open, valid 30 minutes. After
+they decide, GET /v1/pay/{verdictId}/status tells you what happened.
+
 ## The request body for /v1/pay and /v1/check
 
 {
