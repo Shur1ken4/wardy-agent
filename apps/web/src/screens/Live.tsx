@@ -174,7 +174,7 @@ export function Live() {
           </div>
           {demo ? (
             <p className="note hero-note">
-              {health?.hosted ? "Live checks on our real server. Your own sandbox uses test funds, so you can throw any scam at it safely." : "Real checks on made-up payments. Nothing leaves this machine."}
+              {health?.hosted ? "Live checks on our real server, already tested with real payments on NEAR mainnet and testnet. Your own sandbox uses test funds, so you can throw any scam at it safely." : "Real checks on made-up payments. Nothing leaves this machine."}
             </p>
           ) : null}
           {error ? <ErrorNote>{error}</ErrorNote> : null}
